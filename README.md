@@ -1,2 +1,2 @@
-# signify-py
+# signifypy
 Signify implementation in Python
