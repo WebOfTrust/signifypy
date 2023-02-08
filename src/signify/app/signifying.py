@@ -9,15 +9,21 @@ import json
 import falcon
 from falcon import media
 from hio.base import doing
+from hio.core import http
+from hio.help import decking
 from keri import kering
-from keri.app import configing, keeping, habbing
-from keri.core import coring
+from keri.app import configing, keeping, habbing, indirecting, storing, signaling, notifying
+from keri.app.indirecting import HttpEnd
+from keri.core import coring, parsing
+from keri.peer import exchanging
+from keri.vc import protocoling
+from keri.vdr import verifying, credentialing
 
-from signify.core import httping
+from signify.core.authing import Authenticater
 from src.signify.core import authing
 
 
-def setup(name, base, bran, controller, configFile=None, configDir=None):
+def setup(name, base, bran, controller, adminPort, configFile=None, configDir=None, httpPort=None):
     """ Set up an agent in Signify mode """
     ks = keeping.Keeper(name=name,
                         base=base,
@@ -37,6 +43,7 @@ def setup(name, base, bran, controller, configFile=None, configDir=None):
 
     # Create the Hab for the Agent with only 2 AIDs
     agentHby = habbing.Habery(name=name, base=base, bran=bran)
+
     # Create Agent AID if it does not already exist
     hab = agentHby.habByName(name) is None
     if hab:
@@ -47,14 +54,57 @@ def setup(name, base, bran, controller, configFile=None, configDir=None):
 
     # Create the Hab for the Controller AIDs.
     ctrlHby = habbing.Habery(name=controller, base=base, cf=cf)
-
     doers = [habbing.HaberyDoer(habery=agentHby), habbing.HaberyDoer(habery=ctrlHby)]
+
+    # Create Authenticater for verifying signatures on all requests
+    authn = Authenticater(agent=hab, caid=controller)
 
     app = falcon.App(middleware=falcon.CORSMiddleware(
         allow_origins='*', allow_credentials='*', expose_headers=['cesr-attachment', 'cesr-date', 'content-type']))
-    app.add_middleware(httping.SignatureValidationComponent(hby=None, pre=controller))
+    app.add_middleware(authing.SignatureValidationComponent(authn=authn))
     app.req_options.media_handlers.update(media.Handlers())
     app.resp_options.media_handlers.update(media.Handlers())
+
+    cues = decking.Deck()
+    mbx = storing.Mailboxer(name=ctrlHby.name)
+    rep = storing.Respondant(hby=ctrlHby, mbx=mbx)
+    rgy = credentialing.Regery(hby=ctrlHby, name=name, base=base)
+    verifier = verifying.Verifier(hby=ctrlHby, reger=rgy.reger)
+
+    signaler = signaling.Signaler()
+    notifier = notifying.Notifier(hby=ctrlHby, signaler=signaler)
+    issueHandler = protocoling.IssueHandler(hby=ctrlHby, rgy=rgy, notifier=notifier)
+    requestHandler = protocoling.PresentationRequestHandler(hby=ctrlHby, notifier=notifier)
+    applyHandler = protocoling.ApplyHandler(hby=ctrlHby, rgy=rgy, verifier=verifier, name=ctrlHby.name)
+    proofHandler = protocoling.PresentationProofHandler(notifier=notifier)
+
+    handlers = [issueHandler, requestHandler, proofHandler, applyHandler]
+    exchanger = exchanging.Exchanger(db=ctrlHby.db, handlers=handlers)
+    mbd = indirecting.MailboxDirector(hby=ctrlHby,
+                                      exc=exchanger,
+                                      verifier=verifier,
+                                      rep=rep,
+                                      topics=["/receipt", "/replay", "/multisig", "/credential", "/delegate",
+                                              "/challenge", "/oobi"],
+                                      cues=cues)
+
+    adminServer = http.Server(port=adminPort, app=app)
+    adminServerDoer = http.ServerDoer(server=adminServer)
+    doers.extend([exchanger, mbd, rep, adminServerDoer])
+
+    if httpPort is not None:
+        parser = parsing.Parser(framed=True,
+                                kvy=mbd.kvy,
+                                tvy=mbd.tvy,
+                                exc=exchanger,
+                                rvy=mbd.rvy)
+
+        httpEnd = HttpEnd(rxbs=parser.ims, mbx=mbx)
+        app.add_route("/", httpEnd)
+
+        server = http.Server(port=httpPort, app=app)
+        httpServerDoer = http.ServerDoer(server=server)
+        doers.append(httpServerDoer)
 
     doers += loadEnds(app=app, agent=hab, controller=ctrlHby)
 
@@ -78,16 +128,8 @@ class BootEnd(doing.DoDoer):
         """ Provides endpoints for initializing and unlocking an agent
 
         Parameters:
-            name (str): keystore name for Signify Agent
-            base (str): optional directory path segment inserted before name
-                        that allows further hierarchical differentiation of databases.
-                        "" means optional.
-            temp (bool): True for testing:
-                temporary storage of databases and config file
-                weak resources for stretch of salty key
-            configFile (str):  name of config file to load
-            configDir (str): name of base for directory to load
-            headDirPath (str): root path
+            agent (Hab): Hab for Signify Agent
+            controller (str): qb64 of controller AID
 
         """
         self.agent = agent
@@ -123,120 +165,28 @@ class BootEnd(doing.DoDoer):
               description: No keystore exists
 
         """
-        if not self.btl.booted:
+        if self.controller not in self.agent.kevers:
             rep.status = falcon.HTTP_417
             rep.data = json.dumps({'msg': f'system agent AEID not loaded'}).encode("utf-8")
             return
         
-        body = dict(aaid=self.agent.pre, caid=c)
+        body = dict(aaid=self.agent.pre, caid=self.controller)
 
         rep.content_type = "application/json"
         rep.data = json.dumps(body).encode("utf-8")
         rep.status = falcon.HTTP_200
-
-    def on_post(self, req, rep):
-        """ POST endpoint for creating a new environment (keystore and database)
-
-        Post creates a new database with aeid encryption key generated from passcode.  Fails
-        if database already exists.
-
-        Args:
-            req: falcon.Request HTTP request
-            rep: falcon.Response HTTP response
-
-        ---
-        summary: Create KERI environment (database and keystore)
-        description: Creates the directories for database and keystore for vacuous KERI instance
-                     using name and aeid key or passcode to encrypt datastore.  Fails if directory
-                     already exists.
-        tags:
-           - Boot
-        requestBody:
-           required: true
-           content:
-             application/json:
-               schema:
-                 type: object
-                 properties:
-                   name:
-                     type: string
-                     description: human readable nickname for this agent
-                     example: alice
-                   aeid:
-                     type: string
-                     description: qualified base64 encoded non-transferable identifier as AEID
-                     example: BKlt39DHsSyqKb6ZYW8BnhSYWJnBniB78egviLLYeVmo
-                   ndig:
-                     type: string
-                     description: qualified base64 encoded Blake3 digest of prior next AEID (AEID')
-        responses:
-           200:
-              description: JSON object containing status message
-
-        """
-        body = req.get_media()
-
-        name = body["name"]
-        aeid = body["aeid"]
-        ndig = body["ndig"]
-
-        try:
-            rep.status = falcon.HTTP_200
-            body = dict(name=name, msg="Keystore created")
-            rep.content_type = "application/json"
-            rep.data = json.dumps(body).encode("utf-8")
-
-        except Exception as e:
-            rep.status = falcon.HTTP_400
-            rep.text = e.args[0]
-
-    def on_put(self, req, rep):
-        """ PUT endpoint for rotating an existing keystore
-
-        Put updates an existing keystore with a new AEID and encrypted keys.
-
-        Args:
-            req: falcon.Request HTTP request
-            rep: falcon.Response HTTP response
-
-        ---
-        summary: Create KERI environment (database and keystore)
-        description: Creates the directories for database and keystore for vacuous KERI instance
-                     using name and aeid key or passcode to encrypt datastore.  Fails if directory
-                     already exists.
-        tags:
-           - Boot
-        requestBody:
-           required: true
-           content:
-             application/json:
-               schema:
-                 type: object
-                 properties:
-                   name:
-                     type: string
-                     description: human readable nickname for this agent
-                     example: alice
-                   passcode:
-                     type: string
-                     description: passcode for encrypting and securing this agent
-                     example: RwyY-KleGM-jbe1-cUiSz-p3Ce
-        responses:
-           200:
-              description: JSON object containing status message
-
-        """
-        body = req.get_media()
-        rep.status = falcon.HTTP_200
-        rep.content_type = "application/json"
-        rep.data = json.dumps(body).encode("utf-8")
 
 
 class HabEnd:
-    """ Resource class for Signify client signing at the edge """
+    """ Resource class for creating and managing identifiers """
 
-    def __init__(self, btl: authing.Authenticater):
-        self.btl = btl
+    def __init__(self, hby):
+        """
+
+        Parameters:
+            hby (HAbery): Controller database and keystore environment
+        """
+        self.hby = hby
         pass
 
     def on_post(self, req, rep):
@@ -247,11 +197,6 @@ class HabEnd:
             rep (Response): falcon.Response HTTP response object
 
         """
-        if self.btl.booted is None:
-            rep.status = falcon.HTTP_423
-            rep.data = json.dumps({'msg': f'system agent AEID not loaded'}).encode("utf-8")
-            return
-
         try:
             body = req.get_media()
             icp = body.get("icp")
@@ -294,8 +239,8 @@ class HabEnd:
             serder = coring.Serder(ked=icp)
             sigers = [coring.Siger(qb64=sig) for sig in sigs]
 
-            self.btl.hby.makeSignifyHab(name, serder=serder, sigers=sigers, ipath=ipath, npath=npath, tier=tier,
-                                        temp=temp)
+            self.hby.makeSignifyHab(name, serder=serder, sigers=sigers, ipath=ipath, npath=npath, tier=tier,
+                                    temp=temp)
 
             rep.status = falcon.HTTP_200
             rep.content_type = "application/json"

@@ -4,10 +4,11 @@ KERI
 signify.core.authing module
 
 """
+
+import falcon
 from hio.help import Hict
-from base64 import urlsafe_b64decode as decodeB64
-from http_sfv import Dictionary
 from keri import kering
+from keri.app.habbing import Hab
 from keri.end import ending
 
 from signify.core import httping
@@ -20,7 +21,7 @@ class Authenticater:
                      "@path",
                      "Signify-Timestamp"]
 
-    def __init__(self, agent, caid):
+    def __init__(self, agent: Hab, caid: str):
         """ Create Agent Authenticator for verifying requests and signing responses
 
         Parameters:
@@ -41,10 +42,17 @@ class Authenticater:
         ckever = self.agent.kevers[self.caid]
         headers = request.headers
         siginput = headers["SIGNATURE-INPUT"]
+        if not siginput:
+            return False
         signature = headers["SIGNATURE"]
+        if not signature:
+            return False
 
         inputs = httping.desiginput(siginput.encode("utf-8"))
         inputs = [i for i in inputs if i.name == "signify"]
+
+        if not inputs:
+            return False
 
         for inputage in inputs:
             items = []
@@ -81,14 +89,12 @@ class Authenticater:
             items.append(f'"@signature-params: {params}"')
             ser = "\n".join(items).encode("utf-8")
 
-            signage = Dictionary()
-            signage.parse(signature.encode("utf-8"))
-
-            raw = decodeB64(signage["indexed"].params[inputage.name])
-            if not ckever.verfers[0].verify(sig=raw, ser=ser):
+            signages = ending.designature(signature)
+            cig = signages[0].markers[inputage.name]
+            if not ckever.verfers[0].verify(sig=cig.raw, ser=ser):
                 raise kering.AuthNError(f"Signature for {inputage} invalid")
 
-            return True
+        return True
 
     def sign(self, headers, method, path, fields=None):
         """ Generate and add Signature Input and Signature fields to headers
@@ -107,11 +113,38 @@ class Authenticater:
         if fields is None:
             fields = self.DefaultFields
 
-        header, unq = httping.siginput(self.agent, "signify", method, path, headers, fields=fields,
-                                       alg="ed25519", keyid=self.agent.pre)
+        header, qsig = httping.siginput(self.agent, "signify", method, path, headers, fields=fields,
+                                        alg="ed25519", keyid=self.agent.pre)
         headers.extend(header)
-        signage = ending.Signage(markers=dict(signify=unq), indexed=False, signer=None, ordinal=None, digest=None,
+        signage = ending.Signage(markers=dict(signify=qsig), indexed=False, signer=None, ordinal=None, digest=None,
                                  kind=None)
         headers.extend(ending.signature([signage]))
 
         return headers
+
+
+class SignatureValidationComponent(object):
+    """ Validate Signature and Signature-Input header signatures """
+
+    def __init__(self, authn: Authenticater):
+        """
+
+        Parameters:
+            authn (Authenticater): Authenticator to validate signature headers on request
+        """
+        self.authn = authn
+
+    def process_request(self, req, resp):
+        """ Process request to ensure has a valid signature from controller
+
+        Parameters:
+            req: Http request object
+            resp: Http response object
+
+
+        """
+        # Use Authenticater to verify the signature on the request
+        if not self.authn.verify(req):
+            resp.complete = True  # This short-circuits Falcon, skipping all further processing
+            resp.status = falcon.HTTP_401
+            return

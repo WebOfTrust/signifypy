@@ -5,12 +5,12 @@ signify.core.httping module
 
 Testing httping utils
 """
-from base64 import urlsafe_b64decode as decodeB64
 
 from hio.help import Hict
-from http_sfv import Dictionary
 from keri.app import habbing
+from keri.core import coring
 from keri.end import ending
+
 from signify.core import httping
 
 
@@ -21,17 +21,18 @@ def test_siginput(mockHelpingNowUTC):
             ("Content-Type", "application/json"),
             ("Content-Length", "256"),
             ("Connection", "close"),
-            ("Signift-Resource", "EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs"),
+            ("Signify-Resource", "EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs"),
             ("Signify-Timestamp", "2022-09-24T00:05:48.196795+00:00"),
         ])
 
-        header, unq = httping.siginput(hab, "sig0", "POST", "/signify", headers, fields=["Signify-Resource", "@method",
-                                                                                         "@path",
-                                                                                         "Signify-Timestamp"],
+        header, sig = httping.siginput(hab, "sig0", "POST", "/signify", headers,
+                                       fields=["Signify-Resource", "@method",
+                                               "@path",
+                                               "Signify-Timestamp"],
                                        alg="ed25519", keyid=hab.pre)
 
         headers.extend(header)
-        signage = ending.Signage(markers=dict(sig0=unq), indexed=False, signer=None, ordinal=None, digest=None,
+        signage = ending.Signage(markers=dict(sig0=sig), indexed=False, signer=None, ordinal=None, digest=None,
                                  kind=None)
         headers.extend(ending.signature([signage]))
 
@@ -40,11 +41,11 @@ def test_siginput(mockHelpingNowUTC):
                                  'Content-Type': 'application/json',
                                  'Signify-Resource': 'EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs',
                                  'Signify-Timestamp': '2022-09-24T00:05:48.196795+00:00',
-                                 'Signature': 'indexed="?0";sig0="1G-ItA3IPA8g30--svDMxlWW7YG_6PFf1VsUaV445PLXDDM9tTL7P'
-                                              'vnEW9Uv8y2mwaGOdpIojvBbGMOzdVccCg=="',
+                                 'Signature': 'indexed="?0";sig0="0BCF-Qc9q1YrNOP5Np4fy9mz0o8HQALANKP8ZjvItfjjmpYKYL_FS'
+                                              'j4bcLZKFSd81bo9SeQn36bLt3dpbEzt2GgN"',
                                  'Signature-Input': 'sig0=("signify-resource" "@method" "@path" '
-                                                    '"signify-timestamp");created=1609459200;keyid="EIaGMMWJFPmtXznY1IIiK'
-                                                    'DIrg-vIyge6mBl2QV8dDjI3";alg="ed25519"'}
+                                                    '"signify-timestamp");created=1609459200;keyid="EIaGMMWJFPmtXznY1II'
+                                                    'iKDIrg-vIyge6mBl2QV8dDjI3";alg="ed25519"'}
 
         siginput = headers["Signature-Input"]
         signature = headers["Signature"]
@@ -95,8 +96,10 @@ def test_siginput(mockHelpingNowUTC):
         items.append(f'"@signature-params: {params}"')
         ser = "\n".join(items).encode("utf-8")
 
-        signage = Dictionary()
-        signage.parse(signature.encode("utf-8"))
+        signages = ending.designature(signature)
+        assert len(signages) == 1
+        assert signages[0].indexed is False
+        assert "sig0" in signages[0].markers
 
-        raw = decodeB64(signage["indexed"].params[inputage.name])
-        assert hab.kever.verfers[0].verify(sig=raw, ser=ser) is True
+        cig = signages[0].markers["sig0"]
+        assert hab.kever.verfers[0].verify(sig=cig.raw, ser=ser) is True

@@ -47,11 +47,11 @@ def test_authenticater(mockHelpingNowUTC):
         assert dict(headers) == {'Connection': 'close',
                                  'Content-Length': '256',
                                  'Content-Type': 'application/json',
-                                 'Signature': ('indexed="?0";signify="bipHos8-XTOzLq0He4tz8mIeZGq4h5WdIndNVCSX2H5eYCqwY'
-                                               'OQT7EysiMkgp0HwYBIgmg7wuTQgtJKJ__EBCA=="'),
-                                 'Signature-Input': ('signify=("signify-resource" "@method" "@path" '
-                                                     '"signify-timestamp");created=1609459200;keyid="EAM6vT0VYoaEWxRTgr'
-                                                     '24g0nZHmPSUBgs19WB43zEKHnz";alg="ed25519"'),
+                                 'Signature': 'indexed="?0";signify="0BBuKkeizz5dM7MurQd7i3PyYh5kariHlZ0id01UJJfYfl5gKr'
+                                              'Bg5BPsTKyIySCnQfBgEiCaDvC5NCC0kon_8QEI"',
+                                 'Signature-Input': 'signify=("signify-resource" "@method" "@path" '
+                                                    '"signify-timestamp");created=1609459200;keyid="EAM6vT0VYoaEWxRTgr'
+                                                    '24g0nZHmPSUBgs19WB43zEKHnz";alg="ed25519"',
                                  'Signify-Resource': 'EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs',
                                  'Signify-Timestamp': '2022-09-24T00:05:48.196795+00:00'}
 

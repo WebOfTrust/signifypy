@@ -5,64 +5,15 @@ sally.core.httping module
 
 HTTP utility
 """
-import json
 
-import falcon
-from http_sfv import Dictionary
-from base64 import urlsafe_b64encode as encodeB64
 from collections import namedtuple
 
-from keri.end import ending
+from http_sfv import Dictionary
 from keri.help import helping
 
 DEFAULTHEADERS = ('(created)', '(request-target)')
 
 Inputage = namedtuple("Inputage", "name fields created keyid alg expires nonce context")
-
-
-class SignatureValidationComponent(object):
-    """ Validate SKWA signatures """
-
-    def __init__(self, hby, pre):
-        self.hby = hby
-        self.pre = pre
-
-    def process_request(self, req, resp):
-        """ Process request to ensure has a valid signature from controller
-
-        Parameters:
-            req: Http request object
-            resp: Http response object
-
-
-        """
-        sig = req.headers.get("SIGNATURE")
-        ked = req.media
-        ser = json.dumps(ked).encode("utf-8")
-        if not self.validate(sig=sig, ser=ser):
-            resp.complete = True
-            resp.status = falcon.HTTP_401
-            return
-
-    def validate(self, sig, ser):
-        signages = ending.designature(sig)
-        markers = signages[0].markers
-
-        if self.pre not in self.hby.kevers:
-            return False
-
-        verfers = self.hby.kevers[self.pre].verfers
-        for idx, verfer in enumerate(verfers):
-            key = str(idx)
-            if key not in markers:
-                return False
-            siger = markers[key]
-            siger.verfer = verfer
-
-            if not verfer.verify(siger.raw, ser):
-                return False
-
-        return True
 
 
 def normalize(param):
@@ -130,9 +81,7 @@ def siginput(hab, name, method, path, headers, fields, expires=None, nonce=None,
                       verfers=hab.kever.verfers,
                       indexed=False)
 
-    unq = Unqualified(raw=sigers[0].raw)
-
-    return {'Signature-Input': f"{str(sid)}"}, unq  # join all signature input value strs
+    return {'Signature-Input': f"{str(sid)}"}, sigers[0]  # join all signature input value strs
 
 
 def desiginput(value):
@@ -177,22 +126,4 @@ def desiginput(value):
         siginputs.append(Inputage(name=name, fields=fields, created=created, expires=expires, nonce=nonce, alg=alg,
                                   keyid=keyid, context=context))
     return siginputs
-
-
-class Unqualified:
-
-    def __init__(self, raw):
-        self._raw = raw
-
-    @property
-    def raw(self):
-        return self._raw
-
-    @property
-    def qb64(self):
-        return self.qb64b.decode("utf-8")
-
-    @property
-    def qb64b(self):
-        return encodeB64(self.raw)
 

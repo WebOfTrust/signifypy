@@ -29,12 +29,8 @@ parser.add_argument('-a', '--admin-http-port',
                     help="Admin port number the HTTP server listens on. Default is 5623.")
 parser.add_argument('-H', '--http',
                     action='store',
-                    default=5631,
-                    help="Local port number the HTTP server listens on. Default is 5631.")
-parser.add_argument('-T', '--tcp',
-                    action='store',
                     default=5632,
-                    help="Local port number the HTTP server listens on. Default is 5632.")
+                    help="Local port number the HTTP server listens on. Default is 5631.")
 parser.add_argument('-c', '--controller', required=True,
                     help="Identifier prefix to accept control messages from.")
 parser.add_argument('-n', '--name',
@@ -43,7 +39,6 @@ parser.add_argument('-n', '--name',
                     help="Name of controller. Default is witness.")
 parser.add_argument('--base', '-b', help='additional optional prefix to file location of KERI keystore',
                     required=False, default="")
-parser.add_argument('--alias', '-a', help='human readable alias for the new identifier prefix', required=True)
 parser.add_argument('--passcode', '-p', help='22 character encryption passcode for keystore (is not saved)',
                     dest="bran", default=None)  # passcode => bran
 parser.add_argument('--config-file',
@@ -67,26 +62,30 @@ def launch(args):
     logger.info("\n******* Starting Agent for %s listening: http/%s, tcp/%s "
                 ".******\n\n", args.name, args.http, args.tcp)
 
-    runAgent(name=args.name,
+    runAgent(args.controller, name=args.name,
              base=args.base,
-             alias=args.alias,
              bran=args.bran,
-             tcp=int(args.tcp),
-             http=int(args.http))
+             admin=args.adminHttpPort,
+             http=int(args.http),
+             configFile=args.configFile,
+             configDir=args.configDir)
 
     logger.info("\n******* Ended Agent for %s listening: http/%s, tcp/%s"
                 ".******\n\n", args.name, args.http, args.tcp)
 
 
-def runAgent(name="witness", base="", alias="witness", bran="", tcp=5631, http=5632, expire=0.0):
+def runAgent(controller, *, name="agent", base="", bran="", admin=5623, http=5632, configFile=None,
+             configDir=None, expire=0.0):
     """
     Setup and run one witness
     """
 
-    oers = []
-    doers.extend(signifying.setup(alias=alias,
-                                  hby=hby,
-                                  tcpPort=tcp,
-                                  httpPort=http))
+    doers = []
+    doers.extend(signifying.setup(name=name, base=base, bran=bran,
+                                  controller=controller,
+                                  adminPort=admin,
+                                  httpPort=http,
+                                  configFile=configFile,
+                                  configDir=configDir))
 
     directing.runController(doers=doers, expire=expire)
