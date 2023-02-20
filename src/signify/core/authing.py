@@ -8,39 +8,139 @@ signify.core.authing module
 import falcon
 from hio.help import Hict
 from keri import kering
-from keri.app.habbing import Hab
+from keri.core import coring, eventing
+
 from keri.end import ending
 
-from signify.core import httping
+
+class Agent:
+    def __init__(self, kel):
+        self.pre = ""
+        self.anchor = ""
+        self.verfer = None
+
+        self.parse(kel)
+
+    def parse(self, kel):
+        if len(kel) < 1:
+            raise kering.ConfigurationError("invalid empty KEL")
+
+        serder, verfer, diger = self.event(kel[0])
+        if not serder.ked['t'] in (coring.Ilks.icp,):
+            raise kering.ValidationError(f"invalid inception event type {serder.ked['t']}")
+
+        self.pre = serder.pre
+        if not serder.ked['a']:
+            raise kering.ValidationError("no anchor to controller AID")
+        self.anchor = serder.ked['a'][0]
+
+        for evt in kel[1:]:
+            rot, nverfer, ndiger = self.event(evt)
+            if not rot.ked['t'] in (coring.Ilks.rot,):
+                raise kering.ValidationError(f"invalid rotation event type {serder.ked['t']}")
+
+            if coring.Diger(ser=nverfer.qb64b).qb64b != diger.qb64b:
+                raise kering.ValidationError(f"next key mismatch error on rotation event {serder.said}")
+
+            verfer = nverfer
+            diger = ndiger
+
+        self.verfer = verfer
+
+    @staticmethod
+    def event(evt):
+        serder = coring.Serder(ked=evt["ked"])
+        siger = coring.Siger(qb64=evt["sig"])
+
+        if len(serder.verfers) != 1:
+            raise kering.ValidationError(f"agent inception event can only have one key")
+
+        if not serder.verfers[0].verify(sig=siger.raw, ser=serder.raw):
+            raise kering.ValidationError(f"invalid signature on evt {serder.ked['d']}")
+
+        verfer = serder.verfers[0]
+
+        if len(serder.digers) != 1:
+            raise kering.ValidationError(f"agent inception event can only have one next key")
+
+        diger = serder.digers[0]
+
+        tholder = coring.Tholder(sith=serder.ked["kt"])
+        if tholder.num != 1:
+            raise kering.ValidationError(f"invalid threshold {tholder.num}, must be 1")
+        ntholder = coring.Tholder(sith=serder.ked["nt"])
+
+        if ntholder.num != 1:
+            raise kering.ValidationError(f"invalid next threshold {ntholder.num}, must be 1")
+
+        return serder, verfer, diger
+
+
+class Controller:
+    def __init__(self, bran, tier, temp, ridx=0):
+        self.bran = coring.MtrDex.Salt_128 + 'A' + bran[:21]  # qb64 salt for seed
+        self.path = f"signify:controller:{ridx}"
+        self.npath = f"signify:controller:{ridx + 1}"
+        self.tier = tier
+        self.temp = temp
+
+        salter = coring.Salter(qb64=self.bran)
+        self.signer = salter.signer(path=self.path,
+                                    transferable=True,
+                                    tier=tier,
+                                    temp=temp)
+        self.nsigner = salter.signer(path=self.npath,
+                                     transferable=True,
+                                     tier=tier,
+                                     temp=temp)
+
+        keys = [self.signer.verfer.qb64]
+        ndigs = [coring.Diger(ser=self.nsigner.verfer.qb64b)]
+
+        self.serder = eventing.incept(keys=keys,
+                                      isith="1",
+                                      nsith="1",
+                                      ndigs=[diger.qb64 for diger in ndigs],
+                                      code=coring.MtrDex.Blake3_256,
+                                      toad="0",
+                                      wits=[])
+
+    @property
+    def pre(self):
+        return self.serder.pre
+
+    def event(self):
+        siger = self.signer.sign(ser=self.serder.raw, index=0)
+        return self.serder, siger
+
+    @property
+    def verfers(self):
+        return self.signer.verfers
 
 
 class Authenticater:
-
-    DefaultFields = ["Signify-Resource",
-                     "@method",
+    DefaultFields = ["@method",
                      "@path",
+                     "Content-Length"
+                     "Signify-Resource",
                      "Signify-Timestamp"]
 
-    def __init__(self, agent: Hab, caid: str):
+    def __init__(self, agent: Agent, ctrl: Controller):
         """ Create Agent Authenticator for verifying requests and signing responses
 
         Parameters:
             agent(Hab): habitat of Agent for signing responses
-            caid(str): qb64 controller signing AID
+            ctrl(Controller): qb64 controller signing AID
 
         Returns:
               Authenicator:  the configured habery
 
         """
         self.agent = agent
-        self.caid = caid
+        self.ctrl = ctrl
 
-    def verify(self, request):
-        if self.caid not in self.agent.kevers:
-            raise kering.AuthNError("controller AID not in kevers")
-
-        ckever = self.agent.kevers[self.caid]
-        headers = request.headers
+    def verify(self, headers, method, path):
+        headers = headers
         siginput = headers["SIGNATURE-INPUT"]
         if not siginput:
             return False
@@ -48,7 +148,7 @@ class Authenticater:
         if not signature:
             return False
 
-        inputs = httping.desiginput(siginput.encode("utf-8"))
+        inputs = ending.desiginput(siginput.encode("utf-8"))
         inputs = [i for i in inputs if i.name == "signify"]
 
         if not inputs:
@@ -59,9 +159,9 @@ class Authenticater:
             for field in inputage.fields:
                 if field.startswith("@"):
                     if field == "@method":
-                        items.append(f'"{field}": {request.method}')
+                        items.append(f'"{field}": {method}')
                     elif field == "@path":
-                        items.append(f'"{field}": {request.path}')
+                        items.append(f'"{field}": {path}')
 
                 else:
                     key = field.upper()
@@ -69,7 +169,7 @@ class Authenticater:
                     if key not in headers:
                         continue
 
-                    value = httping.normalize(headers[key])
+                    value = ending.normalize(headers[key])
                     items.append(f'"{field}": {value}')
 
             values = [f"({' '.join(inputage.fields)})", f"created={inputage.created}"]
@@ -91,7 +191,7 @@ class Authenticater:
 
             signages = ending.designature(signature)
             cig = signages[0].markers[inputage.name]
-            if not ckever.verfers[0].verify(sig=cig.raw, ser=ser):
+            if not self.agent.verfer.verify(sig=cig.raw, ser=ser):
                 raise kering.AuthNError(f"Signature for {inputage} invalid")
 
         return True
@@ -100,7 +200,7 @@ class Authenticater:
         """ Generate and add Signature Input and Signature fields to headers
 
         Parameters:
-            headers (Hict): HTTP header to sign
+            headers (dict): HTTP header to sign
             method (str): HTTP method name of request/response
             path (str): HTTP Query path of request/response
             fields (Optional[list]): Optional list of Signature Input fields to sign.
@@ -113,12 +213,15 @@ class Authenticater:
         if fields is None:
             fields = self.DefaultFields
 
-        header, qsig = httping.siginput(self.agent, "signify", method, path, headers, fields=fields,
-                                        alg="ed25519", keyid=self.agent.pre)
-        headers.extend(header)
+        header, qsig = ending.siginput("signify", method, path, headers, fields=fields, signers=[self.ctrl.signer],
+                                       alg="ed25519", keyid=self.agent.pre)
+        for key, val in header.items():
+            headers[key] = val
+
         signage = ending.Signage(markers=dict(signify=qsig), indexed=False, signer=None, ordinal=None, digest=None,
                                  kind=None)
-        headers.extend(ending.signature([signage]))
+        for key, val in ending.signature([signage]).items():
+            headers[key] = val
 
         return headers
 
@@ -148,3 +251,4 @@ class SignatureValidationComponent(object):
             resp.complete = True  # This short-circuits Falcon, skipping all further processing
             resp.status = falcon.HTTP_401
             return
+

@@ -14,7 +14,7 @@ $ python3 setup.py sdist
 $ twine upload dist/keri-0.0.1.tar.gz
 
 Create release git:
-$ git tag -a v0.4.2 -m "bump version"
+$ git tag -a v0.4.2 -m "bump version"x
 $ git push --tags
 $ git checkout -b release_0.4.2
 $ git push --set-upstream origin release_0.4.2
@@ -30,7 +30,7 @@ from os.path import splitext
 
 from setuptools import find_packages, setup
 setup(
-    name='signify',
+    name='signifypy',
     version='0.0.1',  # also change in src/signify/__init__.py
     license='Apache Software License 2.0',
     description='Signify',
@@ -72,20 +72,22 @@ setup(
     install_requires=[
         'keri>=0.6.9',
         'multicommand>=1.0.0',
-        'falcon>=3.1.0',
-        'http_sfv>=0.9.8'
+        'requests>=2.28',
+        'http_sfv>=0.9.8',
+        'msgpack>=1.0.4',
+        'cbor2>=5.4.3',
     ],
     extras_require={
     },
     tests_require=[
         'coverage>=6.5.0',
         'pytest>=7.2.0',
-        'pytest-shell>=0.3.2'
     ],
     setup_requires=[
     ],
     entry_points={
         'console_scripts': [
+            'signify = signify.app.cli.signify:main',
         ]
     },
 )
