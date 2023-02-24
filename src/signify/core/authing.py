@@ -8,7 +8,9 @@ signify.core.authing module
 import falcon
 from hio.help import Hict
 from keri import kering
+from keri.app.keeping import SaltyCreator
 from keri.core import coring, eventing
+from keri.core.coring import Salter
 
 from keri.end import ending
 
@@ -78,21 +80,19 @@ class Agent:
 
 class Controller:
     def __init__(self, bran, tier, temp, ridx=0):
+        if hasattr(bran, "decode"):
+            bran = bran.decode("utf-8")
+
         self.bran = coring.MtrDex.Salt_128 + 'A' + bran[:21]  # qb64 salt for seed
-        self.path = f"signify:controller:{ridx}"
-        self.npath = f"signify:controller:{ridx + 1}"
+        self.stem = "signify:controller"
         self.tier = tier
         self.temp = temp
 
         salter = coring.Salter(qb64=self.bran)
-        self.signer = salter.signer(path=self.path,
-                                    transferable=True,
-                                    tier=tier,
-                                    temp=temp)
-        self.nsigner = salter.signer(path=self.npath,
-                                     transferable=True,
-                                     tier=tier,
-                                     temp=temp)
+        creator = SaltyCreator(salt=salter.qb64, stem=self.stem, tier=tier)
+
+        self.signer = creator.create(ridx=ridx, tier=tier, temp=temp).pop()
+        self.nsigner = creator.create(ridx=ridx + 1, tier=tier, temp=temp).pop()
 
         keys = [self.signer.verfer.qb64]
         ndigs = [coring.Diger(ser=self.nsigner.verfer.qb64b)]
@@ -116,6 +116,10 @@ class Controller:
     @property
     def verfers(self):
         return self.signer.verfers
+
+    @property
+    def salter(self):
+        return Salter(qb64=self.bran)
 
 
 class Authenticater:
