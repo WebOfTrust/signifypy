@@ -1,9 +1,9 @@
 # -*- encoding: utf-8 -*-
 """
 SIGNIFY
-signify.core.httping module
+signify.core.authing module
 
-Testing httping utils
+Testing authentication
 """
 import falcon
 import pytest
