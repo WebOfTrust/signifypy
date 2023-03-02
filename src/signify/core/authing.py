@@ -6,7 +6,6 @@ signify.core.authing module
 """
 
 import falcon
-from hio.help import Hict
 from keri import kering
 from keri.app.keeping import SaltyCreator
 from keri.core import coring, eventing

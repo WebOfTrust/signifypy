@@ -14,6 +14,7 @@ from keri.app.keeping import SaltyCreator
 from keri.core import eventing
 from keri.core.coring import Tiers, MtrDex, Salter, Diger, Tholder
 from keri.help import helping
+from keri.kering import Roles
 from requests.auth import AuthBase
 
 from signify.core.authing import Authenticater, Controller, Agent
@@ -150,6 +151,9 @@ class SignifyClient:
     def identifiers(self):
         return Identifiers(client=self)
 
+    def operations(self):
+        return Operations(client=self)
+
 
 class SignifyAuth(AuthBase):
 
@@ -220,10 +224,15 @@ class Identifiers:
 
         sigs = [signer.sign(ser=serder.raw, index=idx).qb64 for idx, signer in enumerate(signers)]
 
+        rpy = self.makeEndRole(serder.pre, eid=self.client.agent.pre)
+        rsigs = [signer.sign(ser=rpy.raw, index=idx).qb64 for idx, signer in enumerate(signers)]
+
         json = dict(
             name=name,
             icp=serder.ked,
             sigs=sigs,
+            rpy=rpy.ked,
+            rsigs=rsigs,
             stem=self.stem,
             pidx=self.client.pidx,
             tier=tier,
@@ -345,3 +354,21 @@ class Identifiers:
 
         res = self.client.put(f"/identifiers/{name}", json=json)
         return res.json()
+
+    @staticmethod
+    def makeEndRole(pre, eid):
+        data = dict(cid=pre, role=Roles.agent, eid=eid)
+        route = "/end/role/add"
+        return eventing.reply(route=route, data=data)
+
+
+class Operations:
+    """ Domain class for accessing long running operations"""
+
+    def __init__(self, client):
+        self.client = client
+
+    def get(self, name):
+        res = self.client.get(f"/operations/{name}")
+        return res.json()
+

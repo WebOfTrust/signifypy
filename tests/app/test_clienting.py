@@ -5,7 +5,7 @@ signify.app.clienting module
 
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
-import json
+from time import sleep
 
 import pytest
 from keri import kering
@@ -15,7 +15,7 @@ from signify.app.clienting import SignifyClient
 
 
 def test_init():
-    url = "http://localhost:5632"
+    url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = None
     temp = True
@@ -38,7 +38,7 @@ def test_init():
 
     temp = False
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
-    assert client.controller == "EH47SaIWwMbBh3P39AFP-qe-J87-Z-gcj-ZUJ7uyplHF"
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     tier = Tiers.med
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
@@ -52,16 +52,16 @@ def test_init():
 def test_connect():
     """ This test assumes a running KERIA agent with the following comand:
 
-          `keria start -c EH47SaIWwMbBh3P39AFP-qe-J87-Z-gcj-ZUJ7uyplHF`
+          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose`
 
     """
-    url = "http://localhost:5632"
+    url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
     temp = True
 
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
-    assert client.controller == "EA0jffuFfGdPBcV1urlKtM9O5XZgRttQrKNVFtB30c13"
+    assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
 
     # Raises configuration error because the started agent has a different controller AID
     with pytest.raises(kering.ConfigurationError):
@@ -69,12 +69,12 @@ def test_connect():
 
     temp = False
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
-    assert client.controller == "EH47SaIWwMbBh3P39AFP-qe-J87-Z-gcj-ZUJ7uyplHF"
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "EH47SaIWwMbBh3P39AFP-qe-J87-Z-gcj-ZUJ7uyplHF"
-    assert client.agent.pre == "EPumlwOcIn_vbxTDz6Vr4Q6bEwWLReDhForDu_HqWRyx"
+    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == "EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1"
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
@@ -83,13 +83,16 @@ def test_connect():
 
     aid = identifiers.create("aid1")
     icp = Serder(ked=aid)
-    assert icp.pre == "EEc0pzAa0xtxkoW5Dr_i9F2n0Gsq70BeYpnBjuFujWbL"
+    assert icp.pre == "ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ"
     assert len(icp.verfers) == 1
-    assert icp.verfers[0].qb64 == "DF42EWnAQVw7izQsjVkrISSKIkAQMY8-MpmKA1wyxx7-"
+    assert icp.verfers[0].qb64 == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
     assert len(icp.digers) == 1
-    assert icp.digers[0].qb64 == "EOgh4EcRDrdf5_2DnmQnWZ3AeHytpEV6bC6nlLCfFQOF"
+    assert icp.digers[0].qb64 == "ENIJ_qTj6Zb6GgSCvLPUPaf7ypO0KfyxBfJcmwrioCdr"
     assert icp.tholder.num == 1
     assert icp.ntholder.num == 1
+
+    rpy = identifiers.makeEndRole(pre=icp.pre, eid="EPGaq6inGxOx-VVVEcUb_KstzJZldHJvVsHqD4IPxTWf")
+    print(rpy.ked)
 
     aids = identifiers.list()
     assert len(aids) == 1
@@ -103,15 +106,15 @@ def test_connect():
 
     aid2 = identifiers.create("aid2", temp=True, count=3, ncount=3, isith="2", nsith="2")
     icp2 = Serder(ked=aid2)
-    assert icp2.pre == "ECuO44S--iT4xank5-h1-EJ8SudTv_YH76lxGc479hvX"
+    assert icp2.pre == "EIcPqJrvwYirK5ABfOcDEP3NEYOEX5LUr8NnLrbWeMpU"
     assert len(icp2.verfers) == 3
-    assert icp2.verfers[0].qb64 == "DHLvq6b2sPgj-1HXId-0K1-zgsm0t1BTVPZy8gWQRAWW"
-    assert icp2.verfers[1].qb64 == "DIDfa8QTglW-6nCEe0zLfGTiILudaa1wFhOOo1iOKcxn"
-    assert icp2.verfers[2].qb64 == "DH9R9rA9n1Flre2Zwc9mMIsgCzqKra40DC9EwZq6tjUU"
+    assert icp2.verfers[0].qb64 == "DMT7Xy_FUitLxWX0tHgsOOhW50iloHbXjlF_xaXCCxwv"
+    assert icp2.verfers[1].qb64 == "DBtqxaApH5G2jmlnuUeckKc6ntieS41vmR9E1K93WyNd"
+    assert icp2.verfers[2].qb64 == "DM750nt2-lKzCLIIJqzh61SILLz-nrEgkczcLH9m9GT6"
     assert len(icp2.digers) == 3
-    assert icp2.digers[0].qb64 == "EIWbtiKgM3TUKx9hrzNVnCxCbc38TGViMD_W_F1qlA-I"
-    assert icp2.digers[1].qb64 == "EB5xAamY0CQMOZWvZWRJX6KkhsWrCH8bz2-Fmiacm7sV"
-    assert icp2.digers[2].qb64 == "EJ7Q350565TB7l3JO-2Do_JSacYAXhGwFUrHqrwqbShv"
+    assert icp2.digers[0].qb64 == "ECkMSLcBB8UNzhIrjFBXFP11nLB_4CaJv_18ew5McpP6"
+    assert icp2.digers[1].qb64 == "EDxKP6QLbAJQtoOHAPMVxYI-7I6oB8fCgRcjNmxSTXFC"
+    assert icp2.digers[2].qb64 == "EEScGcKIiH3uv4oHnrcZzTHwXW5h6AexqQhh52PUz4fB"
     assert icp2.tholder.num == 2
     assert icp2.ntholder.num == 2
 
@@ -127,13 +130,63 @@ def test_connect():
     ked = identifiers.rotate("aid1")
     rot = Serder(ked=ked)
 
-    assert rot.said == "EJGHEadqsS7c0Cr1cayAAmEwvLQ2l1IrVQcVORGqNcx2"
+    assert rot.said == "EKzEsFo3CWCFdKPb1L33iHqm7smqRIy9IlMaa1uH5ZJk"
     assert rot.sn == 1
     assert len(rot.digers) == 1
-    assert rot.digers[0].qb64 == "EJaC2SqhqULqYOSzr8Jy_Vavi06Tt0YtWqNAFaQ_9GOa"
+    assert rot.digers[0].qb64 == "EIQVCPiXmmpLtbSBt0CyKVscky56BUEATKrc2qC7FIYA"
 
     ked = identifiers.interact("aid1", data=[icp.pre])
     ixn = Serder(ked=ked)
-    assert ixn.said == "EBwiEGe7LEoLlH1nwFVBRBkb7xGgAbLinMfdjNOQsX8O"
+    assert ixn.said == "EJyW-3Bfrr9jMkjc1hRUmGclCnAWpNqFbLy5QtH9qvAy"
     assert ixn.sn == 2
     assert ixn.ked["a"] == [icp.pre]
+
+
+def test_witnesses():
+    """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
+
+          `kli witness demo`
+          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose \
+               --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
+
+    """
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+
+    client = SignifyClient(url=url, bran=bran, tier=tier, temp=False)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    client.connect()
+    assert client.agent is not None
+    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == "EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1"
+    assert client.ctrl.ridx == 0
+
+    identifiers = client.identifiers()
+    operations = client.operations()
+
+    # Use witnesses
+    op = identifiers.create("aid1", toad="2", wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+                                                    "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
+                                                    "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"])
+
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    icp1 = Serder(ked=op["response"])
+    assert icp1.pre == "EALbxdf4Voh2LFEEQlCWYe3pxiEK3efIZ88VQwz2Q1nO"
+    assert icp1.ked['b'] == ["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+                             "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
+                             "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"]
+    assert icp1.ked['bt'] == "2"
+
+    aid1 = identifiers.get("aid1")
+    assert aid1["prefix"] == "EALbxdf4Voh2LFEEQlCWYe3pxiEK3efIZ88VQwz2Q1nO"
+    assert len(aid1["windexes"]) == 3
+
+    aids = identifiers.list()
+    assert len(aids) == 1
+    aid = aids.pop()
+    assert aid['prefix'] == icp1.pre
