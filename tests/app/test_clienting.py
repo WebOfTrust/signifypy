@@ -190,3 +190,43 @@ def test_witnesses():
     assert len(aids) == 1
     aid = aids.pop()
     assert aid['prefix'] == icp1.pre
+
+
+def test_delegation():
+    """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
+
+          `kli witness demo`
+          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose \
+               --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
+
+    """
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+
+    client = SignifyClient(url=url, bran=bran, tier=tier, temp=False)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    client.connect()
+    assert client.agent is not None
+    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    delpre = "EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7"
+    identifiers = client.identifiers()
+    operations = client.operations()
+    oobis = client.oobis()
+
+    op = oobis.resolve("http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness/BBilc4"
+                       "-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha")
+
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+                                                                   "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
+                                                                   "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"])
+
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
