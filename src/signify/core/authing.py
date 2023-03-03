@@ -144,12 +144,15 @@ class Authenticater:
 
     def verify(self, headers, method, path):
         headers = headers
+        if "SIGNATURE-INPUT" not in headers:
+            return False
+
         siginput = headers["SIGNATURE-INPUT"]
-        if not siginput:
+
+        if "SIGNATURE" not in headers:
             return False
+
         signature = headers["SIGNATURE"]
-        if not signature:
-            return False
 
         inputs = ending.desiginput(siginput.encode("utf-8"))
         inputs = [i for i in inputs if i.name == "signify"]

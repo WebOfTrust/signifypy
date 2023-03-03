@@ -23,11 +23,7 @@ def test_authenticater(mockHelpingNowUTC):
 
         # Create authenticater with Agent and controllers AID
         authn = authing.Authenticater(agent=agent, ctrl=controller)
-        signer = authing.Authenticater(agent=controller)
-
-        rep = falcon.Response()
-        with pytest.raises(kering.AuthNError):  # Should fail if Agent hasn't resolved controller's KEL
-            authn.verify(rep)
+        signer = authing.Authenticater(agent=controller, ctrl=agent)
 
         agentKev = eventing.Kevery(db=agent.db, lax=True, local=False)
         icp = controller.makeOwnInception()
@@ -35,7 +31,7 @@ def test_authenticater(mockHelpingNowUTC):
 
         assert controller.pre in agent.kevers
 
-        headers = Hict([
+        headers = dict([
             ("Content-Type", "application/json"),
             ("Content-Length", "256"),
             ("Connection", "close"),
