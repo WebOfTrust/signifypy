@@ -124,7 +124,7 @@ class Controller:
 class Authenticater:
     DefaultFields = ["@method",
                      "@path",
-                     "Content-Length"
+                     "Content-Length",
                      "Signify-Resource",
                      "Signify-Timestamp"]
 
