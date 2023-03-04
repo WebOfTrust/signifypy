@@ -80,6 +80,7 @@ setup(
     extras_require={
     },
     tests_require=[
+        'responses>=0.22.0',
         'coverage>=6.5.0',
         'pytest>=7.2.0',
     ],

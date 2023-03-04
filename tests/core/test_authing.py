@@ -18,7 +18,6 @@ from signify.core import authing
 
 
 def test_authenticater(mockHelpingNowUTC):
-    salt = b'0123456789abcdef'
     bran = b'0123456789abcdefghijk'
 
     with habbing.openHby(name="agent", temp=True) as agentHby:

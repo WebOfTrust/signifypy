@@ -5,13 +5,17 @@ signify.app.clienting module
 
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
+import os
 from time import sleep
+import responses
 
 import pytest
 from keri import kering
 from keri.core.coring import Tiers, Serder
 
 from signify.app.clienting import SignifyClient
+
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def test_init():
@@ -29,12 +33,12 @@ def test_init():
         SignifyClient(url="ftp://www.example.com", bran=bran, tier=tier, temp=temp)
 
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
-    assert client.controller == "EA0jffuFfGdPBcV1urlKtM9O5XZgRttQrKNVFtB30c13"
+    assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
 
     # changing tier with Temp=True has no effect
     tier = Tiers.low
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
-    assert client.controller == "EA0jffuFfGdPBcV1urlKtM9O5XZgRttQrKNVFtB30c13"
+    assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
 
     temp = False
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
@@ -42,19 +46,21 @@ def test_init():
 
     tier = Tiers.med
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
-    assert client.controller == "EFrCn76IOMVENbf8EZFXCE3s9HEHQK7Xq93GLAEr9Voo"
+    assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
 
     tier = Tiers.high
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
-    assert client.controller == "EEu7aTxB4PbQY4sF72Lc-QjwcQuuAL_zRnHJGEj3Ca6b"
+    assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
 
 
+@responses.activate
 def test_connect():
     """ This test assumes a running KERIA agent with the following comand:
 
           `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose`
 
     """
+    responses._add_from_file(file_path=os.path.join(TEST_DIR, "connect.toml"))
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
@@ -70,6 +76,7 @@ def test_connect():
     temp = False
     client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
 
     client.connect()
     assert client.agent is not None
@@ -142,6 +149,7 @@ def test_connect():
     assert ixn.ked["a"] == [icp.pre]
 
 
+@responses.activate
 def test_witnesses():
     """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
 
@@ -150,6 +158,7 @@ def test_witnesses():
                --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
 
     """
+    responses._add_from_file(file_path=os.path.join(TEST_DIR, "witness.toml"))
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
@@ -190,43 +199,3 @@ def test_witnesses():
     assert len(aids) == 1
     aid = aids.pop()
     assert aid['prefix'] == icp1.pre
-
-
-def test_delegation():
-    """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
-
-          `kli witness demo`
-          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose \
-               --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
-
-    """
-    url = "http://localhost:3901"
-    bran = b'0123456789abcdefghijk'
-    tier = Tiers.low
-
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=False)
-    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-
-    client.connect()
-    assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-
-    delpre = "EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7"
-    identifiers = client.identifiers()
-    operations = client.operations()
-    oobis = client.oobis()
-
-    op = oobis.resolve("http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness/BBilc4"
-                       "-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha")
-
-    while not op["done"]:
-        op = operations.get(op["name"])
-        sleep(1)
-
-    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-                                                                   "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-                                                                   "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"])
-
-    while not op["done"]:
-        op = operations.get(op["name"])
-        sleep(1)

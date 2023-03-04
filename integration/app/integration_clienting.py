@@ -6,6 +6,7 @@ signify.app.clienting module
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
 from time import sleep
+from responses import _recorder
 
 import pytest
 from keri import kering
@@ -142,6 +143,7 @@ def test_connect():
     assert ixn.ked["a"] == [icp.pre]
 
 
+@_recorder.record(file_path="../../tests/app/witness.toml")
 def test_witnesses():
     """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
 
