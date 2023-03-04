@@ -5,58 +5,71 @@ signify.core.authing module
 
 Testing authentication
 """
-import falcon
 import pytest
 from falcon import testing
-from hio.help import Hict
 from keri import kering
 from keri.app import habbing
-from keri.core import parsing, eventing
+from keri.core import parsing, eventing, coring
+from keri.core.coring import Tiers
+from keri.db import dbing
+from keri.end import ending
 
 from signify.core import authing
 
 
 def test_authenticater(mockHelpingNowUTC):
-    salt = b'0123456789abcdef'
-    with habbing.openHab(name="controller", salt=salt, temp=True) as (controllerHby, controller), \
-            habbing.openHab(name="agent", salt=salt, temp=True) as (agentHby, agent):
+    bran = b'0123456789abcdefghijk'
+
+    with habbing.openHby(name="agent", temp=True) as agentHby:
+
+        ctrl = authing.Controller(bran=bran, tier=Tiers.low, temp=True)
+        agentHab = agentHby.makeHab(name="agent", icount=1, isith='1', ncount=1, nsith='1', data=[ctrl.pre])
+
+        dgkey = dbing.dgKey(agentHab.pre, agentHab.kever.serder.said)  # get message
+        raw = agentHby.db.getEvt(key=dgkey)
+        serder = coring.Serder(raw=bytes(raw))
+
+        sigs = agentHby.db.getSigs(key=dgkey)
+        evt = dict(
+            ked=serder.ked,
+            sig=coring.Siger(qb64b=bytes(sigs[0])).qb64
+        )
+
+        agent = authing.Agent(kel=[evt])
 
         # Create authenticater with Agent and controllers AID
-        authn = authing.Authenticater(agent=agent, ctrl=controller)
-        signer = authing.Authenticater(agent=controller)
+        authn = authing.Authenticater(agent=agent, ctrl=ctrl)
 
-        rep = falcon.Response()
-        with pytest.raises(kering.AuthNError):  # Should fail if Agent hasn't resolved controller's KEL
-            authn.verify(rep)
-
-        agentKev = eventing.Kevery(db=agent.db, lax=True, local=False)
-        icp = controller.makeOwnInception()
-        parsing.Parser().parse(ims=bytearray(icp), kvy=agentKev)
-
-        assert controller.pre in agent.kevers
-
-        headers = Hict([
+        method = "POST"
+        path = "/boot"
+        headers = dict([
             ("Content-Type", "application/json"),
-            ("Content-Length", "256"),
+            ("content-length", "256"),
             ("Connection", "close"),
-            ("Signify-Resource", "EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs"),
-            ("Signify-Timestamp", "2022-09-24T00:05:48.196795+00:00"),
+            ("signify-resource", "EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs"),
+            ("signify-timestamp", "2022-09-24T00:05:48.196795+00:00"),
         ])
 
-        headers = signer.sign(headers, method="POST", path="/boot")
-        assert dict(headers) == {'Connection': 'close',
-                                 'Content-Length': '256',
-                                 'Content-Type': 'application/json',
-                                 'Signature': 'indexed="?0";signify="0BBuKkeizz5dM7MurQd7i3PyYh5kariHlZ0id01UJJfYfl5gKr'
-                                              'Bg5BPsTKyIySCnQfBgEiCaDvC5NCC0kon_8QEI"',
-                                 'Signature-Input': 'signify=("signify-resource" "@method" "@path" '
-                                                    '"signify-timestamp");created=1609459200;keyid="EAM6vT0VYoaEWxRTgr'
-                                                    '24g0nZHmPSUBgs19WB43zEKHnz";alg="ed25519"',
-                                 'Signify-Resource': 'EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs',
-                                 'Signify-Timestamp': '2022-09-24T00:05:48.196795+00:00'}
+        header, qsig = ending.siginput("signify", method, path, headers, fields=authn.DefaultFields, hab=agentHab,
+                                       alg="ed25519", keyid=agentHab.pre)
+        headers |= header
+        signage = ending.Signage(markers=dict(signify=qsig), indexed=False, signer=None, ordinal=None, digest=None,
+                                 kind=None)
+        headers |= ending.signature([signage])
 
+        assert dict(headers) == {'Connection': 'close',
+                                 'Content-Type': 'application/json',
+                                 'Signature': 'indexed="?0";signify="0BCE9Joj3bY68sLQzxYxCgQOC3vEWhvLopfQk1b_wox5qqky'
+                                              'hO7_SWuEqJk1sfALQh1eT26vdR3aTqL-_lU4UhsG"',
+                                 'Signature-Input': 'signify=("@method" "@path" "content-length" '
+                                                    '"signify-resource" '
+                                                    '"signify-timestamp");created=1609459200;keyid="EICwDc-jYoUgNyMlA'
+                                                    'dg2iOFyeu56-RXvPRdFCG2luers";alg="ed25519"',
+                                 'content-length': '256',
+                                 'signify-resource': 'EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs',
+                                 'signify-timestamp': '2022-09-24T00:05:48.196795+00:00'}
         req = testing.create_req(method="POST", path="/boot", headers=dict(headers))
-        assert authn.verify(req)
+        assert authn.verify(req.headers, "POST", "/boot")
 
 
 def test_agent():

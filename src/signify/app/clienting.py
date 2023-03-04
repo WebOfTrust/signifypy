@@ -6,7 +6,7 @@ signify.app.clienting module
 """
 from dataclasses import dataclass
 from math import ceil
-from urllib.parse import urlparse, urljoin, urlsplit
+from urllib.parse import urlparse, urljoin, urlsplit, quote
 
 import requests
 from keri import kering
@@ -14,6 +14,7 @@ from keri.app.keeping import SaltyCreator
 from keri.core import eventing
 from keri.core.coring import Tiers, MtrDex, Salter, Diger, Tholder
 from keri.help import helping
+from keri.kering import Roles
 from requests.auth import AuthBase
 
 from signify.core.authing import Authenticater, Controller, Agent
@@ -150,6 +151,12 @@ class SignifyClient:
     def identifiers(self):
         return Identifiers(client=self)
 
+    def operations(self):
+        return Operations(client=self)
+
+    def oobis(self):
+        return Oobis(client=self)
+
 
 class SignifyAuth(AuthBase):
 
@@ -193,7 +200,7 @@ class Identifiers:
         return res.json()
 
     def create(self, name, tier=Tiers.low, temp=False, transferable=True, code=MtrDex.Ed25519_Seed, count=1,
-               ncount=1, isith="1", nsith="1", wits=None, toad="0", data=None):
+               ncount=1, isith="1", nsith="1", wits=None, toad="0", delpre=None, data=None):
 
         salter = self.client.salter
         creator = SaltyCreator(salt=salter.qb64, stem=self.stem, tier=tier)
@@ -209,21 +216,37 @@ class Identifiers:
 
         wits = wits if wits is not None else []
         data = [data] if data is not None else []
-        serder = eventing.incept(keys=keys,
-                                 isith=isith,
-                                 nsith=nsith,
-                                 ndigs=ndigs,
-                                 code=MtrDex.Blake3_256,
-                                 wits=wits,
-                                 toad=toad,
-                                 data=data)
+        if delpre is not None:
+            serder = eventing.delcept(delpre=delpre,
+                                      keys=keys,
+                                      isith=isith,
+                                      nsith=nsith,
+                                      ndigs=ndigs,
+                                      code=MtrDex.Blake3_256,
+                                      wits=wits,
+                                      toad=toad,
+                                      data=data)
+        else:
+            serder = eventing.incept(keys=keys,
+                                     isith=isith,
+                                     nsith=nsith,
+                                     ndigs=ndigs,
+                                     code=MtrDex.Blake3_256,
+                                     wits=wits,
+                                     toad=toad,
+                                     data=data)
 
         sigs = [signer.sign(ser=serder.raw, index=idx).qb64 for idx, signer in enumerate(signers)]
+
+        rpy = self.makeEndRole(serder.pre, eid=self.client.agent.pre)
+        rsigs = [signer.sign(ser=rpy.raw, index=idx).qb64 for idx, signer in enumerate(signers)]
 
         json = dict(
             name=name,
             icp=serder.ked,
             sigs=sigs,
+            rpy=rpy.ked,
+            rsigs=rsigs,
             stem=self.stem,
             pidx=self.client.pidx,
             tier=tier,
@@ -266,7 +289,7 @@ class Identifiers:
         creator = SaltyCreator(salt=salter.qb64, stem=stem, tier=tier)
         signers = creator.create(count=count, pidx=pidx, ridx=ridx, kidx=count, temp=temp)
 
-        serder = eventing.interact(pre, sn=sn+1, data=data, dig=dig)
+        serder = eventing.interact(pre, sn=sn + 1, data=data, dig=dig)
         sigs = [signer.sign(ser=serder.raw, index=idx).qb64 for idx, signer in enumerate(signers)]
 
         json = dict(
@@ -276,7 +299,7 @@ class Identifiers:
         res = self.client.put(f"/identifiers/{name}?type=ixn", json=json)
         return res.json()
 
-    def rotate(self, name,  *, isith=None, nsith=None, ncount=1, toad=None, cuts=None, adds=None,
+    def rotate(self, name, *, isith=None, nsith=None, ncount=1, toad=None, cuts=None, adds=None,
                data=None):
         salter = self.client.salter
 
@@ -312,7 +335,7 @@ class Identifiers:
         signers = creator.create(count=count, pidx=pidx, ridx=ridx, kidx=count, temp=temp)
 
         # Create new keys for next digests
-        nsigners = creator.create(count=ncount, pidx=pidx, ridx=ridx+1, kidx=ncount,
+        nsigners = creator.create(count=ncount, pidx=pidx, ridx=ridx + 1, kidx=ncount,
                                   temp=temp)
 
         keys = [signer.verfer.qb64 for signer in signers]
@@ -344,4 +367,44 @@ class Identifiers:
             temp=temp)
 
         res = self.client.put(f"/identifiers/{name}", json=json)
+        return res.json()
+
+    @staticmethod
+    def makeEndRole(pre, eid):
+        data = dict(cid=pre, role=Roles.agent, eid=eid)
+        route = "/end/role/add"
+        return eventing.reply(route=route, data=data)
+
+
+class Operations:
+    """ Domain class for accessing long running operations"""
+
+    def __init__(self, client):
+        self.client = client
+
+    def get(self, name):
+        res = self.client.get(f"/operations/{name}")
+        return res.json()
+
+
+class Oobis:
+    """ Domain class for accessing OOBIs"""
+
+    def __init__(self, client):
+        self.client = client
+
+    def get(self, name):
+        res = self.client.get(f"/identifiers/{name}/oobis")
+        return res.json()
+
+    def resolve(self, oobi, alias=None):
+
+        json = dict(
+            url=oobi
+        )
+
+        if alias is not None:
+            json["oobialias"] = alias
+
+        res = self.client.post("/oobis", json=json)
         return res.json()

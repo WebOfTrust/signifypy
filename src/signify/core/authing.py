@@ -6,7 +6,6 @@ signify.core.authing module
 """
 
 import falcon
-from hio.help import Hict
 from keri import kering
 from keri.app.keeping import SaltyCreator
 from keri.core import coring, eventing
@@ -125,7 +124,7 @@ class Controller:
 class Authenticater:
     DefaultFields = ["@method",
                      "@path",
-                     "Content-Length"
+                     "Content-Length",
                      "Signify-Resource",
                      "Signify-Timestamp"]
 
@@ -145,12 +144,15 @@ class Authenticater:
 
     def verify(self, headers, method, path):
         headers = headers
+        if "SIGNATURE-INPUT" not in headers:
+            return False
+
         siginput = headers["SIGNATURE-INPUT"]
-        if not siginput:
+
+        if "SIGNATURE" not in headers:
             return False
+
         signature = headers["SIGNATURE"]
-        if not signature:
-            return False
 
         inputs = ending.desiginput(siginput.encode("utf-8"))
         inputs = [i for i in inputs if i.name == "signify"]
