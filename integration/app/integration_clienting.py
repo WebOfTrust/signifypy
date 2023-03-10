@@ -75,7 +75,7 @@ def test_connect():
     client.connect()
     assert client.agent is not None
     assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1"
+    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
@@ -162,7 +162,7 @@ def test_witnesses():
     client.connect()
     assert client.agent is not None
     assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1"
+    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
@@ -194,6 +194,7 @@ def test_witnesses():
     assert aid['prefix'] == icp1.pre
 
 
+@_recorder.record(file_path="../../tests/app/delegation.toml")
 def test_delegation():
     """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
 
@@ -218,8 +219,8 @@ def test_delegation():
     operations = client.operations()
     oobis = client.oobis()
 
-    op = oobis.resolve("http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness/BBilc4"
-                       "-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha")
+    op = oobis.resolve("http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness/"
+                       "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha")
 
     while not op["done"]:
         op = operations.get(op["name"])
@@ -232,3 +233,6 @@ def test_delegation():
     while not op["done"]:
         op = operations.get(op["name"])
         sleep(1)
+
+    icp1 = Serder(ked=op["response"])
+    assert icp1.pre == "EITU8bCJwnaQSZn3aH6qIIud_9qh9Z8f0FlgLc6lqmGl"

@@ -200,7 +200,7 @@ class Identifiers:
         return res.json()
 
     def create(self, name, tier=Tiers.low, temp=False, transferable=True, code=MtrDex.Ed25519_Seed, count=1,
-               ncount=1, isith="1", nsith="1", wits=None, toad="0", delpre=None, data=None):
+               ncount=1, isith="1", nsith="1", wits=None, toad="0", proxy=None, delpre=None, data=None):
 
         salter = self.client.salter
         creator = SaltyCreator(salt=salter.qb64, stem=self.stem, tier=tier)
@@ -250,7 +250,8 @@ class Identifiers:
             stem=self.stem,
             pidx=self.client.pidx,
             tier=tier,
-            temp=temp)
+            temp=temp,
+            proxy=proxy)
 
         self.client.pidx = self.client.pidx + 1
 
