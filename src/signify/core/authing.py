@@ -13,6 +13,8 @@ from keri.core.coring import Salter
 
 from keri.end import ending
 
+from signify.core import keying
+
 
 class Agent:
     def __init__(self, kel):
@@ -87,8 +89,10 @@ class Controller:
         self.tier = tier
         self.temp = temp
 
-        salter = coring.Salter(qb64=self.bran)
-        creator = SaltyCreator(salt=salter.qb64, stem=self.stem, tier=tier)
+        self.salter = coring.Salter(qb64=self.bran)
+        self.manager = keying.Manager(salter=self.salter)
+
+        creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=tier)
 
         self.signer = creator.create(ridx=ridx, tier=tier, temp=temp).pop()
         self.nsigner = creator.create(ridx=ridx + 1, tier=tier, temp=temp).pop()
@@ -115,10 +119,6 @@ class Controller:
     @property
     def verfers(self):
         return self.signer.verfers
-
-    @property
-    def salter(self):
-        return Salter(qb64=self.bran)
 
 
 class Authenticater:

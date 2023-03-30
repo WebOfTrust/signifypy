@@ -6,6 +6,8 @@ signify.app.clienting module
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
 from time import sleep
+
+from keri.core import coring
 from responses import _recorder
 
 import pytest
@@ -236,3 +238,65 @@ def test_delegation():
 
     icp1 = Serder(ked=op["response"])
     assert icp1.pre == "EITU8bCJwnaQSZn3aH6qIIud_9qh9Z8f0FlgLc6lqmGl"
+
+
+def test_multisig():
+    """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
+
+          `kli witness demo`
+          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose \
+               --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
+
+    """
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+
+    client = SignifyClient(url=url, bran=bran, tier=tier, temp=False)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    client.connect()
+    assert client.agent is not None
+    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
+    assert client.ctrl.ridx == 0
+
+    identifiers = client.identifiers()
+    operations = client.operations()
+    oobis = client.oobis()
+
+    icp = identifiers.create("aid1")
+    serder = coring.Serder(ked=icp)
+    assert serder.pre == "ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ"
+    print(f"created AID {serder.pre}")
+
+    identifiers.addEndRole("aid1", eid=client.agent.pre)
+
+    print(f"OOBI for {serder.pre}:")
+    oobi = oobis.get("aid1")
+    print(oobi)
+
+    print()
+    op = oobis.resolve(oobi="http://127.0.0.1:5642/oobi/EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4/witness/BBilc4"
+                            "-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+                       alias="multisig1")
+
+    print("resolving oobi for multisig1")
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    print("resolving oobi for multisig2")
+    op = oobis.resolve(oobi="http://127.0.0.1:5642/oobi/EJccSRTfXYF6wrUVuenAIHzwcx3hJugeiJsEKmndi5q1/witness/BBilc4"
+                            "-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+                       alias="multisig2")
+
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+
+
+
+if __name__ == "__main__":
+    test_multisig()
