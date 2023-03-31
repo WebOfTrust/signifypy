@@ -9,11 +9,10 @@ import falcon
 from keri import kering
 from keri.app.keeping import SaltyCreator
 from keri.core import coring, eventing
-from keri.core.coring import Salter
 
 from keri.end import ending
 
-from signify.core import keying
+from signify.core import keeping
 
 
 class Agent:
@@ -90,7 +89,7 @@ class Controller:
         self.temp = temp
 
         self.salter = coring.Salter(qb64=self.bran)
-        self.manager = keying.Manager(salter=self.salter)
+        self.manager = keeping.Manager(salter=self.salter)
 
         creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=tier)
 

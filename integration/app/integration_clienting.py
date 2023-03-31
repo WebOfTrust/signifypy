@@ -7,6 +7,7 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 from time import sleep
 
+from keri.app.keeping import Algos
 from keri.core import coring
 from responses import _recorder
 
@@ -270,6 +271,7 @@ def test_multisig():
     assert serder.pre == "ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ"
     print(f"created AID {serder.pre}")
 
+    # TODO: Add loading of end roles in identifier APIs in KERIA
     identifiers.addEndRole("aid1", eid=client.agent.pre)
 
     print(f"OOBI for {serder.pre}:")
@@ -286,6 +288,7 @@ def test_multisig():
         op = operations.get(op["name"])
         sleep(1)
 
+    multisig1 = op["response"]
     print("resolving oobi for multisig2")
     op = oobis.resolve(oobi="http://127.0.0.1:5642/oobi/EJccSRTfXYF6wrUVuenAIHzwcx3hJugeiJsEKmndi5q1/witness/BBilc4"
                             "-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
@@ -294,8 +297,27 @@ def test_multisig():
     while not op["done"]:
         op = operations.get(op["name"])
         sleep(1)
+    multisig2 = op["response"]
 
+    aid1 = identifiers.get("aid1")
+    agent0 = aid1["state"]
 
+    states = rstates = [multisig2, multisig1, agent0]
+
+    op = identifiers.create("multisig", algo=Algos.group, mhab=aid1,
+                            isith=["1/3", "1/3", "1/3"], nsith=["1/3", "1/3", "1/3"],
+                            toad=3,
+                            wits=[
+                                "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+                                "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
+                                "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
+                            ],
+                            states=states,
+                            rstates=rstates)
+    print("waiting on multisig creation...")
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,5 @@
 from math import ceil
 
-import keri.kering
 from keri import kering
 from keri.app.keeping import Algos
 from keri.core import eventing
@@ -11,51 +10,6 @@ from requests import exceptions
 from signify.app.clienting import SignifyClient
 
 
-class httpdict(dict):
-    """
-    Subclass of dict that has client as attribute and employs read through cache
-    from http get of states to reload state from database
-    if not in memory as dict item
-    """
-    __slots__ = 'client'  # no .__dict__ just for db reference
-
-    def __init__(self, *pa, **kwa):
-        super(httpdict, self).__init__(*pa, **kwa)
-        self.client = None
-
-    def __getitem__(self, k):
-        try:
-            return super(httpdict, self).__getitem__(k)
-        except KeyError as ex:
-            if not self.client:
-                raise ex  # reraise KeyError
-            try:
-                res = self.client.get(f"/states/{k}")
-                if not res.ok:
-                    raise keri.kering.MissingEntryError(f"{k} not found")
-                state = res.json()
-            except kering.MissingEntryError:  # no keystate
-                raise ex  # reraise KeyError
-            self.__setitem__(k, state)
-            return state
-
-    def __contains__(self, k):
-        if not super(httpdict, self).__contains__(k):
-            try:
-                self.__getitem__(k)
-                return True
-            except KeyError:
-                return False
-        else:
-            return True
-
-    def get(self, k, default=None):
-        if not super(httpdict, self).__contains__(k):
-            return default
-        else:
-            return self.__getitem__(k)
-
-
 class Identifiers:
     """ Domain class for accessing, creating and rotating KERI Autonomic IDentifiers (AIDs) """
 
@@ -63,10 +17,8 @@ class Identifiers:
 
     def __init__(self, client: SignifyClient):
         self.client = client
-        self.states = httpdict()
-        self.states.client = client
 
-    def list(self, **kwas):
+    def list(self):
         res = self.client.get("/identifiers")
         return res.json()
 
@@ -77,8 +29,6 @@ class Identifiers:
     def create(self, name, transferable=True, isith="1", nsith="1", wits=None, toad="0", proxy=None, delpre=None,
                dcode=MtrDex.Blake3_256, data=None, algo=Algos.salty, **kwargs):
 
-        prms = self._keys(algo, **kwargs)
-
         aid = dict(
             transferable=transferable,
             state=dict(
@@ -88,7 +38,9 @@ class Identifiers:
                 )
             ),
         )
-        aid[algo] = prms
+
+        # Get the algo specific key params
+        aid[algo] = self._keys(algo, **kwargs)
 
         keys = self.client.manager.keys(0, aid)
         ndigs = self.client.manager.ndigs(aid)
@@ -122,7 +74,7 @@ class Identifiers:
             icp=serder.ked,
             sigs=sigs,
             proxy=proxy)
-        json[algo] = prms
+        json[algo] = aid[algo]
 
         self.client.pidx = self.client.pidx + 1
 
@@ -162,16 +114,18 @@ class Identifiers:
         pass
 
     @staticmethod
-    def _groupKeys(states, rstates):
-        smids = []
-        for state in states:
-            smids.append(dict(i=state['i'], s=state['ee']['s']))
+    def _groupKeys(mhab, states, rstates):
 
-        rmids = []
-        for state in rstates:
-            rmids.append(dict(i=state['i'], s=state['ee']['s']))
+        keys = [state['k'][0] for state in states]
+        smids = [state['i'] for state in states]
+
+        ndigs = [state['n'][0] for state in rstates]
+        rmids = [state['i'] for state in rstates]
 
         return dict(
+            mhab=mhab,
+            keys=keys,
+            ndigs=ndigs,
             smids=smids,
             rmids=rmids
         )
