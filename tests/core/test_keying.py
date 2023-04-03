@@ -29,7 +29,7 @@ def test_aid_classes(mockHelpingNowUTC):
 
     said = {
         'name': 'salty',
-        'salt': {'stem': 'signify:aid', 'pidx': 3, 'tier': 'low', 'temp': False}
+        'salt': {'stem': 'signify:aid', 'pidx': 3, 'tier': 'low'}
     }
 
     raid = {

@@ -25,7 +25,7 @@ class State:
 
 class SignifyClient:
 
-    def __init__(self, url, bran, tier, temp):
+    def __init__(self, url, bran, tier):
 
         up = urlparse(url)
         if up.scheme not in kering.Schemes:
@@ -40,7 +40,7 @@ class SignifyClient:
         self.session = None
         self.agent = None
         self.authn = None
-        self.ctrl = Controller(bran=bran, tier=tier, temp=temp)
+        self.ctrl = Controller(bran=bran, tier=tier)
 
     def connect(self):
 
@@ -84,8 +84,7 @@ class SignifyClient:
                                     sig=siger.qb64,
                                     stem=self.ctrl.stem,
                                     pidx=1,
-                                    tier=self.ctrl.tier,
-                                    temp=self.ctrl.temp))
+                                    tier=self.ctrl.tier))
 
         if res.status_code != requests.codes.accepted:
             raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
@@ -128,7 +127,7 @@ class SignifyClient:
 
         res = self.session.post(url, **kwargs)
         if not res.ok:
-            raise self.raiseForStatus(res)
+            self.raiseForStatus(res)
 
         return res
 
@@ -168,10 +167,13 @@ class SignifyClient:
         from signify.app.coring import KeyStates
         return KeyStates(client=self)
 
+    def keyEvents(self):
+        from signify.app.coring import KeyEvents
+        return KeyEvents(client=self)
+
     @staticmethod
     def raiseForStatus(res):
         body = res.json()
-        print(body)
         if "description" in body:
             reason = body["description"]
         elif "title" in body:

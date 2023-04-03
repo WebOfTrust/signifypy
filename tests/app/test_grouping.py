@@ -5,7 +5,6 @@ from signify.app.clienting import SignifyClient
 url = "http://localhost:3901"
 bran = b'0123456789abcdefghijk'
 tier = Tiers.low
-temp = True
 
 states = [
     {'v': 'KERI10JSON0001b6_', 'i': 'EIaGMMWJFPmtXznY1IIiKDIrg-vIyge6mBl2QV8dDjI3', 's': '0', 'p': '',
@@ -27,7 +26,7 @@ states = [
 
 
 def test_incept():
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
 
     groups = client.groups()
@@ -109,7 +108,7 @@ def test_incept():
 
 @responses.activate
 def test_group_recipe():
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=False)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     rsp1 = responses.Response(

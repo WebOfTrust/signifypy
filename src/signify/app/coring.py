@@ -64,4 +64,15 @@ class KeyStates:
         return res.json()
 
 
+class KeyEvents:
+    """ Domain class for accessing OOBIs"""
+
+    def __init__(self, client: SignifyClient):
+        self.client = client
+
+    def get(self, pre):
+        res = self.client.get(f"/events?pre={pre}")
+        return res.json()
+
+
 

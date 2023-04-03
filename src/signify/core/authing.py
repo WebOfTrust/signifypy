@@ -79,22 +79,21 @@ class Agent:
 
 
 class Controller:
-    def __init__(self, bran, tier, temp, ridx=0):
+    def __init__(self, bran, tier, ridx=0):
         if hasattr(bran, "decode"):
             bran = bran.decode("utf-8")
 
         self.bran = coring.MtrDex.Salt_128 + 'A' + bran[:21]  # qb64 salt for seed
         self.stem = "signify:controller"
         self.tier = tier
-        self.temp = temp
 
         self.salter = coring.Salter(qb64=self.bran)
         self.manager = keeping.Manager(salter=self.salter)
 
         creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=tier)
 
-        self.signer = creator.create(ridx=ridx, tier=tier, temp=temp).pop()
-        self.nsigner = creator.create(ridx=ridx + 1, tier=tier, temp=temp).pop()
+        self.signer = creator.create(ridx=ridx, tier=tier).pop()
+        self.nsigner = creator.create(ridx=ridx + 1, tier=tier).pop()
 
         keys = [self.signer.verfer.qb64]
         ndigs = [coring.Diger(ser=self.nsigner.verfer.qb64b)]

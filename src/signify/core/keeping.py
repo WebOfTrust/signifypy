@@ -1,5 +1,6 @@
-from keri.app.keeping import SaltyCreator, Algos
+from keri.app.keeping import SaltyCreator, Algos, RandyCreator
 from keri.core import coring
+from keri.core.coring import Tiers, MtrDex
 
 
 class Manager:
@@ -7,32 +8,47 @@ class Manager:
     def __init__(self, salter):
         self.salter = salter
 
-    def _signer(self, aid):
-        if Algos.salty in aid:
-            signer = SaltySigner(salter=self.salter, aid=aid)
+    def new(self, algo, pidx, **kwargs):
+        match algo:
+            case Algos.salty:
+                return SaltyKeeper(salter=self.salter, pidx=pidx, **kwargs)
 
-        elif Algos.group in aid:
-            signer = GroupSigner(mgr=self, aid=aid)
+            case Algos.group:
+                return GroupKeeper(mgr=self, **kwargs)
+
+            case Algos.randy:
+                return RandyKeeper(salter=self.salter, **kwargs)
+
+            case _:
+                return ExternalKeeper()
+
+    def get(self, aid):
+        pre = coring.Prefixer(qb64=aid["prefix"])
+        if Algos.salty in aid:
+            kwargs = aid[Algos.salty]
+            return SaltyKeeper(salter=self.salter, **kwargs)
 
         elif Algos.randy in aid:
-            signer = RandySigner()
+            kwargs = aid[Algos.randy]
+            return RandyKeeper(salter=self.salter, transferable=pre.transferable, **kwargs)
 
+        elif Algos.group in aid:
+            kwargs = aid[Algos.group]
+            return GroupKeeper(mgr=self, **kwargs)
+
+
+class BaseKeeper:
+
+    @property
+    def algo(self):
+        if isinstance(self, SaltyKeeper):
+            return Algos.salty
+        elif isinstance(self, RandyKeeper):
+            return Algos.randy
+        elif isinstance(self, GroupKeeper):
+            return Algos.group
         else:
-            signer = ExternalSigner()
-
-        return signer
-
-    def keys(self, kidx, aid):
-        return self._signer(aid).keys(kidx)
-
-    def ndigs(self, aid):
-        return self._signer(aid).ndigs()
-
-    def sign(self, ser, aid, indexed=True, indices=None, ondices=None, rotate=False):
-        return self._signer(aid).sign(ser, indexed=indexed, indices=indices, ondices=ondices, rotate=rotate)
-
-
-class BaseSigner:
+            return Algos.extern
 
     @staticmethod
     def __sign__(ser, signers, indexed=False, indices=None, ondices=None):
@@ -70,73 +86,153 @@ class BaseSigner:
             return [cigar.qb64 for cigar in cigars]
 
 
-class SaltySigner(BaseSigner):
+class SaltyKeeper(BaseKeeper):
+    stem = "signify:aid"
 
-    def __init__(self, salter, aid):
+    def __init__(self, salter, pidx, kidx=0, tier=Tiers.low, transferable=False, stem=None,
+                 code=MtrDex.Ed25519_Seed, count=1, icodes=None,
+                 ncode=MtrDex.Ed25519_Seed, ncount=1, ncodes=None, dcode=MtrDex.Blake3_256):
+
         self.salter = salter
-        salt = aid[Algos.salty]
-        stem = salt["stem"]
-        tier = salt["tier"]
-        self.icodes = salt["icodes"]
-        self.ncodes = salt["ncodes"]
-        self.dcode = salt["dcode"]
-        self.pidx = salt["pidx"]
+        if not icodes:  # if not codes make list len count of same code
+            icodes = [code] * count
+        if not ncodes:
+            ncodes = [ncode] * ncount
 
-        state = aid["state"]
-        self.transferable = aid["transferable"]
-
-        self.count = len(state['k'])
-        self.ridx = int(state["ee"]["s"], 16)
+        self.tier = tier
+        self.icodes = icodes
+        self.ncodes = ncodes
+        self.dcode = dcode
+        self.pidx = pidx
+        self.kidx = kidx
+        self.transferable = transferable
+        stem = stem if stem is not None else self.stem
 
         self.creator = SaltyCreator(salt=salter.qb64, stem=stem, tier=tier)
 
-    def keys(self, kidx):
-        signers = self.creator.create(codes=self.icodes, pidx=self.pidx, ridx=self.ridx, kidx=kidx,
-                                      transferable=self.transferable)
-        return [signer.verfer.qb64 for signer in signers]
+    def params(self):
+        return dict(
+            pidx=self.pidx,
+            kidx=self.kidx,
+            stem=self.stem,
+            tier=self.tier,
+            icodes=self.icodes,
+            ncodes=self.ncodes,
+            dcode=self.dcode,
+            transferable=self.transferable
+        )
 
-    def ndigs(self):
-        nsigners = self.creator.create(codes=self.ncodes, pidx=self.pidx, ridx=self.ridx + 1, kidx=len(self.icodes),
+    def incept(self, transferable):
+        self.transferable = transferable
+        self.kidx = 0
+
+        signers = self.creator.create(codes=self.icodes, pidx=self.pidx, kidx=self.kidx,
+                                      transferable=transferable)
+        verfers = [signer.verfer.qb64 for signer in signers]
+
+        nsigners = self.creator.create(codes=self.ncodes, pidx=self.pidx, kidx=len(self.icodes),
                                        transferable=self.transferable)
-        return [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
+        digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
 
-    def sign(self, ser, indexed=False, indices=None, ondices=None, rotate=False):
-        ridx = self.ridx
-        if rotate:
-            ridx = ridx + 1
+        return verfers, digers
 
-        signers = self.creator.create(codes=self.icodes, pidx=self.pidx, ridx=ridx, kidx=0,
+    def rotate(self, ncodes, transferable):
+        signers = self.creator.create(codes=self.ncodes, pidx=self.pidx, kidx=self.kidx + len(self.icodes),
+                                      transferable=self.transferable)
+        verfers = [signer.verfer.qb64 for signer in signers]
+
+        self.kidx = self.kidx + len(self.icodes)
+        nsigners = self.creator.create(codes=ncodes, pidx=self.pidx, kidx=self.kidx + len(self.icodes),
+                                       transferable=transferable)
+        digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
+
+        return verfers, digers
+
+    def sign(self, ser, indexed=True, indices=None, ondices=None):
+        signers = self.creator.create(codes=self.icodes, pidx=self.pidx, kidx=self.kidx,
                                       transferable=self.transferable)
 
         return self.__sign__(ser, signers=signers, indexed=indexed, indices=indices, ondices=ondices)
 
 
-class RandySigner:
-    pass
+class RandyKeeper(BaseKeeper):
+    def __init__(self, salter, code=MtrDex.Ed25519_Seed, count=1, icodes=None, transferable=False,
+                 ncode=MtrDex.Ed25519_Seed, ncount=1, ncodes=None, dcode=MtrDex.Blake3_256, prxs=None, nxts=None):
+
+        self.salter = salter
+        if not icodes:  # if not codes make list len count of same code
+            icodes = [code] * count
+        if not ncodes:
+            ncodes = [ncode] * ncount
+
+        signer = salter.signer(transferable=False)
+        self.aeid = signer.verfer.qb64
+        self.encrypter = coring.Encrypter(verkey=self.aeid)
+        self.decrypter = coring.Decrypter(seed=signer.qb64)
+
+        self.prxs = prxs
+        self.nxts = nxts
+        self.transferable = transferable
+
+        self.icodes = icodes
+        self.ncodes = ncodes
+        self.dcode = dcode
+
+        self.creator = RandyCreator()
+
+    def params(self):
+        return dict(
+            prxs=self.prxs,
+            nxts=self.nxts,
+            transferable=self.transferable
+        )
+
+    def incept(self, transferable):
+        self.transferable = transferable
+        signers = self.creator.create(codes=self.icodes, transferable=transferable)
+        self.prxs = [self.encrypter.encrypt(matter=signer).qb64 for signer in signers]
+
+        verfers = [signer.verfer.qb64 for signer in signers]
+
+        nsigners = self.creator.create(codes=self.ncodes, transferable=transferable)
+        self.nxts = [self.encrypter.encrypt(matter=signer).qb64 for signer in nsigners]
+        digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
+        return verfers, digers
+
+    def rotate(self, ncodes, transferable):
+        self.transferable = transferable
+        self.prxs = [self.decrypter.decrypt(ser=coring.Cipher(qb64=nxt).raw,
+                                            transferable=self.transferable) for nxt in self.nxts]
+
+        nsigners = self.creator.create(codes=ncodes, transferable=transferable)
+        self.nxts = [self.encrypter.encrypt(matter=signer).qb64 for signer in nsigners]
+
+    def sign(self, ser, indexed=True, indices=None, ondices=None, **_):
+        signers = [self.decrypter.decrypt(ser=coring.Cipher(qb64=prx).qb64b, transferable=self.transferable)
+                   for prx in self.prxs]
+        return self.__sign__(ser, signers=signers, indexed=indexed, indices=indices, ondices=ondices)
 
 
-class ExternalSigner:
-    pass
-
-
-class GroupSigner:
-    def __init__(self, mgr: Manager, aid):
+class GroupKeeper:
+    def __init__(self, mgr: Manager, mhab=None, states=None, rstates=None, keys=None, ndigs=None):
         self.mgr = mgr
-        group = aid[Algos.group]
-        self.gkeys = group["keys"]
-        self.gdigs = group["ndigs"]
-        self.mhab = group["mhab"]
+        self.gkeys = keys
+        self.gdigs = ndigs
+        self.mhab = mhab
 
-    def keys(self, kidx):
-        return self.gkeys
+    def incept(self, **_):
+        return self.gkeys, self.gdigs
 
-    def ndigs(self):
-        return self.gdigs
-
-    def sign(self, ser, indexed=True, rotate=False, **kwargs):
+    def sign(self, ser, indexed=True, rotate=False, **_):
         key = self.mhab['state']['k'][0]
         ndig = self.mhab['state']['n'][0]
 
         csi = self.gkeys.index(key)
         pni = self.gdigs.index(ndig)
-        return self.mgr.sign(ser, self.mhab, indexed=indexed, indices=[csi], ondices=[pni], rotate=rotate)
+        mkeeper = self.mgr.get(self.mhab)
+
+        return mkeeper.sign(ser, indexed=indexed, indices=[csi], ondices=[pni], rotate=rotate)
+
+
+class ExternalKeeper:
+    pass
