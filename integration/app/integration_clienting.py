@@ -13,7 +13,7 @@ from responses import _recorder
 
 import pytest
 from keri import kering
-from keri.core.coring import Tiers, Serder
+from keri.core.coring import Tiers, Serder, MtrDex
 
 from signify.app.clienting import SignifyClient
 
@@ -48,7 +48,7 @@ def test_init():
     assert client.controller == "EEu7aTxB4PbQY4sF72Lc-QjwcQuuAL_zRnHJGEj3Ca6b"
 
 
-def test_connect():
+def test_salty():
     """ This test assumes a running KERIA agent with the following comand:
 
           `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose`
@@ -159,6 +159,8 @@ def test_connect():
     serder = coring.Serder(ked=log[2])
     assert serder.pre == ixn.pre
     assert serder.said == ixn.said
+
+    print(identifiers.list())
 
 
 @_recorder.record(file_path="../../tests/app/witness.toml")
@@ -364,9 +366,44 @@ def test_randy():
 
     aids = identifiers.list()
     assert len(aids) == 1
-    print(aids[0])
+    aid = aids[0]
+    assert aid["prefix"] == icp.pre
+
+    ked = identifiers.interact("aid1", data=[icp.pre])
+    ixn = Serder(ked=ked)
+    assert ixn.sn == 1
+    assert ixn.ked["a"] == [icp.pre]
+
+    aids = identifiers.list()
+    assert len(aids) == 1
+    aid = aids[0]
+    events = client.keyEvents()
+    log = events.get(pre=aid["prefix"])
+    assert len(log) == 2
+
+    for event in log:
+        print(coring.Serder(ked=event).pretty())
+
+    aid = identifiers.get("aid1")
+    print(aid)
+    ked = identifiers.rotate("aid1")
+    rot = Serder(ked=ked)
+
+    assert rot.pre == icp.pre
+    assert rot.sn == 2
+    assert len(rot.digers) == 1
+    assert rot.verfers[0].qb64 != icp.verfers[0].qb64
+    assert rot.digers[0].qb64 != icp.digers[0].qb64
+    dig = coring.Diger(ser=rot.verfers[0].qb64b, code=MtrDex.Blake3_256)
+    print(icp.digers[0].qb64, dig.qb64)
+    assert icp.digers[0].qb64 == dig.qb64
+    log = events.get(pre=aid["prefix"])
+    assert len(log) == 3
+
+    for event in log:
+        print(coring.Serder(ked=event).pretty())
 
 
 if __name__ == "__main__":
-    # test_connect()
+    # test_salty()
     test_randy()

@@ -132,7 +132,7 @@ class Identifiers:
         state = hab["state"]
         count = len(state['k'])
         dig = state["d"]
-        ridx = int(state["ee"]["s"], 16) + 1
+        ridx = int(state["s"], 16) + 1
         wits = state['b']
         isith = state["kt"]
 

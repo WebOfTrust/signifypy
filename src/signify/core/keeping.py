@@ -196,16 +196,22 @@ class RandyKeeper(BaseKeeper):
 
         nsigners = self.creator.create(codes=self.ncodes, transferable=transferable)
         self.nxts = [self.encrypter.encrypt(matter=signer).qb64 for signer in nsigners]
+        print("saving", self.nxts)
         digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
         return verfers, digers
 
     def rotate(self, ncodes, transferable):
         self.transferable = transferable
-        self.prxs = [self.decrypter.decrypt(ser=coring.Cipher(qb64=nxt).raw,
-                                            transferable=self.transferable) for nxt in self.nxts]
+        self.prxs = self.nxts
+        signers = [self.decrypter.decrypt(cipher=coring.Cipher(qb64=nxt),
+                                          transferable=self.transferable) for nxt in self.nxts]
+        verfers = [signer.verfer.qb64 for signer in signers]
 
         nsigners = self.creator.create(codes=ncodes, transferable=transferable)
         self.nxts = [self.encrypter.encrypt(matter=signer).qb64 for signer in nsigners]
+        digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
+
+        return verfers, digers
 
     def sign(self, ser, indexed=True, indices=None, ondices=None, **_):
         signers = [self.decrypter.decrypt(ser=coring.Cipher(qb64=prx).qb64b, transferable=self.transferable)
