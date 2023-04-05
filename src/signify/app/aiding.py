@@ -68,28 +68,6 @@ class Identifiers:
         res = self.client.post("/identifiers", json=json)
         return res.json()
 
-    def _keyParams(self, algo, **kwargs):
-        match algo:
-            case Algos.group:
-                return self._groupKeyParams(**kwargs)
-
-    @staticmethod
-    def _groupKeyParams(mhab, states, rstates):
-
-        keys = [state['k'][0] for state in states]
-        smids = [state['i'] for state in states]
-
-        ndigs = [state['n'][0] for state in rstates]
-        rmids = [state['i'] for state in rstates]
-
-        return dict(
-            mhab=mhab,
-            keys=keys,
-            ndigs=ndigs,
-            smids=smids,
-            rmids=rmids
-        )
-
     def update(self, name, typ, **kwas):
         if typ == "interact":
             self.interact(name, **kwas)
@@ -120,6 +98,7 @@ class Identifiers:
         json = dict(
             ixn=serder.ked,
             sigs=sigs)
+        json[keeper.algo] = keeper.params()
 
         res = self.client.put(f"/identifiers/{name}?type=ixn", json=json)
         return res.json()
@@ -186,7 +165,8 @@ class Identifiers:
         pre = hab["prefix"]
 
         rpy = self.makeEndRole(pre, role, eid)
-        sigs = self.client.manager.sign(ser=rpy.raw, aid=hab)
+        keeper = self.client.manager.get(aid=hab)
+        sigs = keeper.sign(ser=rpy.raw)
         json = dict(
             rpy=rpy.ked,
             sigs=sigs

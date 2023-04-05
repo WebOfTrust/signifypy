@@ -285,7 +285,8 @@ def test_multisig():
 
     icp = identifiers.create("aid1")
     serder = coring.Serder(ked=icp)
-    assert serder.pre == "ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ"
+    print(serder.pretty())
+    assert serder.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     print(f"created AID {serder.pre}")
 
     # TODO: Add loading of end roles in identifier APIs in KERIA
@@ -335,6 +336,21 @@ def test_multisig():
         op = operations.get(op["name"])
         sleep(1)
 
+    # Join an interaction event with the group
+    data = {"i": "EE77q3_zWb5ojgJr-R1vzsL5yiL4Nzm-bfSOQzQl02dy"}
+    op = identifiers.interact("multisig", data=data)
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    ixn = coring.Serder(ked=op["response"])
+    events = client.keyEvents()
+    log = events.get(pre=ixn.pre)
+    assert len(log) == 2
+
+    for event in log:
+        print(coring.Serder(ked=event).pretty())
+
 
 def test_randy():
     """ This test assumes a running KERIA agent with the following comand:
@@ -381,14 +397,8 @@ def test_randy():
     log = events.get(pre=aid["prefix"])
     assert len(log) == 2
 
-    for event in log:
-        print(coring.Serder(ked=event).pretty())
-
-    aid = identifiers.get("aid1")
-    print(aid)
     ked = identifiers.rotate("aid1")
     rot = Serder(ked=ked)
-
     assert rot.pre == icp.pre
     assert rot.sn == 2
     assert len(rot.digers) == 1
@@ -406,4 +416,5 @@ def test_randy():
 
 if __name__ == "__main__":
     # test_salty()
-    test_randy()
+    # test_randy()
+    test_multisig()

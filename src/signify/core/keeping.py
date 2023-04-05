@@ -196,7 +196,6 @@ class RandyKeeper(BaseKeeper):
 
         nsigners = self.creator.create(codes=self.ncodes, transferable=transferable)
         self.nxts = [self.encrypter.encrypt(matter=signer).qb64 for signer in nsigners]
-        print("saving", self.nxts)
         digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
         return verfers, digers
 
@@ -219,17 +218,31 @@ class RandyKeeper(BaseKeeper):
         return self.__sign__(ser, signers=signers, indexed=indexed, indices=indices, ondices=ondices)
 
 
-class GroupKeeper:
-    def __init__(self, mgr: Manager, mhab=None, states=None, rstates=None, keys=None, ndigs=None):
+class GroupKeeper(BaseKeeper):
+
+    def __init__(self, mgr: Manager, mhab=None, states=None, rstates=None,
+                 keys=None, ndigs=None, smids=None, rmids=None):
         self.mgr = mgr
+
+        if keys is None:
+            keys = [state['k'][0] for state in states]
+            smids = [state['i'] for state in states]
+
+        if ndigs is None:
+            ndigs = [state['n'][0] for state in rstates]
+            rmids = [state['i'] for state in rstates]
+
         self.gkeys = keys
         self.gdigs = ndigs
+        self.smids = smids
+        self.rmids = rmids
         self.mhab = mhab
 
     def incept(self, **_):
         return self.gkeys, self.gdigs
 
     def sign(self, ser, indexed=True, rotate=False, **_):
+        print(self.mhab)
         key = self.mhab['state']['k'][0]
         ndig = self.mhab['state']['n'][0]
 
@@ -237,7 +250,16 @@ class GroupKeeper:
         pni = self.gdigs.index(ndig)
         mkeeper = self.mgr.get(self.mhab)
 
-        return mkeeper.sign(ser, indexed=indexed, indices=[csi], ondices=[pni], rotate=rotate)
+        return mkeeper.sign(ser, indexed=indexed, indices=[csi], ondices=[pni])
+
+    def params(self):
+        return dict(
+            mhab=self.mhab,
+            keys=self.gkeys,
+            ndigs=self.gdigs,
+            smids=self.smids,
+            rmids=self.rmids
+        )
 
 
 class ExternalKeeper:
