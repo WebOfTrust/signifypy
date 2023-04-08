@@ -136,7 +136,7 @@ class SaltyKeeper(BaseKeeper):
 
         return verfers, digers
 
-    def rotate(self, ncodes, transferable):
+    def rotate(self, ncodes, transferable, **_):
         signers = self.creator.create(codes=self.ncodes, pidx=self.pidx, kidx=self.kidx + len(self.icodes),
                                       transferable=self.transferable)
         verfers = [signer.verfer.qb64 for signer in signers]
@@ -199,7 +199,7 @@ class RandyKeeper(BaseKeeper):
         digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
         return verfers, digers
 
-    def rotate(self, ncodes, transferable):
+    def rotate(self, ncodes, transferable, **_):
         self.transferable = transferable
         self.prxs = self.nxts
         signers = [self.decrypter.decrypt(cipher=coring.Cipher(qb64=nxt),
@@ -221,28 +221,29 @@ class RandyKeeper(BaseKeeper):
 class GroupKeeper(BaseKeeper):
 
     def __init__(self, mgr: Manager, mhab=None, states=None, rstates=None,
-                 keys=None, ndigs=None, smids=None, rmids=None):
+                 keys=None, ndigs=None):
         self.mgr = mgr
 
-        if keys is None:
+        if states is not None:
             keys = [state['k'][0] for state in states]
-            smids = [state['i'] for state in states]
 
-        if ndigs is None:
+        if rstates is not None:
             ndigs = [state['n'][0] for state in rstates]
-            rmids = [state['i'] for state in rstates]
 
         self.gkeys = keys
         self.gdigs = ndigs
-        self.smids = smids
-        self.rmids = rmids
         self.mhab = mhab
 
     def incept(self, **_):
         return self.gkeys, self.gdigs
 
+    def rotate(self, states, rstates, **_):
+        self.gkeys = [state['k'][0] for state in states]
+        self.gdigs = [state['n'][0] for state in rstates]
+
+        return self.gkeys, self.gdigs
+
     def sign(self, ser, indexed=True, rotate=False, **_):
-        print(self.mhab)
         key = self.mhab['state']['k'][0]
         ndig = self.mhab['state']['n'][0]
 
@@ -256,9 +257,7 @@ class GroupKeeper(BaseKeeper):
         return dict(
             mhab=self.mhab,
             keys=self.gkeys,
-            ndigs=self.gdigs,
-            smids=self.smids,
-            rmids=self.rmids
+            ndigs=self.gdigs
         )
 
 

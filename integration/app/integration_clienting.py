@@ -351,6 +351,36 @@ def test_multisig():
     for event in log:
         print(coring.Serder(ked=event).pretty())
 
+    rot = identifiers.rotate("aid1")
+    serder = coring.Serder(ked=rot)
+    print(f"rotated aid1 to {serder.sn}")
+
+    aid1 = identifiers.get("aid1")
+    agent0 = aid1["state"]
+    keyState = client.keyStates()
+    op = keyState.query(pre="EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4", sn=1)
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    multisig1 = op["response"]
+    print(f"using key {multisig1['k'][0]}")
+    print(f"using dig {multisig1['n'][0]}")
+
+    op = keyState.query(pre="EJccSRTfXYF6wrUVuenAIHzwcx3hJugeiJsEKmndi5q1", sn=1)
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    multisig2 = op["response"]
+    print(f"using key {multisig2['k'][0]}")
+    print(f"using dig {multisig2['n'][0]}")
+
+    states = rstates = [multisig1, multisig2, agent0]
+
+    op = identifiers.rotate("multisig", states=states, rstates=rstates)
+    print(op)
+
 
 def test_randy():
     """ This test assumes a running KERIA agent with the following comand:
@@ -414,7 +444,46 @@ def test_randy():
         print(coring.Serder(ked=event).pretty())
 
 
+def test_query():
+    """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
+
+          `kli witness demo`
+          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose \
+               --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
+
+    """
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+
+    client = SignifyClient(url=url, bran=bran, tier=tier)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    client.connect()
+    assert client.agent is not None
+    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
+    assert client.ctrl.ridx == 0
+
+    operations = client.operations()
+    keyState = client.keyStates()
+    op = keyState.query(pre="EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4")
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    multisig1 = op["response"]
+
+    op = keyState.query(pre="EJccSRTfXYF6wrUVuenAIHzwcx3hJugeiJsEKmndi5q1")
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    multisig2 = op["response"]
+
+
 if __name__ == "__main__":
     # test_salty()
     # test_randy()
     test_multisig()
+    # test_query()

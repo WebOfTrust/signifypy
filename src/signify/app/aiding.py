@@ -63,6 +63,12 @@ class Identifiers:
             proxy=proxy)
         json[algo] = keeper.params()
 
+        if 'states' in kwargs:
+            json['smids'] = [state['i'] for state in kwargs['states']]
+
+        if 'rstates' in kwargs:
+            json['rmids'] = [state['i'] for state in kwargs['rstates']]
+
         self.client.pidx = self.client.pidx + 1
 
         res = self.client.post("/identifiers", json=json)
@@ -104,7 +110,7 @@ class Identifiers:
         return res.json()
 
     def rotate(self, name, *, transferable=True, nsith=None, toad=None, cuts=None, adds=None,
-               data=None, ncode=MtrDex.Ed25519_Seed, ncount=1, ncodes=None):
+               data=None, ncode=MtrDex.Ed25519_Seed, ncount=1, ncodes=None, states=None, rstates=None):
         hab = self.get(name)
         pre = hab["prefix"]
 
@@ -132,7 +138,7 @@ class Identifiers:
         if ncodes is None:
             ncodes = [ncode] * ncount
 
-        keys, ndigs = keeper.rotate(ncodes, transferable)
+        keys, ndigs = keeper.rotate(ncodes=ncodes, transferable=transferable, states=states, rstates=rstates)
 
         cuts = cuts if cuts is not None else []
         adds = adds if adds is not None else []
@@ -156,6 +162,12 @@ class Identifiers:
             rot=serder.ked,
             sigs=sigs)
         json[keeper.algo] = keeper.params()
+
+        if states is not None:
+            json['smids'] = [state['i'] for state in states]
+
+        if rstates is not None:
+            json['rmids'] = [state['i'] for state in rstates]
 
         res = self.client.put(f"/identifiers/{name}", json=json)
         return res.json()

@@ -63,6 +63,20 @@ class KeyStates:
         res = self.client.get(f"/states?{args}")
         return res.json()
 
+    def query(self, pre, sn=None, anchor=None):
+        json = dict(
+            pre=pre
+        )
+
+        if sn is not None:
+            json["sn"] = sn
+
+        if anchor is not None:
+            json["anchor"] = anchor
+
+        res = self.client.post(f"/queries", json=json)
+        return res.json()
+
 
 class KeyEvents:
     """ Domain class for accessing OOBIs"""
