@@ -22,61 +22,50 @@ def test_init():
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = None
-    temp = True
 
     # Try with bran that is too short
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url=url, bran=bran[:16], tier=tier, temp=temp)
+        SignifyClient(url=url, bran=bran[:16], tier=tier)
 
     # Try with an invalid URL
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url="ftp://www.example.com", bran=bran, tier=tier, temp=temp)
+        SignifyClient(url="ftp://www.example.com", bran=bran, tier=tier)
 
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
 
-    # changing tier with Temp=True has no effect
     tier = Tiers.low
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
 
-    temp = False
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     tier = Tiers.med
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
 
     tier = Tiers.high
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
 
 
 @responses.activate
 def test_connect():
-    """ This test assumes a running KERIA agent with the following comand:
-
-          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose`
-
-    """
     responses._add_from_file(file_path=os.path.join(TEST_DIR, "connect.toml"))
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
-    temp = True
 
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
 
     # Raises configuration error because the started agent has a different controller AID
     with pytest.raises(kering.ConfigurationError):
         client.connect()
 
-    temp = False
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=temp)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-
 
     client.connect()
     assert client.agent is not None
@@ -109,9 +98,8 @@ def test_connect():
     assert aid["pidx"] == 0
     assert aid["prefix"] == icp.pre
     assert aid["stem"] == "signify:aid"
-    assert aid["temp"] is False
 
-    aid2 = identifiers.create("aid2", temp=True, count=3, ncount=3, isith="2", nsith="2")
+    aid2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2")
     icp2 = Serder(ked=aid2)
     assert icp2.pre == "EIcPqJrvwYirK5ABfOcDEP3NEYOEX5LUr8NnLrbWeMpU"
     assert len(icp2.verfers) == 3
@@ -132,7 +120,6 @@ def test_connect():
     assert aid["pidx"] == 1
     assert aid["prefix"] == icp2.pre
     assert aid["stem"] == "signify:aid"
-    assert aid["temp"] is True
 
     ked = identifiers.rotate("aid1")
     rot = Serder(ked=ked)
@@ -151,25 +138,18 @@ def test_connect():
 
 @responses.activate
 def test_witnesses():
-    """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
-
-          `kli witness demo`
-          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose \
-               --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
-
-    """
     responses._add_from_file(file_path=os.path.join(TEST_DIR, "witness.toml"))
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, bran=bran, tier=tier, temp=False)
+    client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     client.connect()
     assert client.agent is not None
     assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1"
+    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
@@ -199,3 +179,41 @@ def test_witnesses():
     assert len(aids) == 1
     aid = aids.pop()
     assert aid['prefix'] == icp1.pre
+
+
+@responses.activate
+def test_delegation():
+    responses._add_from_file(file_path=os.path.join(TEST_DIR, "delegation.toml"))
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+
+    client = SignifyClient(url=url, bran=bran, tier=tier)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    client.connect()
+    assert client.agent is not None
+    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    delpre = "EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7"
+    identifiers = client.identifiers()
+    operations = client.operations()
+    oobis = client.oobis()
+
+    op = oobis.resolve("http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness/"
+                       "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha")
+
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+                                                                   "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
+                                                                   "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"])
+
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    icp1 = Serder(ked=op["response"])
+    assert icp1.pre == "EITU8bCJwnaQSZn3aH6qIIud_9qh9Z8f0FlgLc6lqmGl"

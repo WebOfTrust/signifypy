@@ -22,7 +22,7 @@ def test_authenticater(mockHelpingNowUTC):
 
     with habbing.openHby(name="agent", temp=True) as agentHby:
 
-        ctrl = authing.Controller(bran=bran, tier=Tiers.low, temp=True)
+        ctrl = authing.Controller(bran=bran, tier=Tiers.low)
         agentHab = agentHby.makeHab(name="agent", icount=1, isith='1', ncount=1, nsith='1', data=[ctrl.pre])
 
         dgkey = dbing.dgKey(agentHab.pre, agentHab.kever.serder.said)  # get message
