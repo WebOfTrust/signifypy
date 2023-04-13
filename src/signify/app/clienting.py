@@ -61,12 +61,13 @@ class SignifyClient:
         self.authn = Authenticater(agent=self.agent, ctrl=self.ctrl)
         self.session.auth = SignifyAuth(self.authn)
 
-        if state.ridx is None:
-            self.__boot__()
-
     @property
     def controller(self):
         return self.ctrl.pre
+
+    @property
+    def icp(self):
+        return self.ctrl.serder
 
     @property
     def salter(self):
@@ -76,21 +77,12 @@ class SignifyClient:
     def manager(self):
         return self.ctrl.manager
 
-    def __boot__(self):
-        evt, siger = self.ctrl.event()
-        res = self.session.post(url=urljoin(self.base, "/boot"),
-                                json=dict(
-                                    icp=evt.ked,
-                                    sig=siger.qb64,
-                                    stem=self.ctrl.stem,
-                                    pidx=1,
-                                    tier=self.ctrl.tier))
-
-        if res.status_code != requests.codes.accepted:
-            raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
-
     def state(self):
-        res = self.session.get(url=urljoin(self.base, "/boot"))
+        caid = self.ctrl.pre
+        res = self.session.get(url=urljoin(self.base, f"/agent/{caid}"))
+        if res.status_code == 404:
+            raise kering.ConfigurationError(f"agent does not exist for controller {caid}")
+
         data = res.json()
         state = State()
         state.kel = data["kel"]
@@ -173,13 +165,17 @@ class SignifyClient:
 
     @staticmethod
     def raiseForStatus(res):
-        body = res.json()
-        if "description" in body:
-            reason = body["description"]
-        elif "title" in body:
-            reason = body["title"]
-        else:
-            reason = "Unknown"
+        try:
+            body = res.json()
+
+            if "description" in body:
+                reason = body["description"]
+            elif "title" in body:
+                reason = body["title"]
+            else:
+                reason = "Unknown"
+        except Exception:
+            reason = res.text
 
         http_error_msg = ""
         if 400 <= res.status_code < 500:

@@ -7,6 +7,7 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 from time import sleep
 
+import requests
 from keri.app.keeping import Algos
 from keri.core import coring
 from responses import _recorder
@@ -32,7 +33,12 @@ def test_init():
         SignifyClient(url="ftp://www.example.com", bran=bran, tier=tier)
 
     client = SignifyClient(url=url, bran=bran, tier=tier)
-    assert client.controller == "EA0jffuFfGdPBcV1urlKtM9O5XZgRttQrKNVFtB30c13"
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    serder = client.icp
+    assert serder.raw == (b'{"v":"KERI10JSON00012b_","t":"icp","d":"ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJ'
+                          b'XJHtJose","i":"ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose","s":"0","kt":"1'
+                          b'","k":["DAbWjobbaLqRB94KiAutAHb_qzPpOHm3LURA_ksxetVc"],"nt":"1","n":["EIFG_u'
+                          b'qfr1yN560LoHYHfvPAhxQ5sN6xZZT_E3h7d2tL"],"bt":"0","b":[],"c":[],"a":[]}')
 
     # changing tier with has no effect
     tier = Tiers.low
@@ -41,11 +47,11 @@ def test_init():
 
     tier = Tiers.med
     client = SignifyClient(url=url, bran=bran, tier=tier)
-    assert client.controller == "EFrCn76IOMVENbf8EZFXCE3s9HEHQK7Xq93GLAEr9Voo"
+    assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
 
     tier = Tiers.high
     client = SignifyClient(url=url, bran=bran, tier=tier)
-    assert client.controller == "EEu7aTxB4PbQY4sF72Lc-QjwcQuuAL_zRnHJGEj3Ca6b"
+    assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
 
 
 def test_salty():
@@ -69,10 +75,22 @@ def test_salty():
     client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
     client.connect()
     assert client.agent is not None
     assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
+    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
@@ -483,7 +501,7 @@ def test_query():
 
 
 if __name__ == "__main__":
-    # test_salty()
+    test_salty()
     # test_randy()
-    test_multisig()
+    # test_multisig()
     # test_query()
