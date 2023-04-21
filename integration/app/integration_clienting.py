@@ -294,7 +294,7 @@ def test_multisig():
     client.connect()
     assert client.agent is not None
     assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
+    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
@@ -307,7 +307,6 @@ def test_multisig():
     assert serder.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     print(f"created AID {serder.pre}")
 
-    # TODO: Add loading of end roles in identifier APIs in KERIA
     identifiers.addEndRole("aid1", eid=client.agent.pre)
 
     print(f"OOBI for {serder.pre}:")
@@ -412,10 +411,22 @@ def test_randy():
     client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
     client.connect()
     assert client.agent is not None
     assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
+    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
@@ -500,8 +511,87 @@ def test_query():
     multisig2 = op["response"]
 
 
+def test_multi_tenant():
+    """ This test assumes a running KERIA agent with the following comand:
+
+          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose`
+
+    """
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+    client = SignifyClient(url=url, bran=bran, tier=tier)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
+    client.connect()
+    assert client.agent is not None
+    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
+    assert client.ctrl.ridx == 0
+
+    identifiers = client.identifiers()
+    aid = identifiers.create("aid1")
+    icp = Serder(ked=aid)
+    assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
+    assert len(icp.verfers) == 1
+    assert icp.verfers[0].qb64 == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
+    assert len(icp.digers) == 1
+    assert icp.digers[0].qb64 == "EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"
+    assert icp.tholder.num == 1
+    assert icp.ntholder.num == 1
+
+    identifiers.addEndRole("aid1", eid=client.agent.pre)
+
+    rbran = b'abcdefghijk0123456789'
+    rclient = SignifyClient(url=url, bran=rbran, tier=tier)
+    assert rclient.controller == "EIIY2SgE_bqKLl2MlnREUawJ79jTuucvWwh-S6zsSUFo"
+
+    evt, siger = rclient.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=rclient.ctrl.stem,
+                            pidx=1,
+                            tier=rclient.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
+    rclient.connect()
+    assert rclient.agent is not None
+    assert rclient.agent.anchor == "EIIY2SgE_bqKLl2MlnREUawJ79jTuucvWwh-S6zsSUFo"
+    assert rclient.agent.pre == "ECrQUIn5_aonlPt7zod4HCaqkfG_KPDuUEh8Bql1Y9TY"
+    assert rclient.ctrl.ridx == 0
+
+    ridentifiers = rclient.identifiers()
+    aid = ridentifiers.create("randy1", algo=Algos.randy)
+    icp = Serder(ked=aid)
+    assert len(icp.verfers) == 1
+    assert len(icp.verfers) == 1
+    assert len(icp.digers) == 1
+    assert len(icp.digers) == 1
+    assert icp.tholder.num == 1
+    assert icp.ntholder.num == 1
+
+    ridentifiers.addEndRole("randy1", eid=rclient.agent.pre)
+
+
 if __name__ == "__main__":
-    test_salty()
+    # test_salty()
     # test_randy()
     # test_multisig()
     # test_query()
+    test_multi_tenant()
