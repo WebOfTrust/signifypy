@@ -196,16 +196,29 @@ def test_witnesses():
 
     client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
     client.connect()
+
     assert client.agent is not None
     assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
+    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
     operations = client.operations()
 
+    print("creating aid")
     # Use witnesses
     op = identifiers.create("aid1", toad="2", wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
                                                     "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
@@ -216,14 +229,14 @@ def test_witnesses():
         sleep(1)
 
     icp1 = Serder(ked=op["response"])
-    assert icp1.pre == "EALbxdf4Voh2LFEEQlCWYe3pxiEK3efIZ88VQwz2Q1nO"
+    assert icp1.pre == "EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk"
     assert icp1.ked['b'] == ["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
                              "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
                              "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"]
     assert icp1.ked['bt'] == "2"
 
     aid1 = identifiers.get("aid1")
-    assert aid1["prefix"] == "EALbxdf4Voh2LFEEQlCWYe3pxiEK3efIZ88VQwz2Q1nO"
+    assert aid1["prefix"] == "EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk"
     assert len(aid1["windexes"]) == 3
 
     aids = identifiers.list()
@@ -587,11 +600,14 @@ def test_multi_tenant():
     assert icp.ntholder.num == 1
 
     ridentifiers.addEndRole("randy1", eid=rclient.agent.pre)
+    print(identifiers.list())
+    print(ridentifiers.list())
 
 
 if __name__ == "__main__":
     # test_salty()
     # test_randy()
+    test_witnesses()
     # test_multisig()
     # test_query()
-    test_multi_tenant()
+    # test_multi_tenant()
