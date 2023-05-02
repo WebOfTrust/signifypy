@@ -79,7 +79,7 @@ class Agent:
 
 
 class Controller:
-    def __init__(self, bran, tier, ridx=0):
+    def __init__(self, bran, tier, ridx=0, extern_modules=None):
         if hasattr(bran, "decode"):
             bran = bran.decode("utf-8")
 
@@ -88,7 +88,7 @@ class Controller:
         self.tier = tier
 
         self.salter = coring.Salter(qb64=self.bran)
-        self.manager = keeping.Manager(salter=self.salter)
+        self.manager = keeping.Manager(salter=self.salter, extern_modules=extern_modules)
 
         creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=tier)
 
@@ -105,6 +105,7 @@ class Controller:
                                       code=coring.MtrDex.Blake3_256,
                                       toad="0",
                                       wits=[])
+
 
     @property
     def pre(self):

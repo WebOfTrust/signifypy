@@ -54,6 +54,50 @@ def test_init():
     assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
 
 
+def test_extern():
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = None
+
+    client = SignifyClient(url=url, bran=bran, tier=tier,
+                           extern_modules=[
+                               dict(
+                                   type="gcp",
+                                   name="gcp_ksm_shim",
+                                   params=dict(
+                                       projectId="advance-copilot-319717",
+                                       locationId="us-west1",
+                                       keyRingId="signify-key-ring"
+                                   )
+                               )])
+
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
+    client.connect()
+    assert client.agent is not None
+    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
+    assert client.ctrl.ridx == 0
+
+    # Create AID using external HSM module
+    stem = "ABO4qF9g9L-e1QzvMXgY-58elMh8L-63ZBnNXhxScO81"
+    identifiers = client.identifiers()
+    aid = identifiers.create("aid1", algo=Algos.extern, extern_type="gcp", extern=dict(stem=stem))
+    icp = Serder(ked=aid)
+    print(icp.pretty())
+
+
 def test_salty():
     """ This test assumes a running KERIA agent with the following comand:
 
@@ -607,7 +651,8 @@ def test_multi_tenant():
 if __name__ == "__main__":
     # test_salty()
     # test_randy()
-    test_witnesses()
+    # test_witnesses()
     # test_multisig()
     # test_query()
     # test_multi_tenant()
+    test_extern()
