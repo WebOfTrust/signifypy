@@ -1,3 +1,14 @@
+# -*- encoding: utf-8 -*-
+"""
+KERI
+signify.core.keeping module
+
+"""
+
+
+import importlib
+
+from keri import kering
 from keri.app.keeping import SaltyCreator, Algos, RandyCreator
 from keri.core import coring
 from keri.core.coring import Tiers, MtrDex
@@ -5,8 +16,18 @@ from keri.core.coring import Tiers, MtrDex
 
 class Manager:
 
-    def __init__(self, salter):
+    def __init__(self, salter, extern_modules=None):
         self.salter = salter
+        self.modules = dict()
+        for module in extern_modules:
+            typ = module["type"]
+            name = module["name"]
+            params = module["params"]
+
+            pkg = importlib.import_module(name)
+            mod = pkg.module(**params)
+
+            self.modules[typ] = mod
 
     def new(self, algo, pidx, **kwargs):
         match algo:
@@ -19,8 +40,14 @@ class Manager:
             case Algos.randy:
                 return RandyKeeper(salter=self.salter, **kwargs)
 
-            case _:
-                return ExternalKeeper()
+            case Algos.extern:
+                typ = kwargs["extern_type"]
+                if typ not in self.modules:
+                    raise kering.ConfigurationError(f"unsupported external module type {typ}")
+                mod = self.modules[typ]
+
+                eargs = kwargs["extern"]
+                return mod.shim(pidx=pidx, **eargs)
 
     def get(self, aid):
         pre = coring.Prefixer(qb64=aid["prefix"])
@@ -259,7 +286,3 @@ class GroupKeeper(BaseKeeper):
             keys=self.gkeys,
             ndigs=self.gdigs
         )
-
-
-class ExternalKeeper:
-    pass

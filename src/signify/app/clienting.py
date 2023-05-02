@@ -4,6 +4,7 @@ KERI
 signify.app.clienting module
 
 """
+import importlib
 from dataclasses import dataclass
 from urllib.parse import urlparse, urljoin, urlsplit
 
@@ -25,7 +26,7 @@ class State:
 
 class SignifyClient:
 
-    def __init__(self, url, bran, tier):
+    def __init__(self, url, bran, tier, extern_modules=None):
 
         up = urlparse(url)
         if up.scheme not in kering.Schemes:
@@ -40,7 +41,7 @@ class SignifyClient:
         self.session = None
         self.agent = None
         self.authn = None
-        self.ctrl = Controller(bran=bran, tier=tier)
+        self.ctrl = Controller(bran=bran, tier=tier, extern_modules=extern_modules)
 
     def connect(self):
 
