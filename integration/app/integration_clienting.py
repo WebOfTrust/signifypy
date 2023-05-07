@@ -21,6 +21,7 @@ from signify.app.clienting import SignifyClient
 TESTS_APP_DIR = "tests/app/"
 WITNESS_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"witness.toml")
 DELEGATION_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"delegation.toml")
+CONNECT_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"connect.toml")
 
 def test_init():
     url = "http://localhost:3901"
@@ -100,7 +101,7 @@ def test_extern():
     icp = Serder(ked=aid)
     print(icp.pretty())
 
-
+@_recorder.record(file_path=CONNECT_FILE_PATH)
 def test_salty():
     """ This test assumes a running KERIA agent with the following comand:
 

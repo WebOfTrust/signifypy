@@ -54,20 +54,15 @@ def test_connect():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
+    ctrl = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     client = SignifyClient(url=url, bran=bran, tier=tier)
-    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.controller == ctrl
 
-    # Raises configuration error because the started agent has a different controller AID
-    with pytest.raises(kering.ConfigurationError):
-        client.connect()
-
-    client = SignifyClient(url=url, bran=bran, tier=tier)
-    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-
+    agentPre = "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1"
+    assert client.agent.anchor == ctrl
+    assert client.agent.pre == agentPre
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
@@ -76,11 +71,11 @@ def test_connect():
 
     aid = identifiers.create("aid1")
     icp = Serder(ked=aid)
-    assert icp.pre == "ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ"
+    assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert len(icp.verfers) == 1
     assert icp.verfers[0].qb64 == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
     assert len(icp.digers) == 1
-    assert icp.digers[0].qb64 == "ENIJ_qTj6Zb6GgSCvLPUPaf7ypO0KfyxBfJcmwrioCdr"
+    assert icp.digers[0].qb64 == "EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"
     assert icp.tholder.num == 1
     assert icp.ntholder.num == 1
 
@@ -92,21 +87,21 @@ def test_connect():
     aid = aids.pop()
 
     assert aid['name'] == "aid1"
-    assert aid["pidx"] == 0
+    assert aid["salty"]["pidx"] == 0
     assert aid["prefix"] == icp.pre
-    assert aid["stem"] == "signify:aid"
+    assert aid["salty"]["stem"] == "signify:aid"
 
     aid2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2")
     icp2 = Serder(ked=aid2)
-    assert icp2.pre == "EIcPqJrvwYirK5ABfOcDEP3NEYOEX5LUr8NnLrbWeMpU"
+    assert icp2.pre == "EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL"
     assert len(icp2.verfers) == 3
-    assert icp2.verfers[0].qb64 == "DMT7Xy_FUitLxWX0tHgsOOhW50iloHbXjlF_xaXCCxwv"
-    assert icp2.verfers[1].qb64 == "DBtqxaApH5G2jmlnuUeckKc6ntieS41vmR9E1K93WyNd"
-    assert icp2.verfers[2].qb64 == "DM750nt2-lKzCLIIJqzh61SILLz-nrEgkczcLH9m9GT6"
+    assert icp2.verfers[0].qb64 == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
+    assert icp2.verfers[1].qb64 == "DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"
+    assert icp2.verfers[2].qb64 == "DEfdjYZMI2hLaHBOpUubn5AUItgOvh2W1vckGE33SIPf"
     assert len(icp2.digers) == 3
-    assert icp2.digers[0].qb64 == "ECkMSLcBB8UNzhIrjFBXFP11nLB_4CaJv_18ew5McpP6"
-    assert icp2.digers[1].qb64 == "EDxKP6QLbAJQtoOHAPMVxYI-7I6oB8fCgRcjNmxSTXFC"
-    assert icp2.digers[2].qb64 == "EEScGcKIiH3uv4oHnrcZzTHwXW5h6AexqQhh52PUz4fB"
+    assert icp2.digers[0].qb64 == "EEvyqpRLktts-_aSfPHKKv1mTKTV4ngwKKkOaqm3ZuPX"
+    assert icp2.digers[1].qb64 == "EEkMimwsv_JMZh7k-Rfq5wvhvbEdjVr8NhGQpyssVmNJ"
+    assert icp2.digers[2].qb64 == "EJy_MjjMWLJkn_5cRaUtDr7asfLe70xbAPD2nablr0iv"
     assert icp2.tholder.num == 2
     assert icp2.ntholder.num == 2
 
@@ -114,21 +109,21 @@ def test_connect():
     assert len(aids) == 2
     aid = aids[1]
     assert aid['name'] == "aid2"
-    assert aid["pidx"] == 1
+    assert aid["salty"]["pidx"] == 1
     assert aid["prefix"] == icp2.pre
-    assert aid["stem"] == "signify:aid"
+    assert aid["salty"]["stem"] == "signify:aid"
 
     ked = identifiers.rotate("aid1")
     rot = Serder(ked=ked)
 
-    assert rot.said == "EKzEsFo3CWCFdKPb1L33iHqm7smqRIy9IlMaa1uH5ZJk"
+    assert rot.said == "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg"
     assert rot.sn == 1
     assert len(rot.digers) == 1
-    assert rot.digers[0].qb64 == "EIQVCPiXmmpLtbSBt0CyKVscky56BUEATKrc2qC7FIYA"
+    assert rot.digers[0].qb64 == "EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"
 
     ked = identifiers.interact("aid1", data=[icp.pre])
     ixn = Serder(ked=ked)
-    assert ixn.said == "EJyW-3Bfrr9jMkjc1hRUmGclCnAWpNqFbLy5QtH9qvAy"
+    assert ixn.said == "ENsmRAg_oM7Hl1S-GTRMA7s4y760lQMjzl0aqOQ2iTce"
     assert ixn.sn == 2
     assert ixn.ked["a"] == [icp.pre]
 
