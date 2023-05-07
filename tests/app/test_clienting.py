@@ -32,12 +32,9 @@ def test_init():
         SignifyClient(url="ftp://www.example.com", bran=bran, tier=tier)
 
     client = SignifyClient(url=url, bran=bran, tier=tier)
-    assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     tier = Tiers.low
-    client = SignifyClient(url=url, bran=bran, tier=tier)
-    assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
-
     client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
@@ -58,7 +55,7 @@ def test_connect():
     tier = Tiers.low
 
     client = SignifyClient(url=url, bran=bran, tier=tier)
-    assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     # Raises configuration error because the started agent has a different controller AID
     with pytest.raises(kering.ConfigurationError):
@@ -149,7 +146,7 @@ def test_witnesses():
     client.connect()
     assert client.agent is not None
     assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
+    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
@@ -165,14 +162,14 @@ def test_witnesses():
         sleep(1)
 
     icp1 = Serder(ked=op["response"])
-    assert icp1.pre == "EALbxdf4Voh2LFEEQlCWYe3pxiEK3efIZ88VQwz2Q1nO"
+    assert icp1.pre == "EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk"
     assert icp1.ked['b'] == ["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
                              "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
                              "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"]
     assert icp1.ked['bt'] == "2"
 
     aid1 = identifiers.get("aid1")
-    assert aid1["prefix"] == "EALbxdf4Voh2LFEEQlCWYe3pxiEK3efIZ88VQwz2Q1nO"
+    assert aid1["prefix"] == "EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk"
     assert len(aid1["windexes"]) == 3
 
     aids = identifiers.list()

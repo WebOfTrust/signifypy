@@ -18,6 +18,9 @@ from keri.core.coring import Tiers, Serder, MtrDex
 
 from signify.app.clienting import SignifyClient
 
+TESTS_APP_DIR = "tests/app/"
+WITNESS_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"witness.toml")
+DELEGATION_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"delegation.toml")
 
 def test_init():
     url = "http://localhost:3901"
@@ -225,7 +228,7 @@ def test_salty():
     print(identifiers.list())
 
 
-@_recorder.record(file_path="../../tests/app/witness.toml")
+@_recorder.record(file_path=WITNESS_FILE_PATH)
 def test_witnesses():
     """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
 
@@ -234,6 +237,10 @@ def test_witnesses():
                --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
 
     """
+    import os 
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    print("current path: ", dir_path)
+    print("should find witenss toml file here: ",os.listdir("{}/../../{}".format(dir_path,TESTS_APP_DIR)))
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
@@ -289,12 +296,12 @@ def test_witnesses():
     assert aid['prefix'] == icp1.pre
 
 
-@_recorder.record(file_path="../../tests/app/delegation.toml")
+@_recorder.record(file_path=DELEGATION_FILE_PATH)
 def test_delegation():
     """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
 
           `kli witness demo`
-          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose \
+          `keria start \
                --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
 
     """
@@ -305,6 +312,18 @@ def test_delegation():
     client = SignifyClient(url=url, bran=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
     client.connect()
     assert client.agent is not None
     assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
@@ -314,16 +333,20 @@ def test_delegation():
     operations = client.operations()
     oobis = client.oobis()
 
-    op = oobis.resolve("http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness/"
-                       "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha")
+    wit1 = "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
+    op = oobis.resolve("http://127.0.0.1:5642/oobi/{}/witness/".format(delpre,wit1))
+    print("OOBI op is: ", op)
 
-    while not op["done"]:
+    count = 0
+    while not op["done"] and not count > 25:
         op = operations.get(op["name"])
+        print("....Current OOBI op is: ", op)
         sleep(1)
+        count+=1
 
-    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-                                                                   "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-                                                                   "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"])
+    wit2 = "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"
+    wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
+    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=[wit1,wit2,wit3])
 
     while not op["done"]:
         op = operations.get(op["name"])
@@ -649,10 +672,12 @@ def test_multi_tenant():
 
 
 if __name__ == "__main__":
-    # test_salty()
-    # test_randy()
+    # test_delegation()
     # test_witnesses()
+
+    test_salty()
+    # test_randy()
     # test_multisig()
     # test_query()
     # test_multi_tenant()
-    test_extern()
+    # test_extern()
