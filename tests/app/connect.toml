@@ -1,108 +1,157 @@
-[[responses]]
-
-[responses.response]
-method = "GET"
-url = "http://localhost:3901/boot"
-body = "{\"kel\": [{\"ked\": {\"v\": \"KERI10JSON000159_\", \"t\": \"icp\", \"d\": \"EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1\", \"i\": \"EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1\", \"s\": \"0\", \"kt\": \"1\", \"k\": [\"DF_pwiZQiNWtvksHhOtoAYM6j3WTdzBmMQainmlbxSdT\"], \"nt\": \"1\", \"n\": [\"EAksAMJTf2Cd1JYUq7fWy22hdPUFijBgrej4Wtfx2NFM\"], \"bt\": \"0\", \"b\": [], \"c\": [], \"a\": [\"ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose\"]}, \"sig\": \"AAA8XCnIKkWfpgayz6GRfVPH_Fe4P55XF75fzY3iLT5YQsBiofNBWJI9OkiYro98b3Qrh85DDTW52cZ5fj2yz3gF\"}], \"pidx\": 0}"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "GET"
-url = "http://localhost:3901/boot"
-body = "{\"kel\": [{\"ked\": {\"v\": \"KERI10JSON000159_\", \"t\": \"icp\", \"d\": \"EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1\", \"i\": \"EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1\", \"s\": \"0\", \"kt\": \"1\", \"k\": [\"DF_pwiZQiNWtvksHhOtoAYM6j3WTdzBmMQainmlbxSdT\"], \"nt\": \"1\", \"n\": [\"EAksAMJTf2Cd1JYUq7fWy22hdPUFijBgrej4Wtfx2NFM\"], \"bt\": \"0\", \"b\": [], \"c\": [], \"a\": [\"ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose\"]}, \"sig\": \"AAA8XCnIKkWfpgayz6GRfVPH_Fe4P55XF75fzY3iLT5YQsBiofNBWJI9OkiYro98b3Qrh85DDTW52cZ5fj2yz3gF\"}], \"pidx\": 0}"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "POST"
-url = "http://localhost:3901/boot"
-body = ""
-status = 202
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "GET"
-url = "http://localhost:3901/identifiers"
-body = "[]"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "POST"
-url = "http://localhost:3901/identifiers"
-body = "{\"v\":\"KERI10JSON00012b_\",\"t\":\"icp\",\"d\":\"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\",\"i\":\"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\",\"s\":\"0\",\"kt\":\"1\",\"k\":[\"DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9\"],\"nt\":\"1\",\"n\":[\"ENIJ_qTj6Zb6GgSCvLPUPaf7ypO0KfyxBfJcmwrioCdr\"],\"bt\":\"0\",\"b\":[],\"c\":[],\"a\":[]}"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "GET"
-url = "http://localhost:3901/identifiers"
-body = "[{\"name\": \"aid1\", \"prefix\": \"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\", \"stem\": \"signify:aid\", \"pidx\": 0, \"tier\": \"low\", \"temp\": false}]"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "POST"
-url = "http://localhost:3901/identifiers"
-body = "{\"v\":\"KERI10JSON0001e7_\",\"t\":\"icp\",\"d\":\"EIcPqJrvwYirK5ABfOcDEP3NEYOEX5LUr8NnLrbWeMpU\",\"i\":\"EIcPqJrvwYirK5ABfOcDEP3NEYOEX5LUr8NnLrbWeMpU\",\"s\":\"0\",\"kt\":\"2\",\"k\":[\"DMT7Xy_FUitLxWX0tHgsOOhW50iloHbXjlF_xaXCCxwv\",\"DBtqxaApH5G2jmlnuUeckKc6ntieS41vmR9E1K93WyNd\",\"DM750nt2-lKzCLIIJqzh61SILLz-nrEgkczcLH9m9GT6\"],\"nt\":\"2\",\"n\":[\"ECkMSLcBB8UNzhIrjFBXFP11nLB_4CaJv_18ew5McpP6\",\"EDxKP6QLbAJQtoOHAPMVxYI-7I6oB8fCgRcjNmxSTXFC\",\"EEScGcKIiH3uv4oHnrcZzTHwXW5h6AexqQhh52PUz4fB\"],\"bt\":\"0\",\"b\":[],\"c\":[],\"a\":[]}"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "GET"
-url = "http://localhost:3901/identifiers"
-body = "[{\"name\": \"aid1\", \"prefix\": \"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\", \"stem\": \"signify:aid\", \"pidx\": 0, \"tier\": \"low\", \"temp\": false}, {\"name\": \"aid2\", \"prefix\": \"EIcPqJrvwYirK5ABfOcDEP3NEYOEX5LUr8NnLrbWeMpU\", \"stem\": \"signify:aid\", \"pidx\": 1, \"tier\": \"low\", \"temp\": true}]"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "GET"
-url = "http://localhost:3901/identifiers/aid1"
-body = "{\"name\": \"aid1\", \"prefix\": \"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\", \"stem\": \"signify:aid\", \"pidx\": 0, \"tier\": \"low\", \"temp\": false, \"state\": {\"v\": \"KERI10JSON0001b6_\", \"i\": \"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\", \"s\": \"0\", \"p\": \"\", \"d\": \"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\", \"f\": \"0\", \"dt\": \"2023-03-03T22:38:33.220856+00:00\", \"et\": \"icp\", \"kt\": \"1\", \"k\": [\"DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9\"], \"nt\": \"1\", \"n\": [\"ENIJ_qTj6Zb6GgSCvLPUPaf7ypO0KfyxBfJcmwrioCdr\"], \"bt\": \"0\", \"b\": [], \"c\": [], \"ee\": {\"s\": \"0\", \"d\": \"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\", \"br\": [], \"ba\": []}, \"di\": \"\"}, \"windexes\": []}"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "PUT"
-url = "http://localhost:3901/identifiers/aid1"
-body = "{\"v\":\"KERI10JSON000160_\",\"t\":\"rot\",\"d\":\"EKzEsFo3CWCFdKPb1L33iHqm7smqRIy9IlMaa1uH5ZJk\",\"i\":\"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\",\"s\":\"1\",\"p\":\"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\",\"kt\":\"1\",\"k\":[\"DCVJO_i1OtTAXmWZ5clzeeTuQjUhy_hn2BVTerHdQYtC\"],\"nt\":\"1\",\"n\":[\"EIQVCPiXmmpLtbSBt0CyKVscky56BUEATKrc2qC7FIYA\"],\"bt\":\"0\",\"br\":[],\"ba\":[],\"a\":[]}"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "GET"
-url = "http://localhost:3901/identifiers/aid1"
-body = "{\"name\": \"aid1\", \"prefix\": \"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\", \"stem\": \"signify:aid\", \"pidx\": 0, \"tier\": \"low\", \"temp\": false, \"state\": {\"v\": \"KERI10JSON0001e2_\", \"i\": \"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\", \"s\": \"1\", \"p\": \"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\", \"d\": \"EKzEsFo3CWCFdKPb1L33iHqm7smqRIy9IlMaa1uH5ZJk\", \"f\": \"1\", \"dt\": \"2023-03-03T22:38:33.530261+00:00\", \"et\": \"rot\", \"kt\": \"1\", \"k\": [\"DCVJO_i1OtTAXmWZ5clzeeTuQjUhy_hn2BVTerHdQYtC\"], \"nt\": \"1\", \"n\": [\"EIQVCPiXmmpLtbSBt0CyKVscky56BUEATKrc2qC7FIYA\"], \"bt\": \"0\", \"b\": [], \"c\": [], \"ee\": {\"s\": \"1\", \"d\": \"EKzEsFo3CWCFdKPb1L33iHqm7smqRIy9IlMaa1uH5ZJk\", \"br\": [], \"ba\": []}, \"di\": \"\"}, \"windexes\": []}"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
-[[responses]]
-
-[responses.response]
-method = "PUT"
-url = "http://localhost:3901/identifiers/aid1?type=ixn"
-body = "{\"v\":\"KERI10JSON0000f9_\",\"t\":\"ixn\",\"d\":\"EJyW-3Bfrr9jMkjc1hRUmGclCnAWpNqFbLy5QtH9qvAy\",\"i\":\"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\",\"s\":\"2\",\"p\":\"EKzEsFo3CWCFdKPb1L33iHqm7smqRIy9IlMaa1uH5ZJk\",\"a\":[\"ED6GSHpz7zeEBYwkBYT3SZFjAGTP3iLt_SMa2-hznjLQ\"]}"
-status = 200
-content_type = "text/plain"
-auto_calculate_content_length = false
+responses:
+- response:
+    auto_calculate_content_length: false
+    body: '{"title": "404 Not Found", "description": "not agent found for controller
+      EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"}'
+    content_type: text/plain
+    method: GET
+    status: 404
+    url: http://localhost:3901/agent/EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0
+- response:
+    auto_calculate_content_length: false
+    body: ''
+    content_type: text/plain
+    method: POST
+    status: 202
+    url: http://localhost:3903/boot
+- response:
+    auto_calculate_content_length: false
+    body: '{"kel": [{"ked": {"v": "KERI10JSON000159_", "t": "icp", "d": "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg",
+      "i": "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg", "s": "0", "kt": "1", "k":
+      ["DCQE55HKUokSAKc4ntJw2b845r4DnddpPZs8iF_T-0c-"], "nt": "1", "n": ["ELSYuxNoL39hVmOt11CPaajY5YjFFT4HVLdQ3aXgwJfv"],
+      "bt": "0", "b": [], "c": [], "a": ["ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"]},
+      "sig": "AAAU5DBHq9QWecgY03uDAjcPxPnegFWELJsAPougzIv_fSAv6dHRi5_6pLm_IMSYF1AP9OBIlB4aKrar3XlkY-8P"}],
+      "pidx": 0, "ridx": 0}'
+    content_type: text/plain
+    method: GET
+    status: 200
+    url: http://localhost:3901/agent/ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose
+- response:
+    auto_calculate_content_length: false
+    body: '[]'
+    content_type: text/plain
+    method: GET
+    status: 200
+    url: http://localhost:3901/identifiers
+- response:
+    auto_calculate_content_length: false
+    body: '{"v":"KERI10JSON00012b_","t":"icp","d":"ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK","i":"ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK","s":"0","kt":"1","k":["DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"],"nt":"1","n":["EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"],"bt":"0","b":[],"c":[],"a":[]}'
+    content_type: text/plain
+    method: POST
+    status: 200
+    url: http://localhost:3901/identifiers
+- response:
+    auto_calculate_content_length: false
+    body: '[{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "salty": {"pidx": 0, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode":
+      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}}]'
+    content_type: text/plain
+    method: GET
+    status: 200
+    url: http://localhost:3901/identifiers
+- response:
+    auto_calculate_content_length: false
+    body: '{"v":"KERI10JSON0001e7_","t":"icp","d":"EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL","i":"EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL","s":"0","kt":"2","k":["DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9","DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly","DEfdjYZMI2hLaHBOpUubn5AUItgOvh2W1vckGE33SIPf"],"nt":"2","n":["EEvyqpRLktts-_aSfPHKKv1mTKTV4ngwKKkOaqm3ZuPX","EEkMimwsv_JMZh7k-Rfq5wvhvbEdjVr8NhGQpyssVmNJ","EJy_MjjMWLJkn_5cRaUtDr7asfLe70xbAPD2nablr0iv"],"bt":"0","b":[],"c":[],"a":[]}'
+    content_type: text/plain
+    method: POST
+    status: 200
+    url: http://localhost:3901/identifiers
+- response:
+    auto_calculate_content_length: false
+    body: '[{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "salty": {"pidx": 0, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode":
+      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}}, {"name": "aid2",
+      "prefix": "EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL", "salty": {"pidx":
+      1, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      ["A", "A", "A"], "ncodes": ["A", "A", "A"], "transferable": true}}]'
+    content_type: text/plain
+    method: GET
+    status: 200
+    url: http://localhost:3901/identifiers
+- response:
+    auto_calculate_content_length: false
+    body: '{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "salty": {"pidx": 0, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode":
+      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}, "transferable":
+      true, "state": {"v": "KERI10JSON0001b6_", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "s": "0", "p": "", "d": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", "f":
+      "0", "dt": "2023-05-07T22:37:14.957718+00:00", "et": "icp", "kt": "1", "k":
+      ["DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"], "nt": "1", "n": ["EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"],
+      "bt": "0", "b": [], "c": [], "ee": {"s": "0", "d": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "br": [], "ba": []}, "di": ""}, "windexes": []}'
+    content_type: text/plain
+    method: GET
+    status: 200
+    url: http://localhost:3901/identifiers/aid1
+- response:
+    auto_calculate_content_length: false
+    body: '{"v":"KERI10JSON000160_","t":"rot","d":"EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg","i":"ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK","s":"1","p":"ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK","kt":"1","k":["DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"],"nt":"1","n":["EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"],"bt":"0","br":[],"ba":[],"a":[]}'
+    content_type: text/plain
+    method: PUT
+    status: 200
+    url: http://localhost:3901/identifiers/aid1
+- response:
+    auto_calculate_content_length: false
+    body: '{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "salty": {"pidx": 0, "kidx": 1, "stem": "signify:aid", "tier": "low", "dcode":
+      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}, "transferable":
+      true, "state": {"v": "KERI10JSON0001e2_", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "s": "1", "p": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", "d": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg",
+      "f": "1", "dt": "2023-05-07T22:37:16.271108+00:00", "et": "rot", "kt": "1",
+      "k": ["DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"], "nt": "1", "n": ["EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"],
+      "bt": "0", "b": [], "c": [], "ee": {"s": "1", "d": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg",
+      "br": [], "ba": []}, "di": ""}, "windexes": []}'
+    content_type: text/plain
+    method: GET
+    status: 200
+    url: http://localhost:3901/identifiers/aid1
+- response:
+    auto_calculate_content_length: false
+    body: '{"v":"KERI10JSON0000f9_","t":"ixn","d":"ENsmRAg_oM7Hl1S-GTRMA7s4y760lQMjzl0aqOQ2iTce","i":"ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK","s":"2","p":"EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg","a":["ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"]}'
+    content_type: text/plain
+    method: PUT
+    status: 200
+    url: http://localhost:3901/identifiers/aid1?type=ixn
+- response:
+    auto_calculate_content_length: false
+    body: '{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "salty": {"pidx": 0, "kidx": 1, "stem": "signify:aid", "tier": "low", "dcode":
+      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}, "transferable":
+      true, "state": {"v": "KERI10JSON0001e2_", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "s": "2", "p": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg", "d": "ENsmRAg_oM7Hl1S-GTRMA7s4y760lQMjzl0aqOQ2iTce",
+      "f": "2", "dt": "2023-05-07T22:37:16.425840+00:00", "et": "ixn", "kt": "1",
+      "k": ["DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"], "nt": "1", "n": ["EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"],
+      "bt": "0", "b": [], "c": [], "ee": {"s": "1", "d": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg",
+      "br": [], "ba": []}, "di": ""}, "windexes": []}'
+    content_type: text/plain
+    method: GET
+    status: 200
+    url: http://localhost:3901/identifiers/aid1
+- response:
+    auto_calculate_content_length: false
+    body: '[{"v": "KERI10JSON00012b_", "t": "icp", "d": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", "s": "0", "kt": "1", "k":
+      ["DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"], "nt": "1", "n": ["EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"],
+      "bt": "0", "b": [], "c": [], "a": []}, {"v": "KERI10JSON000160_", "t": "rot",
+      "d": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "s": "1", "p": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", "kt": "1", "k":
+      ["DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"], "nt": "1", "n": ["EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"],
+      "bt": "0", "br": [], "ba": [], "a": []}, {"v": "KERI10JSON0000f9_", "t": "ixn",
+      "d": "ENsmRAg_oM7Hl1S-GTRMA7s4y760lQMjzl0aqOQ2iTce", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "s": "2", "p": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg", "a": ["ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"]}]'
+    content_type: text/plain
+    method: GET
+    status: 200
+    url: http://localhost:3901/events?pre=ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK
+- response:
+    auto_calculate_content_length: false
+    body: '[{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "salty": {"pidx": 0, "kidx": 1, "stem": "signify:aid", "tier": "low", "dcode":
+      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}}, {"name": "aid2",
+      "prefix": "EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL", "salty": {"pidx":
+      1, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      ["A", "A", "A"], "ncodes": ["A", "A", "A"], "transferable": true}}]'
+    content_type: text/plain
+    method: GET
+    status: 200
+    url: http://localhost:3901/identifiers
