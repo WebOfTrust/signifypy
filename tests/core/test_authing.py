@@ -95,7 +95,7 @@ def test_agent():
 
         agent = authing.Agent(kel=kel)
         assert agent.pre == hab.pre
-        assert agent.anchor == anchor
+        assert agent.delpre == anchor
         assert agent.verfer.qb64 == "DIhwCPtuYnIudD4Kqd8tZ9B6XvTSbGkjXGMA38u1K4tu"
         assert agent.verfer.qb64 == hab.kever.verfers[0].qb64
 

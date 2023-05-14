@@ -25,25 +25,25 @@ def test_init():
 
     # Try with bran that is too short
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url=url, bran=bran[:16], tier=tier)
+        SignifyClient(url=url, passcode=bran[:16], tier=tier)
 
     # Try with an invalid URL
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url="ftp://www.example.com", bran=bran, tier=tier)
+        SignifyClient(url="ftp://www.example.com", passcode=bran, tier=tier)
 
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     tier = Tiers.low
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     tier = Tiers.med
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
 
     tier = Tiers.high
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
 
 
@@ -55,13 +55,13 @@ def test_connect():
     tier = Tiers.low
 
     ctrl = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == ctrl
 
     agentPre = "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == ctrl
+    assert client.agent.delpre == ctrl
     assert client.agent.pre == agentPre
     assert client.ctrl.ridx == 0
 
@@ -135,12 +135,12 @@ def test_witnesses():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
@@ -180,12 +180,12 @@ def test_delegation():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     delpre = "EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7"
     identifiers = client.identifiers()

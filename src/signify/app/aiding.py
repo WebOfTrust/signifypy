@@ -16,8 +16,8 @@ class Identifiers:
     def __init__(self, client: SignifyClient):
         self.client = client
 
-    def list(self):
-        res = self.client.get("/identifiers")
+    def list(self, last="", limit=25):
+        res = self.client.get(f"/identifiers?last={last}&limit={limit}")
         return res.json()
 
     def get(self, name):

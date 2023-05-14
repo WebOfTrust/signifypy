@@ -5,62 +5,79 @@ signify.app.clienting module
 
 """
 import importlib
+import json
 from dataclasses import dataclass
 from urllib.parse import urlparse, urljoin, urlsplit
 
 import requests
 from keri import kering
+from keri.core.coring import Tiers
 from keri.help import helping
 from requests import HTTPError
 from requests.auth import AuthBase
 
+from signify.core import keeping
 from signify.core.authing import Authenticater, Controller, Agent
 
 
 @dataclass
 class State:
-    kel: dict = None
+    controller: dict = None
+    agent : dict = None
     ridx: int = None
     pidx: int = None
 
 
 class SignifyClient:
 
-    def __init__(self, url, bran, tier, extern_modules=None):
+    def __init__(self, passcode, url=None, tier=Tiers.low, extern_modules=None):
 
+        if len(passcode) < 21:
+            raise kering.ConfigurationError(f"bran of length {len(passcode)} is too short, must be 21 characters")
+
+        self.bran = passcode
+        self.pidx = 0
+        self.tier = tier
+        self.extern_modules = extern_modules
+
+        self.ctrl = None
+        self.mgr = None
+        self.session = None
+        self.agent = None
+        self.authn = None
+        self.base = None
+
+        self.ctrl = Controller(bran=self.bran, tier=self.tier)
+        if url is not None:
+            self.connect(url)
+
+    def connect(self, url):
         up = urlparse(url)
         if up.scheme not in kering.Schemes:
             raise kering.ConfigurationError(f"invalid scheme {up.scheme} for SignifyClient")
 
         self.base = url
-        if len(bran) < 21:
-            raise kering.ConfigurationError(f"bran of length {len(bran)} is too short, must be 21 characters")
-
-        self.pidx = 0
-
-        self.session = None
-        self.agent = None
-        self.authn = None
-        self.ctrl = Controller(bran=bran, tier=tier, extern_modules=extern_modules)
-
-    def connect(self):
 
         self.session = requests.Session()
-        state = self.state()
+        state = self.states()
         self.pidx = state.pidx
-        ridx = state.ridx if state.ridx is not None else 0
 
         # Create controller representing local auth AID
-        self.ctrl.ridx = ridx
+        self.ctrl = Controller(bran=self.bran, tier=self.tier, state=state.controller)
+        self.mgr = keeping.Manager(salter=self.ctrl.salter, extern_modules=self.extern_modules)
 
         # Create agent representing the AID of the cloud agent
-        self.agent = Agent(kel=state.kel)
+        self.agent = Agent(state=state.agent)
 
-        if self.agent.anchor != self.ctrl.pre:
+        if self.agent.delpre != self.ctrl.pre:
             raise kering.ConfigurationError("commitment to controller AID missing in agent inception event")
 
         self.authn = Authenticater(agent=self.agent, ctrl=self.ctrl)
         self.session.auth = SignifyAuth(self.authn)
+
+    def rotate(self, nbran, aids):
+        data = self.ctrl.rotate(nbran=nbran, aids=aids)
+        self.put(path=f"/agent/{self.controller}", json=data)
 
     @property
     def controller(self):
@@ -76,9 +93,9 @@ class SignifyClient:
 
     @property
     def manager(self):
-        return self.ctrl.manager
+        return self.mgr
 
-    def state(self):
+    def states(self):
         caid = self.ctrl.pre
         res = self.session.get(url=urljoin(self.base, f"/agent/{caid}"))
         if res.status_code == 404:
@@ -86,11 +103,22 @@ class SignifyClient:
 
         data = res.json()
         state = State()
-        state.kel = data["kel"]
-        state.ridx = data["ridx"] if "ridx" in data else None
+        state.controller = data["controller"]
+        state.agent = data["agent"]
         state.pidx = data["pidx"] if "pidx" in data else 0
 
         return state
+
+    def _save_old_salt(self, salt):
+        caid = self.ctrl.pre
+        body = dict(salt=salt)
+        res = self.put(f"/salt/{caid}", json=body)
+        return res.status_code == 204
+
+    def _delete_old_salt(self):
+        caid = self.ctrl.pre
+        res = self.delete(f"/salt/{caid}")
+        return res.status_code == 204
 
     def get(self, path, params=None, headers=None):
         url = urljoin(self.base, path)
@@ -103,6 +131,22 @@ class SignifyClient:
             kwargs["headers"] = headers
 
         res = self.session.get(url, **kwargs)
+        if not res.ok:
+            self.raiseForStatus(res)
+
+        return res
+
+    def delete(self, path, params=None, headers=None):
+        url = urljoin(self.base, path)
+
+        kwargs = dict()
+        if params is not None:
+            kwargs["params"] = params
+
+        if headers is not None:
+            kwargs["headers"] = headers
+
+        res = self.session.delete(url, **kwargs)
         if not res.ok:
             self.raiseForStatus(res)
 

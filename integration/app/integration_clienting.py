@@ -5,6 +5,8 @@ signify.app.clienting module
 
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
+import json
+import random
 from time import sleep
 
 import requests
@@ -30,13 +32,13 @@ def test_init():
 
     # Try with bran that is too short
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url=url, bran=bran[:16], tier=tier)
+        SignifyClient(url=url, passcode=bran[:16], tier=tier)
 
     # Try with an invalid URL
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url="ftp://www.example.com", bran=bran, tier=tier)
+        SignifyClient(url="ftp://www.example.com", passcode=bran, tier=tier)
 
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     serder = client.icp
     assert serder.raw == (b'{"v":"KERI10JSON00012b_","t":"icp","d":"ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJ'
@@ -46,15 +48,15 @@ def test_init():
 
     # changing tier with has no effect
     tier = Tiers.low
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     tier = Tiers.med
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
 
     tier = Tiers.high
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
 
 
@@ -63,7 +65,7 @@ def test_extern():
     bran = b'0123456789abcdefghijk'
     tier = None
 
-    client = SignifyClient(url=url, bran=bran, tier=tier,
+    client = SignifyClient(passcode=bran, tier=tier,
                            extern_modules=[
                                dict(
                                    type="gcp",
@@ -88,9 +90,9 @@ def test_extern():
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    client.connect()
+    client.connect(url=url)
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
@@ -112,7 +114,7 @@ def test_salty():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.med
 
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
 
     # Raises configuration error because the started agent has a different controller AID
@@ -120,7 +122,7 @@ def test_salty():
         client.connect()
 
     tier = Tiers.low
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     evt, siger = client.ctrl.event()
@@ -137,7 +139,7 @@ def test_salty():
 
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
@@ -246,7 +248,7 @@ def test_witnesses():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     evt, siger = client.ctrl.event()
     res = requests.post(url="http://localhost:3903/boot",
@@ -263,7 +265,7 @@ def test_witnesses():
     client.connect()
 
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
@@ -310,7 +312,7 @@ def test_delegation():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     evt, siger = client.ctrl.event()
@@ -327,7 +329,7 @@ def test_delegation():
 
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     delpre = "EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7"
     identifiers = client.identifiers()
@@ -369,12 +371,12 @@ def test_multisig():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
@@ -489,7 +491,7 @@ def test_randy():
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     evt, siger = client.ctrl.event()
@@ -506,7 +508,7 @@ def test_randy():
 
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
@@ -566,12 +568,12 @@ def test_query():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
     assert client.ctrl.ridx == 0
 
@@ -601,7 +603,7 @@ def test_multi_tenant():
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     evt, siger = client.ctrl.event()
@@ -616,9 +618,9 @@ def test_multi_tenant():
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    client.connect()
+    client.connect(url=url)
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
     assert client.ctrl.ridx == 0
 
@@ -636,7 +638,7 @@ def test_multi_tenant():
     identifiers.addEndRole("aid1", eid=client.agent.pre)
 
     rbran = b'abcdefghijk0123456789'
-    rclient = SignifyClient(url=url, bran=rbran, tier=tier)
+    rclient = SignifyClient(url=url, passcode=rbran, tier=tier)
     assert rclient.controller == "EIIY2SgE_bqKLl2MlnREUawJ79jTuucvWwh-S6zsSUFo"
 
     evt, siger = rclient.ctrl.event()
@@ -653,7 +655,7 @@ def test_multi_tenant():
 
     rclient.connect()
     assert rclient.agent is not None
-    assert rclient.agent.anchor == "EIIY2SgE_bqKLl2MlnREUawJ79jTuucvWwh-S6zsSUFo"
+    assert rclient.agent.delpre == "EIIY2SgE_bqKLl2MlnREUawJ79jTuucvWwh-S6zsSUFo"
     assert rclient.agent.pre == "ECrQUIn5_aonlPt7zod4HCaqkfG_KPDuUEh8Bql1Y9TY"
     assert rclient.ctrl.ridx == 0
 
@@ -672,13 +674,155 @@ def test_multi_tenant():
     print(ridentifiers.list())
 
 
+def test_passcode_rotation():
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+    client = SignifyClient(passcode=bran, tier=tier)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
+    client.connect(url=url)
+    assert client.agent is not None
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
+
+    identifiers = client.identifiers()
+    aid = identifiers.create("salty")
+    sicp = Serder(ked=aid)
+
+    aid = identifiers.get("salty")
+    assert aid["prefix"] == sicp.pre
+
+    aid = identifiers.create("randy", algo=Algos.randy)
+    ricp = Serder(ked=aid)
+
+    aid = identifiers.get("randy")
+    assert aid["prefix"] == ricp.pre
+
+    identifiers = client.identifiers()
+    pres = identifiers.list()
+    aids = []
+    for pre in pres:
+        aid = identifiers.get(name=pre["name"])
+        aids.append(aid)
+
+    client.rotate(nbran='0123456789abcdefghijk', aids=aids)
+    print(json.dumps(identifiers.list(), indent=1))
+
+    ked = identifiers.rotate("salty")
+    rot = Serder(ked=ked)
+    print("Salty Rotated:")
+    print(rot.pretty())
+
+    ked = identifiers.rotate("randy")
+    rot = Serder(ked=ked)
+    print("Randy Rotated:")
+    print(rot.pretty())
+
+
+def test_passcode_rotation_x1000():
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+    client = SignifyClient(passcode=bran, tier=tier)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
+    client.connect(url=url)
+    assert client.agent is not None
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
+
+    identifiers = client.identifiers()
+
+    for idx in range(1000):
+        if idx % 10 == 0:
+            print(f"Created {idx}...")
+
+        algo = random.choice(["salty", "randy"])
+        match algo:
+            case "salty":
+                aid = identifiers.create(f"salty-{idx}")
+                sicp = Serder(ked=aid)
+
+                aid = identifiers.get(f"salty-{idx}")
+                assert aid["prefix"] == sicp.pre
+
+            case "randy":
+                aid = identifiers.create(f"randy-{idx}", algo=Algos.randy)
+                ricp = Serder(ked=aid)
+
+                aid = identifiers.get(f"randy-{idx}")
+                assert aid["prefix"] == ricp.pre
+
+    identifiers = client.identifiers()
+    pres = identifiers.list()
+    print(len(pres))
+    # aids = []
+    # for pre in pres:
+    #     aid = identifiers.get(name=pre["name"])
+    #     aids.append(aid)
+    #
+    # client.rotate(nbran='0123456789abcdefghijk', aids=aids)
+    # print(json.dumps(identifiers.list(), indent=1))
+    #
+    # ked = identifiers.rotate("salty")
+    # rot = Serder(ked=ked)
+    # print("Salty Rotated:")
+    # print(rot.pretty())
+    #
+    # ked = identifiers.rotate("randy")
+    # rot = Serder(ked=ked)
+    # print("Randy Rotated:")
+    # print(rot.pretty())
+
+
+def test_recreate_client():
+    url = "http://localhost:3901"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+    client = SignifyClient(passcode=bran, tier=tier, url=url)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    identifiers = client.identifiers()
+    aids = identifiers.list()
+
+    for aid in aids:
+        print(aid["prefix"])
+
+
 if __name__ == "__main__":
     # test_delegation()
     # test_witnesses()
-
-    test_salty()
+    # test_salty()
     # test_randy()
     # test_multisig()
     # test_query()
     # test_multi_tenant()
     # test_extern()
+    # test_passcode_rotation()
+    # test_passcode_rotation_x1000()
+    test_recreate_client()

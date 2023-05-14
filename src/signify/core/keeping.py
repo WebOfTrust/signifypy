@@ -18,6 +18,7 @@ class Manager:
 
     def __init__(self, salter, extern_modules=None):
         self.salter = salter
+        extern_modules = extern_modules if extern_modules is not None else []
         self.modules = dict()
         for module in extern_modules:
             typ = module["type"]
@@ -169,7 +170,7 @@ class SaltyKeeper(BaseKeeper):
         self.transferable = transferable
         stem = stem if stem is not None else self.stem
 
-        # Sxlt is encrypted salt for this AID or None if incepting
+        # sxlt is encrypted salt for this AID or None if incepting
         if sxlt is None:
             self.creator = SaltyCreator(stem=stem, tier=tier)
             self.sxlt = self.encrypter.encrypt(self.creator.salt).qb64
