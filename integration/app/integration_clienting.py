@@ -103,6 +103,7 @@ def test_extern():
     icp = Serder(ked=aid)
     print(icp.pretty())
 
+
 @_recorder.record(file_path=CONNECT_FILE_PATH)
 def test_salty():
     """ This test assumes a running KERIA agent with the following comand:
@@ -312,7 +313,8 @@ def test_delegation():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
+    print(client.controller)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     evt, siger = client.ctrl.event()
@@ -327,36 +329,36 @@ def test_delegation():
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    client.connect()
+    client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    # Delegator OOBI:
+    # http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness
 
     delpre = "EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7"
     identifiers = client.identifiers()
     operations = client.operations()
     oobis = client.oobis()
 
-    wit1 = "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
-    op = oobis.resolve("http://127.0.0.1:5642/oobi/{}/witness/".format(delpre,wit1))
+    op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{delpre}/witness")
     print("OOBI op is: ", op)
 
     count = 0
     while not op["done"] and not count > 25:
         op = operations.get(op["name"])
-        print("....Current OOBI op is: ", op)
         sleep(1)
-        count+=1
 
-    wit2 = "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"
-    wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
-    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=[wit1,wit2,wit3])
+    op = identifiers.create("aid1", delpre=delpre)
+    pre = op["metadata"]["pre"]
 
     while not op["done"]:
         op = operations.get(op["name"])
         sleep(1)
 
     icp1 = Serder(ked=op["response"])
-    assert icp1.pre == "EITU8bCJwnaQSZn3aH6qIIud_9qh9Z8f0FlgLc6lqmGl"
+
+    assert icp1.pre == pre
 
 
 def test_multisig():
@@ -808,14 +810,24 @@ def test_recreate_client():
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     identifiers = client.identifiers()
-    aids = identifiers.list()
+    pres = identifiers.list(limit=1000)
 
-    for aid in aids:
-        print(aid["prefix"])
+    print(f"loaded {len(pres)} identifiers")
+    aids = []
+    for pre in pres:
+        aid = identifiers.get(name=pre["name"])
+        aids.append(aid)
+
+    print("done getting all values, now to rotate")
+
+    client.rotate(nbran='0123456789abcdefghijk', aids=aids)
+
+    print("rotation done, now to list.")
+    print(json.dumps(identifiers.list(limit=1000), indent=1))
 
 
 if __name__ == "__main__":
-    # test_delegation()
+    test_delegation()
     # test_witnesses()
     # test_salty()
     # test_randy()
@@ -825,4 +837,4 @@ if __name__ == "__main__":
     # test_extern()
     # test_passcode_rotation()
     # test_passcode_rotation_x1000()
-    test_recreate_client()
+    # test_recreate_client()

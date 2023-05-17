@@ -16,6 +16,8 @@ class Agent:
     def __init__(self, state):
         self.pre = ""
         self.delpre = ""
+        self.said = ""
+        self.sn = 0
         self.verfer = None
 
         self.parse(state)
@@ -24,7 +26,10 @@ class Agent:
         serder = coring.Serder(ked=state)
 
         self.pre = serder.pre
+        self.sn = serder.sn
         self.delpre = serder.ked['di']
+        self.said = serder.said
+
         if len(serder.verfers) != 1:
             raise kering.ValidationError(f"agent inception event can only have one key")
 
@@ -49,8 +54,7 @@ class Controller:
         self.keys = [self.signer.verfer.qb64]
         self.ndigs = [coring.Diger(ser=self.nsigner.verfer.qb64b).qb64]
 
-        self.serder = None
-        self.derive(state)
+        self.serder = self.derive(state)
 
     @property
     def pre(self):
@@ -66,7 +70,7 @@ class Controller:
 
     def derive(self, state):
         if state is None or state['ee']['s'] == "0":
-            self.serder = eventing.incept(keys=self.keys,
+            return eventing.incept(keys=self.keys,
                                           isith="1",
                                           nsith="1",
                                           ndigs=self.ndigs,
@@ -74,7 +78,14 @@ class Controller:
                                           toad="0",
                                           wits=[])
         else:
-            self.serder = coring.Serder(ked=state.controller['ee'])
+            return coring.Serder(ked=state.controller['ee'])
+
+    def approveDelegation(self, agent):
+        seqner = coring.Seqner(sn=agent.sn)
+        anchor = dict(i=agent.pre, s=seqner.snh, d=agent.said)
+
+        self.serder = eventing.interact(pre=self.serder.pre, dig=self.serder.said, sn=self.serder.sn+1, data=[anchor])
+        return self.serder, [self.signer.sign(self.serder.raw, index=0).qb64]
 
     def rotate(self, nbran, aids):
         """
