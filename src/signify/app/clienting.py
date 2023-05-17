@@ -62,18 +62,27 @@ class SignifyClient:
         state = self.states()
         self.pidx = state.pidx
 
+        # Create agent representing the AID of the cloud agent
+        self.agent = Agent(state=state.agent)
+
         # Create controller representing local auth AID
         self.ctrl = Controller(bran=self.bran, tier=self.tier, state=state.controller)
         self.mgr = keeping.Manager(salter=self.ctrl.salter, extern_modules=self.extern_modules)
 
-        # Create agent representing the AID of the cloud agent
-        self.agent = Agent(state=state.agent)
-
         if self.agent.delpre != self.ctrl.pre:
             raise kering.ConfigurationError("commitment to controller AID missing in agent inception event")
 
+        if self.ctrl.serder.sn == 0:
+            self.approveDelegation()
+
         self.authn = Authenticater(agent=self.agent, ctrl=self.ctrl)
         self.session.auth = SignifyAuth(self.authn)
+
+    def approveDelegation(self):
+        print("approving delegation of controller")
+        serder, sigs = self.ctrl.approveDelegation(self.agent)
+        data = dict(ixn=serder.ked, sigs=sigs)
+        self.put(path=f"/agent/{self.controller}?type=ixn", json=data)
 
     def rotate(self, nbran, aids):
         data = self.ctrl.rotate(nbran=nbran, aids=aids)
