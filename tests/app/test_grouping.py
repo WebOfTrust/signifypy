@@ -26,7 +26,7 @@ states = [
 
 
 def test_incept():
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELvxjlGm4zGdItzUa6Mg0ZP_gvvbisl7N5DUceKdOqGj"
 
     groups = client.groups()
@@ -108,7 +108,7 @@ def test_incept():
 
 @responses.activate
 def test_group_recipe():
-    client = SignifyClient(url=url, bran=bran, tier=tier)
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     rsp1 = responses.Response(
@@ -134,7 +134,7 @@ def test_group_recipe():
 
     client.connect()
     assert client.agent is not None
-    assert client.agent.anchor == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EIDJUg2eR8YGZssffpuqQyiXcRVz2_Gw_fcAVWpUMie1"
     assert client.ctrl.ridx == 0
 

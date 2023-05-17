@@ -5,81 +5,34 @@ signify.core.authing module
 
 """
 
-import falcon
 from keri import kering
 from keri.app.keeping import SaltyCreator
 from keri.core import coring, eventing
 
 from keri.end import ending
 
-from signify.core import keeping
-
 
 class Agent:
-    def __init__(self, kel):
+    def __init__(self, state):
         self.pre = ""
-        self.anchor = ""
+        self.delpre = ""
         self.verfer = None
 
-        self.parse(kel)
+        self.parse(state)
 
-    def parse(self, kel):
-        if len(kel) < 1:
-            raise kering.ConfigurationError("invalid empty KEL")
-
-        serder, verfer, diger = self.event(kel[0])
-        if not serder.ked['t'] in (coring.Ilks.icp,):
-            raise kering.ValidationError(f"invalid inception event type {serder.ked['t']}")
+    def parse(self, state):
+        serder = coring.Serder(ked=state)
 
         self.pre = serder.pre
-        if not serder.ked['a']:
-            raise kering.ValidationError("no anchor to controller AID")
-        self.anchor = serder.ked['a'][0]
-
-        for evt in kel[1:]:
-            rot, nverfer, ndiger = self.event(evt)
-            if not rot.ked['t'] in (coring.Ilks.rot,):
-                raise kering.ValidationError(f"invalid rotation event type {serder.ked['t']}")
-
-            if coring.Diger(ser=nverfer.qb64b).qb64b != diger.qb64b:
-                raise kering.ValidationError(f"next key mismatch error on rotation event {serder.said}")
-
-            verfer = nverfer
-            diger = ndiger
-
-        self.verfer = verfer
-
-    @staticmethod
-    def event(evt):
-        serder = coring.Serder(ked=evt["ked"])
-        siger = coring.Siger(qb64=evt["sig"])
-
+        self.delpre = serder.ked['di']
         if len(serder.verfers) != 1:
             raise kering.ValidationError(f"agent inception event can only have one key")
 
-        if not serder.verfers[0].verify(sig=siger.raw, ser=serder.raw):
-            raise kering.ValidationError(f"invalid signature on evt {serder.ked['d']}")
-
-        verfer = serder.verfers[0]
-
-        if len(serder.digers) != 1:
-            raise kering.ValidationError(f"agent inception event can only have one next key")
-
-        diger = serder.digers[0]
-
-        tholder = coring.Tholder(sith=serder.ked["kt"])
-        if tholder.num != 1:
-            raise kering.ValidationError(f"invalid threshold {tholder.num}, must be 1")
-        ntholder = coring.Tholder(sith=serder.ked["nt"])
-
-        if ntholder.num != 1:
-            raise kering.ValidationError(f"invalid next threshold {ntholder.num}, must be 1")
-
-        return serder, verfer, diger
+        self.verfer = serder.verfers[0]
 
 
 class Controller:
-    def __init__(self, bran, tier, ridx=0, extern_modules=None):
+    def __init__(self, bran, tier, state=None):
         if hasattr(bran, "decode"):
             bran = bran.decode("utf-8")
 
@@ -88,24 +41,16 @@ class Controller:
         self.tier = tier
 
         self.salter = coring.Salter(qb64=self.bran)
-        self.manager = keeping.Manager(salter=self.salter, extern_modules=extern_modules)
-
         creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=tier)
 
-        self.signer = creator.create(ridx=ridx, tier=tier).pop()
-        self.nsigner = creator.create(ridx=ridx + 1, tier=tier).pop()
+        self.signer = creator.create(ridx=0, tier=tier).pop()
+        self.nsigner = creator.create(ridx=0 + 1, tier=tier).pop()
 
-        keys = [self.signer.verfer.qb64]
-        ndigs = [coring.Diger(ser=self.nsigner.verfer.qb64b)]
+        self.keys = [self.signer.verfer.qb64]
+        self.ndigs = [coring.Diger(ser=self.nsigner.verfer.qb64b).qb64]
 
-        self.serder = eventing.incept(keys=keys,
-                                      isith="1",
-                                      nsith="1",
-                                      ndigs=[diger.qb64 for diger in ndigs],
-                                      code=coring.MtrDex.Blake3_256,
-                                      toad="0",
-                                      wits=[])
-
+        self.serder = None
+        self.derive(state)
 
     @property
     def pre(self):
@@ -118,6 +63,143 @@ class Controller:
     @property
     def verfers(self):
         return self.signer.verfers
+
+    def derive(self, state):
+        if state is None or state['ee']['s'] == "0":
+            self.serder = eventing.incept(keys=self.keys,
+                                          isith="1",
+                                          nsith="1",
+                                          ndigs=self.ndigs,
+                                          code=coring.MtrDex.Blake3_256,
+                                          toad="0",
+                                          wits=[])
+        else:
+            self.serder = coring.Serder(ked=state.controller['ee'])
+
+    def rotate(self, nbran, aids):
+        """
+        Rotate passcode involves re-encrypting all saved AID salts for salty keyed AIDs and
+        all signing priv keys and next pub/priv keys for randy keyed AIDs.  The controller AID salt must be re-encrypted
+         too. The old salt must be encrypted and stored externally in case key re-encryption fails halfway
+        through the procedure.  The presence of an encrypted old key signals that recovery is needed.  Otherwise, the
+        old key encryption material is deleted and the current passcode is the only one needed.  Steps:
+
+        1. Encrypt and save old enc salt
+        2. Rotate local Controller AID and share with Agent
+        3. Retrieve all AIDs
+        4. For each Salty AID, decrypt AID salt with old salt, re-encrypt with new salt, save
+        5. For each Randy AID, decrypt priv signing and next keys and next pub keys, re-encrypt with new passcode, save
+        6. Delete saved encrypted old enc salt
+
+        In the event of a crash half way thru a recovery will be needed.  That recovery process is triggered with the
+        discovery of a saved encrypted old salt.  When found, the following steps are needed:
+
+        1. Retrieve and decrypt the saved old salt for enc key
+        2. Ensure the local Conroller AID is rotated to the current new salt
+        3. Retrieve all AIDs
+        4. For each Salty AID, test if the AID salt is encrypted with old salt, re-encrypt as needed.
+        5. For each Randy AID, test if the priv signing and next keys and next pub keys are encrypted with old salt,
+         re-encrypt as needed.
+        6. Delete saved encrypted old enc salt
+
+
+        Parameters:
+            nbran (str):  new passcode to use for re-encryption
+            aids (list): all AIDs from the agent
+
+        """
+
+        # First we create the new salter and then use it to encrypted the OLD salt
+        nbran = coring.MtrDex.Salt_128 + 'A' + nbran[:21]  # qb64 salt for seed
+        nsalter = coring.Salter(qb64=nbran)
+        nsigner = self.salter.signer(transferable=False)
+
+        # This is the previous next signer so it will be used to sign the rotation and then have 0 signing authority
+        creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=self.tier)
+        signer = creator.create(ridx=0 + 1, tier=self.tier).pop()
+
+        ncreator = SaltyCreator(salt=nsalter.qb64, stem=self.stem, tier=self.tier)
+        self.signer = ncreator.create(ridx=0, tier=self.tier).pop()
+        self.nsigner = ncreator.create(ridx=0 + 1, tier=self.tier).pop()
+
+        self.keys = [self.signer.verfer.qb64, signer.verfer.qb64]
+        self.ndigs = [coring.Diger(ser=self.nsigner.verfer.qb64b).qb64]
+
+        # Now rotate the controller AID to authenticate the passcode rotation
+        rot = eventing.rotate(pre=self.serder.pre,
+                              keys=self.keys,
+                              dig=self.serder.ked['d'],
+                              isith=["1", "0"],
+                              nsith="1",
+                              ndigs=self.ndigs)
+
+        sigs = [signer.sign(ser=rot.raw, index=1, ondex=0).qb64, self.signer.sign(ser=rot.raw, index=0).qb64]
+
+        encrypter = coring.Encrypter(verkey=nsigner.verfer.qb64)  # encrypter for new salt
+        decrypter = coring.Decrypter(seed=nsigner.qb64)  # decrypter with old salt
+
+        # First encrypt and save old Salt in case we need a recovery
+        sxlt = encrypter.encrypt(matter=coring.Matter(qb64b=self.bran)).qb64
+
+        data = dict(
+            rot=rot.ked,
+            sigs=sigs,
+            sxlt=sxlt,
+        )
+
+        # Not recrypt all salts and saved keys after verifying they are decrypting correctly
+        keys = dict()
+        for aid in aids:
+            pre = aid["prefix"]
+            if "salty" in aid:
+                salty = aid["salty"]
+                cipher = coring.Cipher(qb64=salty["sxlt"])
+                dnxt = decrypter.decrypt(cipher=cipher).qb64
+
+                # Now we have the AID salt, use it to verify against the current public keys
+                acreator = SaltyCreator(dnxt, stem=salty["stem"], tier=salty["tier"])
+                signers = acreator.create(codes=salty["icodes"], pidx=salty["pidx"], kidx=salty["kidx"],
+                                          transferable=salty["transferable"])
+                pubs = aid["state"]["k"]
+                if pubs != [signer.verfer.qb64 for signer in signers]:
+                    raise kering.ValidationError(f"unable to rotate, validation of salt to public keys {pubs} failed")
+
+                asxlt = encrypter.encrypt(matter=coring.Matter(qb64=dnxt)).qb64
+                keys[pre] = dict(
+                    sxlt=asxlt
+                )
+
+            elif "randy" in aid:
+                randy = aid["randy"]
+                prxs = randy["prxs"]
+                nxts = randy["nxts"]
+
+                nprxs = []
+                signers = []
+                for prx in prxs:
+                    cipher = coring.Cipher(qb64=prx)
+                    dsigner = decrypter.decrypt(cipher=cipher, transferable=True)
+                    signers.append(dsigner)
+                    nprxs.append(encrypter.encrypt(matter=coring.Matter(qb64=dsigner.qb64)).qb64)
+
+                pubs = aid["state"]["k"]
+                if pubs != [signer.verfer.qb64 for signer in signers]:
+                    raise kering.ValidationError(f"unable to rotate, validation of encrypted public keys {pubs} failed")
+
+                nnxts = []
+                for nxt in nxts:
+                    nnxts.append(self.recrypt(nxt, decrypter, encrypter))
+
+                keys[pre] = dict(prxs=nprxs, nxts=nxts)
+
+        data["keys"] = keys
+        return data
+
+    @staticmethod
+    def recrypt(enc, decrypter, encrypter):
+        cipher = coring.Cipher(qb64=enc)
+        dnxt = decrypter.decrypt(cipher=cipher).qb64
+        return encrypter.encrypt(matter=coring.Matter(qb64=dnxt)).qb64
 
 
 class Authenticater:
@@ -229,31 +311,3 @@ class Authenticater:
             headers[key] = val
 
         return headers
-
-
-class SignatureValidationComponent(object):
-    """ Validate Signature and Signature-Input header signatures """
-
-    def __init__(self, authn: Authenticater):
-        """
-
-        Parameters:
-            authn (Authenticater): Authenticator to validate signature headers on request
-        """
-        self.authn = authn
-
-    def process_request(self, req, resp):
-        """ Process request to ensure has a valid signature from controller
-
-        Parameters:
-            req: Http request object
-            resp: Http response object
-
-
-        """
-        # Use Authenticater to verify the signature on the request
-        if not self.authn.verify(req):
-            resp.complete = True  # This short-circuits Falcon, skipping all further processing
-            resp.status = falcon.HTTP_401
-            return
-
