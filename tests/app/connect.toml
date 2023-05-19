@@ -16,23 +16,40 @@ responses:
     url: http://localhost:3903/boot
 - response:
     auto_calculate_content_length: false
-    body: '{"kel": [{"ked": {"v": "KERI10JSON000159_", "t": "icp", "d": "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg",
-      "i": "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg", "s": "0", "kt": "1", "k":
-      ["DCQE55HKUokSAKc4ntJw2b845r4DnddpPZs8iF_T-0c-"], "nt": "1", "n": ["ELSYuxNoL39hVmOt11CPaajY5YjFFT4HVLdQ3aXgwJfv"],
-      "bt": "0", "b": [], "c": [], "a": ["ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"]},
-      "sig": "AAAU5DBHq9QWecgY03uDAjcPxPnegFWELJsAPougzIv_fSAv6dHRi5_6pLm_IMSYF1AP9OBIlB4aKrar3XlkY-8P"}],
-      "pidx": 0, "ridx": 0}'
+    body: '{"agent": {"v": "KERI10JSON0001e2_", "i": "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei",
+      "s": "0", "p": "", "d": "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei", "f":
+      "0", "dt": "2023-05-19T03:05:46.928133+00:00", "et": "dip", "kt": "1", "k":
+      ["DMZh_y-H5C3cSbZZST-fqnsmdNTReZxIh0t2xSTOJQ8a"], "nt": "1", "n": ["EM9M2EQNCBK0MyAhVYBvR98Q0tefpvHgE-lHLs82XgqC"],
+      "bt": "0", "b": [], "c": [], "ee": {"s": "0", "d": "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei",
+      "br": [], "ba": []}, "di": "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"},
+      "controller": {"state": {"v": "KERI10JSON0001b6_", "i": "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose",
+      "s": "0", "p": "", "d": "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose", "f":
+      "0", "dt": "2023-05-19T03:05:46.936589+00:00", "et": "icp", "kt": "1", "k":
+      ["DAbWjobbaLqRB94KiAutAHb_qzPpOHm3LURA_ksxetVc"], "nt": "1", "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6xZZT_E3h7d2tL"],
+      "bt": "0", "b": [], "c": [], "ee": {"s": "0", "d": "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose",
+      "br": [], "ba": []}, "di": ""}, "ee": {"v": "KERI10JSON00012b_", "t": "icp",
+      "d": "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose", "i": "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose",
+      "s": "0", "kt": "1", "k": ["DAbWjobbaLqRB94KiAutAHb_qzPpOHm3LURA_ksxetVc"],
+      "nt": "1", "n": ["EIFG_uqfr1yN560LoHYHfvPAhxQ5sN6xZZT_E3h7d2tL"], "bt": "0",
+      "b": [], "c": [], "a": []}}, "pidx": 0}'
     content_type: text/plain
     method: GET
     status: 200
     url: http://localhost:3901/agent/ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose
 - response:
     auto_calculate_content_length: false
+    body: ''
+    content_type: text/plain
+    method: PUT
+    status: 204
+    url: http://localhost:3901/agent/ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose?type=ixn
+- response:
+    auto_calculate_content_length: false
     body: '[]'
     content_type: text/plain
     method: GET
     status: 200
-    url: http://localhost:3901/identifiers
+    url: http://localhost:3901/identifiers?last=&limit=25
 - response:
     auto_calculate_content_length: false
     body: '{"v":"KERI10JSON00012b_","t":"icp","d":"ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK","i":"ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK","s":"0","kt":"1","k":["DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"],"nt":"1","n":["EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"],"bt":"0","b":[],"c":[],"a":[]}'
@@ -43,15 +60,16 @@ responses:
 - response:
     auto_calculate_content_length: false
     body: '[{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
-      "salty": {"pidx": 0, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode":
-      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}}]'
+      "salty": {"sxlt": "1AAHM4K-xSFXuCm6g7sYStP_0pdlZOm9vYLbER7uplBVT0NBgqDRVPkf6kCkloQXLQORg-UL1ColOihrB1y4vfJ2OQPo5FTdC0Ct",
+      "pidx": 0, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      ["A"], "ncodes": ["A"], "transferable": true}}]'
     content_type: text/plain
     method: GET
     status: 200
-    url: http://localhost:3901/identifiers
+    url: http://localhost:3901/identifiers?last=&limit=25
 - response:
     auto_calculate_content_length: false
-    body: '{"v":"KERI10JSON0001e7_","t":"icp","d":"EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL","i":"EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL","s":"0","kt":"2","k":["DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9","DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly","DEfdjYZMI2hLaHBOpUubn5AUItgOvh2W1vckGE33SIPf"],"nt":"2","n":["EEvyqpRLktts-_aSfPHKKv1mTKTV4ngwKKkOaqm3ZuPX","EEkMimwsv_JMZh7k-Rfq5wvhvbEdjVr8NhGQpyssVmNJ","EJy_MjjMWLJkn_5cRaUtDr7asfLe70xbAPD2nablr0iv"],"bt":"0","b":[],"c":[],"a":[]}'
+    body: '{"v":"KERI10JSON0001e7_","t":"icp","d":"EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX","i":"EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX","s":"0","kt":"2","k":["DGBw7C7AfC7jbD3jLLRS3SzIWFndM947TyNWKQ52iQx5","DD_bHYFsgWXuCbz3SD0HjCIe_ITjRvEoCGuZ4PcNFFDz","DEe9u8k0fm1wMFAuOIsCtCNrpduoaV5R21rAcJl0awze"],"nt":"2","n":["EML5FrjCpz8SEl4dh0U15l8bMRhV_O5iDcR1opLJGBSH","EJpKquuibYTqpwMDqEFAFs0gwq0PASAHZ_iDmSF3I2Vg","ELplTAiEKdobFhlf-dh1vUb2iVDW0dYOSzs1dR7fQo60"],"bt":"0","b":[],"c":[],"a":[]}'
     content_type: text/plain
     method: POST
     status: 200
@@ -59,23 +77,25 @@ responses:
 - response:
     auto_calculate_content_length: false
     body: '[{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
-      "salty": {"pidx": 0, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode":
-      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}}, {"name": "aid2",
-      "prefix": "EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL", "salty": {"pidx":
-      1, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      "salty": {"sxlt": "1AAHM4K-xSFXuCm6g7sYStP_0pdlZOm9vYLbER7uplBVT0NBgqDRVPkf6kCkloQXLQORg-UL1ColOihrB1y4vfJ2OQPo5FTdC0Ct",
+      "pidx": 0, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      ["A"], "ncodes": ["A"], "transferable": true}}, {"name": "aid2", "prefix": "EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX",
+      "salty": {"sxlt": "1AAHgQLzYavr_Qq1n9y9HcpZ8YepmYz9YYGA7K7FmsXNFWXeSviEBDwDYMIcAHivQ5muJ3pVZIxCDR2LJsnrd5mscv2dva4KL0ni",
+      "pidx": 1, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
       ["A", "A", "A"], "ncodes": ["A", "A", "A"], "transferable": true}}]'
     content_type: text/plain
     method: GET
     status: 200
-    url: http://localhost:3901/identifiers
+    url: http://localhost:3901/identifiers?last=&limit=25
 - response:
     auto_calculate_content_length: false
     body: '{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
-      "salty": {"pidx": 0, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode":
-      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}, "transferable":
-      true, "state": {"v": "KERI10JSON0001b6_", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "salty": {"sxlt": "1AAHM4K-xSFXuCm6g7sYStP_0pdlZOm9vYLbER7uplBVT0NBgqDRVPkf6kCkloQXLQORg-UL1ColOihrB1y4vfJ2OQPo5FTdC0Ct",
+      "pidx": 0, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      ["A"], "ncodes": ["A"], "transferable": true}, "transferable": true, "state":
+      {"v": "KERI10JSON0001b6_", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
       "s": "0", "p": "", "d": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", "f":
-      "0", "dt": "2023-05-07T22:37:14.957718+00:00", "et": "icp", "kt": "1", "k":
+      "0", "dt": "2023-05-19T03:05:47.378600+00:00", "et": "icp", "kt": "1", "k":
       ["DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"], "nt": "1", "n": ["EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"],
       "bt": "0", "b": [], "c": [], "ee": {"s": "0", "d": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
       "br": [], "ba": []}, "di": ""}, "windexes": []}'
@@ -93,11 +113,12 @@ responses:
 - response:
     auto_calculate_content_length: false
     body: '{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
-      "salty": {"pidx": 0, "kidx": 1, "stem": "signify:aid", "tier": "low", "dcode":
-      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}, "transferable":
-      true, "state": {"v": "KERI10JSON0001e2_", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "salty": {"sxlt": "1AAHM4K-xSFXuCm6g7sYStP_0pdlZOm9vYLbER7uplBVT0NBgqDRVPkf6kCkloQXLQORg-UL1ColOihrB1y4vfJ2OQPo5FTdC0Ct",
+      "pidx": 0, "kidx": 1, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      ["A"], "ncodes": ["A"], "transferable": true}, "transferable": true, "state":
+      {"v": "KERI10JSON0001e2_", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
       "s": "1", "p": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", "d": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg",
-      "f": "1", "dt": "2023-05-07T22:37:16.271108+00:00", "et": "rot", "kt": "1",
+      "f": "1", "dt": "2023-05-19T03:05:48.284866+00:00", "et": "rot", "kt": "1",
       "k": ["DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"], "nt": "1", "n": ["EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"],
       "bt": "0", "b": [], "c": [], "ee": {"s": "1", "d": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg",
       "br": [], "ba": []}, "di": ""}, "windexes": []}'
@@ -115,11 +136,12 @@ responses:
 - response:
     auto_calculate_content_length: false
     body: '{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
-      "salty": {"pidx": 0, "kidx": 1, "stem": "signify:aid", "tier": "low", "dcode":
-      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}, "transferable":
-      true, "state": {"v": "KERI10JSON0001e2_", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+      "salty": {"sxlt": "1AAHM4K-xSFXuCm6g7sYStP_0pdlZOm9vYLbER7uplBVT0NBgqDRVPkf6kCkloQXLQORg-UL1ColOihrB1y4vfJ2OQPo5FTdC0Ct",
+      "pidx": 0, "kidx": 1, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      ["A"], "ncodes": ["A"], "transferable": true}, "transferable": true, "state":
+      {"v": "KERI10JSON0001e2_", "i": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
       "s": "2", "p": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg", "d": "ENsmRAg_oM7Hl1S-GTRMA7s4y760lQMjzl0aqOQ2iTce",
-      "f": "2", "dt": "2023-05-07T22:37:16.425840+00:00", "et": "ixn", "kt": "1",
+      "f": "2", "dt": "2023-05-19T03:05:48.441016+00:00", "et": "ixn", "kt": "1",
       "k": ["DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"], "nt": "1", "n": ["EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"],
       "bt": "0", "b": [], "c": [], "ee": {"s": "1", "d": "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg",
       "br": [], "ba": []}, "di": ""}, "windexes": []}'
@@ -146,12 +168,13 @@ responses:
 - response:
     auto_calculate_content_length: false
     body: '[{"name": "aid1", "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
-      "salty": {"pidx": 0, "kidx": 1, "stem": "signify:aid", "tier": "low", "dcode":
-      "E", "icodes": ["A"], "ncodes": ["A"], "transferable": true}}, {"name": "aid2",
-      "prefix": "EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL", "salty": {"pidx":
-      1, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      "salty": {"sxlt": "1AAHM4K-xSFXuCm6g7sYStP_0pdlZOm9vYLbER7uplBVT0NBgqDRVPkf6kCkloQXLQORg-UL1ColOihrB1y4vfJ2OQPo5FTdC0Ct",
+      "pidx": 0, "kidx": 1, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
+      ["A"], "ncodes": ["A"], "transferable": true}}, {"name": "aid2", "prefix": "EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX",
+      "salty": {"sxlt": "1AAHgQLzYavr_Qq1n9y9HcpZ8YepmYz9YYGA7K7FmsXNFWXeSviEBDwDYMIcAHivQ5muJ3pVZIxCDR2LJsnrd5mscv2dva4KL0ni",
+      "pidx": 1, "kidx": 0, "stem": "signify:aid", "tier": "low", "dcode": "E", "icodes":
       ["A", "A", "A"], "ncodes": ["A", "A", "A"], "transferable": true}}]'
     content_type: text/plain
     method: GET
     status: 200
-    url: http://localhost:3901/identifiers
+    url: http://localhost:3901/identifiers?last=&limit=25
