@@ -115,18 +115,21 @@ def test_salty():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.med
 
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
 
     # Raises configuration error because the started agent has a different controller AID
     with pytest.raises(kering.ConfigurationError):
-        client.connect()
+        client.connect(url=url)
 
     tier = Tiers.low
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     evt, siger = client.ctrl.event()
+
+    print(evt.pretty())
+    print(siger.qb64)
     res = requests.post(url="http://localhost:3903/boot",
                         json=dict(
                             icp=evt.ked,
@@ -138,17 +141,16 @@ def test_salty():
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    client.connect()
+    client.connect(url=url, )
     assert client.agent is not None
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
-    assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
     aids = identifiers.list()
     assert aids == []
 
-    aid = identifiers.create("aid1")
+    aid = identifiers.create("aid1", bran="0123456789abcdefghijk")
     icp = Serder(ked=aid)
     assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert len(icp.verfers) == 1
@@ -159,6 +161,9 @@ def test_salty():
     assert icp.ntholder.num == 1
 
     rpy = identifiers.makeEndRole(pre=icp.pre, eid="EPGaq6inGxOx-VVVEcUb_KstzJZldHJvVsHqD4IPxTWf")
+    print(rpy.pretty())
+    assert rpy.ked['a']['cid'] == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
+    assert rpy.ked['a']['eid'] == "EPGaq6inGxOx-VVVEcUb_KstzJZldHJvVsHqD4IPxTWf"
 
     aids = identifiers.list()
     assert len(aids) == 1
@@ -170,17 +175,19 @@ def test_salty():
     assert aid["prefix"] == icp.pre
     assert salt["stem"] == "signify:aid"
 
-    aid2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2")
+    aid2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2", bran="0123456789lmnopqrstuv")
     icp2 = Serder(ked=aid2)
-    assert icp2.pre == "EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL"
+    print(icp2.pre)
+    assert icp2.pre == "EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX"
     assert len(icp2.verfers) == 3
-    assert icp2.verfers[0].qb64 == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
-    assert icp2.verfers[1].qb64 == "DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"
-    assert icp2.verfers[2].qb64 == "DEfdjYZMI2hLaHBOpUubn5AUItgOvh2W1vckGE33SIPf"
+    assert icp2.verfers[0].qb64 == "DGBw7C7AfC7jbD3jLLRS3SzIWFndM947TyNWKQ52iQx5"
+    assert icp2.verfers[1].qb64 == "DD_bHYFsgWXuCbz3SD0HjCIe_ITjRvEoCGuZ4PcNFFDz"
+    assert icp2.verfers[2].qb64 == "DEe9u8k0fm1wMFAuOIsCtCNrpduoaV5R21rAcJl0awze"
     assert len(icp2.digers) == 3
-    assert icp2.digers[0].qb64 == "EEvyqpRLktts-_aSfPHKKv1mTKTV4ngwKKkOaqm3ZuPX"
-    assert icp2.digers[1].qb64 == "EEkMimwsv_JMZh7k-Rfq5wvhvbEdjVr8NhGQpyssVmNJ"
-    assert icp2.digers[2].qb64 == "EJy_MjjMWLJkn_5cRaUtDr7asfLe70xbAPD2nablr0iv"
+    print([diger.qb64 for diger in icp2.digers])
+    assert icp2.digers[0].qb64 == "EML5FrjCpz8SEl4dh0U15l8bMRhV_O5iDcR1opLJGBSH"
+    assert icp2.digers[1].qb64 == "EJpKquuibYTqpwMDqEFAFs0gwq0PASAHZ_iDmSF3I2Vg"
+    assert icp2.digers[2].qb64 == "ELplTAiEKdobFhlf-dh1vUb2iVDW0dYOSzs1dR7fQo60"
     assert icp2.tholder.num == 2
     assert icp2.ntholder.num == 2
 
@@ -358,6 +365,7 @@ def test_delegation():
 
     icp1 = Serder(ked=op["response"])
 
+    print(icp1.pretty())
     assert icp1.pre == pre
 
 
@@ -827,9 +835,9 @@ def test_recreate_client():
 
 
 if __name__ == "__main__":
-    test_delegation()
+    # test_delegation()
     # test_witnesses()
-    # test_salty()
+    test_salty()
     # test_randy()
     # test_multisig()
     # test_query()

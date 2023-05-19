@@ -125,7 +125,7 @@ class SaltyKeeper(BaseKeeper):
 
     def __init__(self, salter, pidx, kidx=0, tier=Tiers.low, transferable=False, stem=None,
                  code=MtrDex.Ed25519_Seed, count=1, icodes=None, ncode=MtrDex.Ed25519_Seed,
-                 ncount=1, ncodes=None, dcode=MtrDex.Blake3_256, sxlt=None):
+                 ncount=1, ncodes=None, dcode=MtrDex.Blake3_256, bran=None, sxlt=None):
         """
         Create an instance of a SaltyKeeper for managing keys for a single AID.  This can be created from
         data saved externally to recreate keys at a given point in time or with values for a new AID.  The sxlt
@@ -147,6 +147,7 @@ class SaltyKeeper(BaseKeeper):
             ncount (int): number of rotation keys
             ncodes (list): alternate to ncode and ncount to be specific about rotation key codes
             dcode (str): derivation code for hashing algorithm for next key digests
+            bran (str): AID specific salt to use for key generate for this AID inception
             sxlt (str): qualified base64 of cipher of AID salt.
         """
 
@@ -171,9 +172,15 @@ class SaltyKeeper(BaseKeeper):
         stem = stem if stem is not None else self.stem
 
         # sxlt is encrypted salt for this AID or None if incepting
-        if sxlt is None:
+        if bran is not None:
+            bran = coring.MtrDex.Salt_128 + 'A' + bran[:21]
+            self.creator = SaltyCreator(salt=bran, stem=stem, tier=tier)
+            self.sxlt = self.encrypter.encrypt(self.creator.salt).qb64
+
+        elif sxlt is None:
             self.creator = SaltyCreator(stem=stem, tier=tier)
             self.sxlt = self.encrypter.encrypt(self.creator.salt).qb64
+
         else:
             self.sxlt = sxlt
             ciph = coring.Cipher(qb64=self.sxlt)

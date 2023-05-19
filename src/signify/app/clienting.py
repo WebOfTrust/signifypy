@@ -79,7 +79,6 @@ class SignifyClient:
         self.session.auth = SignifyAuth(self.authn)
 
     def approveDelegation(self):
-        print("approving delegation of controller")
         serder, sigs = self.ctrl.approveDelegation(self.agent)
         data = dict(ixn=serder.ked, sigs=sigs)
         self.put(path=f"/agent/{self.controller}?type=ixn", json=data)
