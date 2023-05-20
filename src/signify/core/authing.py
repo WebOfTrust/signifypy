@@ -312,7 +312,7 @@ class Authenticater:
             fields = self.DefaultFields
 
         header, qsig = ending.siginput("signify", method, path, headers, fields=fields, signers=[self.ctrl.signer],
-                                       alg="ed25519", keyid=self.agent.pre)
+                                       alg="ed25519", keyid=self.ctrl.pre)
         for key, val in header.items():
             headers[key] = val
 
