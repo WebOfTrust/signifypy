@@ -4,6 +4,7 @@ KERI
 signify.core.authing module
 
 """
+from urllib.parse import urlparse
 
 from keri import kering
 from keri.app.keeping import SaltyCreator
@@ -234,7 +235,13 @@ class Authenticater:
         self.agent = agent
         self.ctrl = ctrl
 
-    def verify(self, headers, method, path):
+    def verify(self, rep, **kwargs):
+        url = urlparse(rep.request.url)
+        resource = rep.headers["SIGNIFY-RESOURCE"]
+        if resource != self.agent.pre or not self.verifysig(rep.headers, rep.request.method, url.path):
+            raise kering.AuthNError("No valid signature from agent on response.")
+
+    def verifysig(self, headers, method, path):
         headers = headers
         if "SIGNATURE-INPUT" not in headers:
             return False

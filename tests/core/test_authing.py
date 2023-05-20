@@ -69,7 +69,7 @@ def test_authenticater(mockHelpingNowUTC):
                                  'signify-resource': 'EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs',
                                  'signify-timestamp': '2022-09-24T00:05:48.196795+00:00'}
         req = testing.create_req(method="POST", path="/boot", headers=dict(headers))
-        assert authn.verify(req.headers, "POST", "/boot")
+        assert authn.verifysig(req.headers, "POST", "/boot")
 
 
 def test_agent():
