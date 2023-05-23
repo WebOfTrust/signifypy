@@ -77,6 +77,7 @@ keriaPid=-1
 if [ -d "${KERIA_DIR}" ]; then
     keria start --config-file demo-witness-oobis.json --config-dir $KERIA_DIR/scripts &
     keriaPid=$!
+    sleep 5
     echo "Keria cloud agent running"
 else
     echo "Keria dir missing ${KERIA_DIR}"
@@ -84,6 +85,7 @@ fi
 
 # echo "Running signify test delegation"
 # Assumes you are running from the base signify dir (see hint at the top)
+echo "Launching Signifypy test delegation"
 signifyPid=-1
 cd ${ORIG_CUR_DIR}
 iClient="./integration/app/integration_clienting.py"
@@ -99,8 +101,8 @@ fi
 
 echo "Tearing down any leftover processes"
 #tear down the signify client
-kill $signifyPid
+kill $signifyPid >/dev/null 2>&1
 # tear down the keria cloud agent
-kill $keriaPid
+kill $keriaPid >/dev/null 2>&1
 # tear down the witness network
-kill $witPid
+kill $witPid >/dev/null 2>&1
