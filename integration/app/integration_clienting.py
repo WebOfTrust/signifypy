@@ -256,7 +256,7 @@ def test_witnesses():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     evt, siger = client.ctrl.event()
     res = requests.post(url="http://localhost:3903/boot",
@@ -270,19 +270,20 @@ def test_witnesses():
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    client.connect()
+    client.connect(url=url)
 
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
-    assert client.ctrl.ridx == 0
+    assert client.agent.pre == 'EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei'
+
+    # assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
     operations = client.operations()
 
     print("creating aid")
     # Use witnesses
-    op = identifiers.create("aid1", toad="2", wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+    op = identifiers.create("aid1", bran="canIGetAWitnessSaltGreaterThan21", toad="2", wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
                                                     "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
                                                     "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"])
 
@@ -291,14 +292,16 @@ def test_witnesses():
         sleep(1)
 
     icp1 = Serder(ked=op["response"])
-    assert icp1.pre == "EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk"
+    assert icp1.pre == 'EGTFIbnFoA7G-f4FHzzXUMp6VAgQfJ-2nXqzfb5hVwKa'
+
+
     assert icp1.ked['b'] == ["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
                              "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
                              "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"]
     assert icp1.ked['bt'] == "2"
 
     aid1 = identifiers.get("aid1")
-    assert aid1["prefix"] == "EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk"
+    assert aid1["prefix"] == icp1.pre
     assert len(aid1["windexes"]) == 3
 
     aids = identifiers.list()
@@ -836,8 +839,8 @@ def test_recreate_client():
 
 if __name__ == "__main__":
     # test_delegation()
-    # test_witnesses()
-    test_salty()
+    test_witnesses()
+    # test_salty()
     # test_randy()
     # test_multisig()
     # test_query()

@@ -77,6 +77,7 @@ class SignifyClient:
 
         self.authn = Authenticater(agent=self.agent, ctrl=self.ctrl)
         self.session.auth = SignifyAuth(self.authn)
+        self.session.hooks = dict(response=self.authn.verify)
 
     def approveDelegation(self):
         serder, sigs = self.ctrl.approveDelegation(self.agent)
