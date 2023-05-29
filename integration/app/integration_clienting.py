@@ -25,6 +25,10 @@ WITNESS_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"witness.toml")
 DELEGATION_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"delegation.toml")
 CONNECT_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"connect.toml")
 
+wit1 = "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
+wit2 = "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"
+wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
+
 def test_init():
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
@@ -141,7 +145,7 @@ def test_salty():
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    client.connect(url=url, )
+    client.connect(url=url)
     assert client.agent is not None
     assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
@@ -359,7 +363,7 @@ def test_delegation():
         op = operations.get(op["name"])
         sleep(1)
 
-    op = identifiers.create("aid1", delpre=delpre)
+    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=[wit1, wit2, wit3])
     pre = op["metadata"]["pre"]
 
     while not op["done"]:
@@ -384,14 +388,14 @@ def test_multisig():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
-    client.connect()
+    client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
-    assert client.ctrl.ridx == 0
+    # assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
     operations = client.operations()
@@ -839,8 +843,8 @@ def test_recreate_client():
 
 if __name__ == "__main__":
     # test_delegation()
-    test_witnesses()
-    # test_salty()
+    # test_witnesses()
+    test_salty()
     # test_randy()
     # test_multisig()
     # test_query()

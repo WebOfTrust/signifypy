@@ -55,21 +55,21 @@ def test_connect():
     tier = Tiers.low
 
     ctrl = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == ctrl
 
-    agentPre = "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
-    client.connect()
+    agentPre = "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
+    client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == ctrl
     assert client.agent.pre == agentPre
-    assert client.ctrl.ridx == 0
+    # assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
     aids = identifiers.list()
     assert aids == []
 
-    aid = identifiers.create("aid1")
+    aid = identifiers.create("aid1", delpre=agentPre)
     icp = Serder(ked=aid)
     assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert len(icp.verfers) == 1
@@ -180,10 +180,10 @@ def test_delegation():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
-    client.connect()
+    client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 

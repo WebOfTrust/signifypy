@@ -44,7 +44,6 @@ echo "Creating delegator"
 KERIPY_SCRIPTS_DIR="${KERIPY_DIR}/scripts"
 if [ -d "${KERIPY_SCRIPTS_DIR}" ]; then
     kli init --name delegator --nopasscode --config-dir ${KERIPY_SCRIPTS_DIR} --config-file demo-witness-oobis --salt 0ACDEyMzQ1Njc4OWdoaWpsaw
-    # kli init --name delegator --nopasscode --config-dir /Users/meenyleeny/VSCode/keripy/scripts --config-file demo-witness-oobis --salt 0ACDEyMzQ1Njc4OWdoaWpsaw
     KERIPY_DELEGATOR_CONF="${KERIPY_SCRIPTS_DIR}/demo/data/delegator.json"
     if [ -f "${KERIPY_DELEGATOR_CONF}" ]; then
         kli incept --name delegator --alias delegator --file ${KERIPY_DELEGATOR_CONF}
@@ -83,22 +82,40 @@ else
     echo "Keria dir missing ${KERIA_DIR}"
 fi
 
+# Iterate over tests specified
+for arg in "$@"; do
+    echo "Argument: $arg"
+done
+
 # echo "Running signify test delegation"
 # Assumes you are running from the base signify dir (see hint at the top)
-echo "Launching Signifypy test delegation"
-signifyPid=-1
-cd ${ORIG_CUR_DIR}
-iClient="./integration/app/integration_clienting.py"
-if [ -f "${iClient}" ]; then
-    python -c 'from integration.app.integration_clienting import test_delegation; test_delegation()' &
-    signifyPid=$!
-    sleep 10
-    echo "Completed signify test delegation"
+runSignify="test_salty"
+read -p "What signify test to run (n to skip)?, [$runSignify]: " input
+runSignify=${input:-$runSignify}
+if [ "${runSignify}" == "n" ]; then
+    echo "Skipping signify test"
 else
-    echo "integration_clienting.py module missing ${iClient}"
-    exit 1
+    echo "Launching Signifypy test ${runSignify}"
+    signifyPid=-1
+    cd ${ORIG_CUR_DIR}
+    iClient="./integration/app/integration_clienting.py"
+    if [ -f "${iClient}" ]; then
+        python -c "from integration.app.integration_clienting import ${runSignify}; ${runSignify}()" &
+        signifyPid=$!
+        sleep 10
+        echo "Completed signify test delegation"
+    else
+        echo "integration_clienting.py module missing ${iClient}"
+        exit 1
+    fi
 fi
 
+endNow="n"
+while [ "$endNow" != "y" ]
+do
+    read -p "End and teardown now?, [$endNow]: " input
+    endNow=${input:-$endNow}
+done
 echo "Tearing down any leftover processes"
 #tear down the signify client
 kill $signifyPid >/dev/null 2>&1

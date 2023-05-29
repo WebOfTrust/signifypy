@@ -23,7 +23,7 @@ def test_authenticater(mockHelpingNowUTC):
     with habbing.openHby(name="agent", temp=True) as agentHby:
 
         ctrl = authing.Controller(bran=bran, tier=Tiers.low)
-        agentHab = agentHby.makeHab(name="agent", icount=1, isith='1', ncount=1, nsith='1', data=[ctrl.pre])
+        agentHab = agentHby.makeHab(name="agent", icount=1, isith='1', ncount=1, nsith='1', data=[ctrl.pre], delpre=ctrl.pre)
 
         dgkey = dbing.dgKey(agentHab.pre, agentHab.kever.serder.said)  # get message
         raw = agentHby.db.getEvt(key=dgkey)
@@ -35,7 +35,7 @@ def test_authenticater(mockHelpingNowUTC):
             sig=coring.Siger(qb64b=bytes(sigs[0])).qb64
         )
 
-        agent = authing.Agent(kel=[evt])
+        agent = authing.Agent(state=evt["ked"])
 
         # Create authenticater with Agent and controllers AID
         authn = authing.Authenticater(agent=agent, ctrl=ctrl)
@@ -59,12 +59,10 @@ def test_authenticater(mockHelpingNowUTC):
 
         assert dict(headers) == {'Connection': 'close',
                                  'Content-Type': 'application/json',
-                                 'Signature': 'indexed="?0";signify="0BCE9Joj3bY68sLQzxYxCgQOC3vEWhvLopfQk1b_wox5qqky'
-                                              'hO7_SWuEqJk1sfALQh1eT26vdR3aTqL-_lU4UhsG"',
+                                 'Signature': 'indexed="?0";signify="0BCnXc1Wz8OfYUSRFz8eSW1AkW3J4D_bJFHiOga-1KbBJ2g_LwlfaZMRqxaMDqsnY02ggwRpUTrTEE7c_lbQ0VQD"',
                                  'Signature-Input': 'signify=("@method" "@path" "content-length" '
                                                     '"signify-resource" '
-                                                    '"signify-timestamp");created=1609459200;keyid="EICwDc-jYoUgNyMlA'
-                                                    'dg2iOFyeu56-RXvPRdFCG2luers";alg="ed25519"',
+                                                    '"signify-timestamp");created=1609459200;keyid="EJ-t3M9T3Sq0Xa6XmpWMoNtstEqJWvJoXD_GdIRwvINc";alg="ed25519"',
                                  'content-length': '256',
                                  'signify-resource': 'EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs',
                                  'signify-timestamp': '2022-09-24T00:05:48.196795+00:00'}
@@ -75,28 +73,28 @@ def test_authenticater(mockHelpingNowUTC):
 def test_agent():
     salt = b'0123456789abcdef'
     anchor = "EWJkQCFvKuyxZi582yJPb0wcwuW3VXmFNuvbQuBpgmIs"
-    with habbing.openHab(name="agent", salt=salt, temp=True, data=[anchor]) as (_, hab):
+    with habbing.openHab(name="agent", salt=salt, temp=True, data=[anchor], delpre=anchor) as (_, hab):
         kel = []
-        assert hab.pre == "EMxaZwqassOlnl33B8MqsYZfm-_uVaAEdyOf_uZuAK8B"
+        assert hab.pre == "EESwpe1cY0YDPrBgVhlFwMq26hhmtl4owg3jSTd-1zP_"
         icp, sigs, _ = hab.getOwnEvent(sn=0)
         kel.append(dict(ked=icp.ked, sig=sigs[0].qb64))
 
         hab.rotate()
         rot, sigs, _ = hab.getOwnEvent(sn=1)
         kel.append(dict(ked=rot.ked, sig=sigs[0].qb64))
-        assert rot.said == "EB3J34zJS_BfIaaO_N2Efulk5GF8ZI2BGzOD2HbX9wiR"
+        assert rot.said == "EE97cLvSQ73H_GpsDYVyShsXxNh9EFr_qYFJ4cFz6eqq"
 
         hab.rotate()
         rot, sigs, _ = hab.getOwnEvent(sn=2)
         kel.append(dict(ked=rot.ked, sig=sigs[0].qb64))
-        assert rot.said == "ECgCwYVemBbwFZ5YqanWX9RowsnBFjn7kMdxSVwJa5AN"
+        assert rot.said == "ENKtgP3irYwtGArIIUp_aerC1Ddq0scGwY2yMZBmdDDi"
 
         assert hab.kever.sn == 2
 
-        agent = authing.Agent(kel=kel)
+        agent = authing.Agent(state=icp.ked)
         assert agent.pre == hab.pre
         assert agent.delpre == anchor
-        assert agent.verfer.qb64 == "DIhwCPtuYnIudD4Kqd8tZ9B6XvTSbGkjXGMA38u1K4tu"
+        assert agent.verfer.qb64 == "DHh2g07Bl2UjV6DIOQZ4cu_82r1vuebMQTq-_waXI1ew"
         assert agent.verfer.qb64 == hab.kever.verfers[0].qb64
 
     # Inception event with 2 keys is invalid
@@ -109,7 +107,7 @@ def test_agent():
         kel.append(dict(ked=icp.ked, sig=sigs[0].qb64))
 
         with pytest.raises(kering.ValidationError) as ex:
-            _ = authing.Agent(kel=kel)
+            _ = authing.Agent(state=kel)
 
         assert ex.value.args[0] == "agent inception event can only have one key"
 
@@ -123,7 +121,7 @@ def test_agent():
         kel.append(dict(ked=icp.ked, sig=sigs[0].qb64))
 
         with pytest.raises(kering.ValidationError) as ex:
-            _ = authing.Agent(kel=kel)
+            _ = authing.Agent(state=kel)
 
         assert ex.value.args[0] == "agent inception event can only have one next key"
 
