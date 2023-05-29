@@ -38,6 +38,7 @@ else
     echo "KERIPY dir missing ${KERIPY_DIR}"
     exit 1
 fi
+echo ""
 
 #create the delegator from keripy
 echo "Creating delegator"
@@ -58,6 +59,7 @@ if [ -d "${KERIPY_SCRIPTS_DIR}" ]; then
 else
     echo "KERIPY Directory ${KERIPY_SCRIPTS_DIR} does not exist."
 fi
+echo ""
 
 # Check if the environment variable is set
 if [ -z "$KERIA_DIR" ]; then
@@ -81,41 +83,44 @@ if [ -d "${KERIA_DIR}" ]; then
 else
     echo "Keria dir missing ${KERIA_DIR}"
 fi
-
+echo ""
 # Iterate over tests specified
-for arg in "$@"; do
-    echo "Argument: $arg"
-done
+# for arg in "$@"; do
+#     echo "Argument: $arg"
+# done
 
 # echo "Running signify test delegation"
 # Assumes you are running from the base signify dir (see hint at the top)
-runSignify="test_salty"
-read -p "What signify test to run (n to skip)?, [$runSignify]: " input
-runSignify=${input:-$runSignify}
-if [ "${runSignify}" == "n" ]; then
-    echo "Skipping signify test"
-else
-    echo "Launching Signifypy test ${runSignify}"
-    signifyPid=-1
-    cd ${ORIG_CUR_DIR}
-    iClient="./integration/app/integration_clienting.py"
-    if [ -f "${iClient}" ]; then
-        python -c "from integration.app.integration_clienting import ${runSignify}; ${runSignify}()" &
-        signifyPid=$!
-        sleep 10
-        echo "Completed signify test delegation"
-    else
-        echo "integration_clienting.py module missing ${iClient}"
-        exit 1
-    fi
-fi
+cd ${ORIG_CUR_DIR}
+integrationTestModule="integration.app.integration_clienting"
+echo "Available functions in ${integrationTestModule}"
+python -c "import ${integrationTestModule}; print('\n'.join(x for x in dir(${integrationTestModule}) if x.startswith('test_')))"
 
-endNow="n"
-while [ "$endNow" != "y" ]
+runSignify="test_salty"
+while [ "$runSignify" != "n" ]
 do
-    read -p "End and teardown now?, [$endNow]: " input
-    endNow=${input:-$endNow}
+    read -p "What signify test to run (n to skip)?, [$runSignify]: " input
+    runSignify=${input:-$runSignify}
+    if [ "${runSignify}" == "n" ]; then
+        echo "Skipping signify test"
+    else
+        echo "Launching Signifypy test ${runSignify}"
+        signifyPid=-1
+        iClient="./integration/app/integration_clienting.py"
+        if [ -f "${iClient}" ]; then
+            python -c "from ${integrationTestModule} import ${runSignify}; ${runSignify}()" &
+            signifyPid=$!
+            sleep 10
+            echo "Completed signify test delegation"
+        else
+            echo "${iClient} module missing"
+            exit 1
+        fi
+    fi
+    echo ""
 done
+
+read -p "Your witness network and KERIA are still running, hit enter to end and tear down: " input
 echo "Tearing down any leftover processes"
 #tear down the signify client
 kill $signifyPid >/dev/null 2>&1
