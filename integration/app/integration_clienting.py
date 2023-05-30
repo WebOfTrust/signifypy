@@ -110,10 +110,9 @@ def test_extern():
 
 @_recorder.record(file_path=CONNECT_FILE_PATH)
 def test_salty():
-    """ This test assumes a running KERIA agent with the following comand:
-
-          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose`
-
+    """
+    This test assumes a running KERIA agent.
+    See integration.sh to run this test automatically with a locally running KERIA and witness network.
     """
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'

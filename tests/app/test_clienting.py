@@ -46,17 +46,37 @@ def test_init():
     client = SignifyClient(url=url, passcode=bran, tier=tier)
     assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
 
+def request_callback(request):
+    headers = {"SIGNIFY-RESOURCE": "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei",
+            "SIGNIFY-TIMESTAMP": "2022-09-24T00:05:48.196795+00:00",
+            'SIGNATURE-INPUT': 'signify=("@method" "@path" "content-length" '
+                                                    '"signify-resource" '
+                                                    '"signify-timestamp");created=1609459200;keyid="EJ-t3M9T3Sq0Xa6XmpWMoNtstEqJWvJoXD_GdIRwvINc";alg="ed25519"',
+            "SIGNATURE": 'indexed="?0";signify="0BAagZpIHOhyE98pffMUXpqQPVmpTjvVyAE1DFWsqEPLVbE4fQaR7B3DTcwoYKFs0k9A4OFQh6C0bATNfVs5wLwH"'
+            }
+    return (200, headers, request.body)
 
 @responses.activate
 def test_connect():
-    responses._add_from_file(file_path=os.path.join(TEST_DIR, "connect.toml"))
     url = "http://localhost:3901"
+    responses._add_from_file(file_path=os.path.join(TEST_DIR, "connect.toml"))
+    responses.add_callback(content_type="text/plain",method="GET",url="http://localhost:3901/identifiers?last=&limit=25",callback=request_callback)
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
     ctrl = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == ctrl
+
+    # evt, siger = client.ctrl.event()
+
+    # res = responses.post(url="http://localhost:3903/boot",
+    #                     json=dict(
+    #                         icp=evt.ked,
+    #                         sig=siger.qb64,
+    #                         stem=client.ctrl.stem,
+    #                         pidx=1,
+    #                         tier=client.ctrl.tier))
 
     agentPre = "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
     client.connect(url=url)
