@@ -18,6 +18,8 @@ import pytest
 from keri import kering
 from keri.core.coring import Tiers, Serder, MtrDex
 
+import keria.app.aiding as aiding
+
 from signify.app.clienting import SignifyClient
 
 TESTS_APP_DIR = "tests/app/"
