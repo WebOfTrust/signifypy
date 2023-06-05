@@ -7,24 +7,64 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 import os
 from time import sleep
+import requests
 import responses
 
 import pytest
 from keri import kering
 from keri.core.coring import Tiers, Serder
 
+from keria.app.cli.commands import start
 from keria.testing.testing_helper import Helpers
 
 from signify.app.clienting import SignifyClient
 
+import threading
+
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def test_init():
-    url = "http://localhost:3901"
-    bran = b'0123456789abcdefghijk'
-    tier = None
+bran = '0123456789abcdefghijk'
+ctrl = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+kName = "keria"
+url = "http://localhost:3901"
 
+class KeriaArgs: 
+    def __init__(self):
+        self.name="keria"
+        self.base="testing"
+        self.bran = bran
+        self.admin="3901"
+        self.http="3902"
+        self.boot="3903"
+        self.configFile="demo-witness-oobis.json"
+        self.configDir="/Users/meenyleeny/VSCode/keria/scripts"
+
+
+@pytest.fixture
+def setup():
+    print("Before test", )
+    Helpers.remove_test_dirs(ctrl)
+    thread=threading.Thread(target=start.runAgent,
+                     args=[kName,
+                    "",
+                    bran,
+                    3901,
+                    3902,
+                    3903,
+                    "demo-witness-oobis.json",
+                    "/Users/meenyleeny/VSCode/keria/scripts",
+                    0.0])
+    thread.daemon=True
+    thread.start()
+
+@pytest.fixture
+def teardown():
+    print("After test")
+    
+def test_init(setup,teardown):
+    tier = None
+    
     # Try with bran that is too short
     with pytest.raises(kering.ConfigurationError):
         SignifyClient(url=url, passcode=bran[:16], tier=tier)
@@ -34,62 +74,69 @@ def test_init():
         SignifyClient(url="ftp://www.example.com", passcode=bran, tier=tier)
 
     client = SignifyClient(url=url, passcode=bran, tier=tier)
-    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-
-    tier = Tiers.low
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
-    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-
-    tier = Tiers.med
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
-    assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
-
-    tier = Tiers.high
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
-    assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
-
-def request_callback(request):
-    headers = {"SIGNIFY-RESOURCE": "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei",
-            "SIGNIFY-TIMESTAMP": "2022-09-24T00:05:48.196795+00:00",
-            'SIGNATURE-INPUT': 'signify=("@method" "@path" "content-length" '
-                                                    '"signify-resource" '
-                                                    '"signify-timestamp");created=1609459200;keyid="EJ-t3M9T3Sq0Xa6XmpWMoNtstEqJWvJoXD_GdIRwvINc";alg="ed25519"',
-            "SIGNATURE": 'indexed="?0";signify="0BAagZpIHOhyE98pffMUXpqQPVmpTjvVyAE1DFWsqEPLVbE4fQaR7B3DTcwoYKFs0k9A4OFQh6C0bATNfVs5wLwH"'
-            }
-    return (200, headers, request.body)
-
-@responses.activate
-def test_connect():
-    url = "http://localhost:3901"
-    responses._add_from_file(file_path=os.path.join(TEST_DIR, "connect.toml"))
-    responses.add_callback(content_type="text/plain",method="GET",url="http://localhost:3901/identifiers?last=&limit=25",callback=request_callback)
-    bran = b'0123456789abcdefghijk'
-    tier = Tiers.low
-
-    ctrl = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == ctrl
 
-    # evt, siger = client.ctrl.event()
+    tier = Tiers.low
+    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    assert client.controller == ctrl
 
-    # res = responses.post(url="http://localhost:3903/boot",
-    #                     json=dict(
-    #                         icp=evt.ked,
-    #                         sig=siger.qb64,
-    #                         stem=client.ctrl.stem,
-    #                         pidx=1,
-    #                         tier=client.ctrl.tier))
+    # Raises configuration error because the started agent has a different controller AID
+    # assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
+    with pytest.raises(kering.ConfigurationError):
+        tier = Tiers.med
+        client = SignifyClient(url=url, passcode=bran, tier=tier)
 
-    agentPre = "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
+    # assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
+    with pytest.raises(kering.ConfigurationError):
+        tier = Tiers.high
+        client = SignifyClient(url=url, passcode=bran, tier=tier)
+
+# def request_callback(request):
+#     headers = {"SIGNIFY-RESOURCE": "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei",
+#             "SIGNIFY-TIMESTAMP": "2022-09-24T00:05:48.196795+00:00",
+#             'SIGNATURE-INPUT': 'signify=("@method" "@path" "content-length" '
+#                                                     '"signify-resource" '
+#                                                     '"signify-timestamp");created=1609459200;keyid="EJ-t3M9T3Sq0Xa6XmpWMoNtstEqJWvJoXD_GdIRwvINc";alg="ed25519"',
+#             "SIGNATURE": 'indexed="?0";signify="0BAagZpIHOhyE98pffMUXpqQPVmpTjvVyAE1DFWsqEPLVbE4fQaR7B3DTcwoYKFs0k9A4OFQh6C0bATNfVs5wLwH"'
+#             }
+#     return (200, headers, request.body)
+
+# @responses.activate
+def test_connect(setup,teardown):
+    url = "http://localhost:3901"
+    # responses._add_from_file(file_path=os.path.join(TEST_DIR, "connect.toml"))
+    #responses.add_callback(content_type="text/plain",method="GET",url="http://localhost:3901/identifiers?last=&limit=25",callback=request_callback)
+    #bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+
+    tier = Tiers.low
+    client = SignifyClient(passcode=bran, tier=tier)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    evt, siger = client.ctrl.event()
+
+    print(evt.pretty())
+    print(siger.qb64)
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
     client.connect(url=url)
     assert client.agent is not None
-    assert client.agent.delpre == ctrl
-    assert client.agent.pre == agentPre
-    # assert client.ctrl.ridx == 0
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
+    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     identifiers = client.identifiers()
     aids = identifiers.list()
     assert aids == []
+
 
     aid = identifiers.create("aid1", delpre=agentPre)
     icp = Serder(ked=aid)
@@ -152,7 +199,7 @@ def test_connect():
 
 @responses.activate
 def test_witnesses():
-    responses._add_from_file(file_path=os.path.join(TEST_DIR, "witness.toml"))
+    # responses._add_from_file(file_path=os.path.join(TEST_DIR, "witness.toml"))
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
@@ -197,7 +244,7 @@ def test_witnesses():
 
 @responses.activate
 def test_delegation():
-    responses._add_from_file(file_path=os.path.join(TEST_DIR, "delegation.toml"))
+    # responses._add_from_file(file_path=os.path.join(TEST_DIR, "delegation.toml"))
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
