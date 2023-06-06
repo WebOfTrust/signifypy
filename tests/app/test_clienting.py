@@ -12,6 +12,7 @@ import responses
 
 import pytest
 from keri import kering
+from keri.app.keeping import Algos
 from keri.core.coring import Tiers, Serder
 
 from keria.app.cli.commands import start
@@ -25,7 +26,8 @@ TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 bran = '0123456789abcdefghijk'
-ctrl = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+ctrlPre = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+agentPre = "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
 kName = "keria"
 url = "http://localhost:3901"
 
@@ -44,7 +46,7 @@ class KeriaArgs:
 @pytest.fixture
 def setup():
     print("Before test", )
-    Helpers.remove_test_dirs(ctrl)
+    Helpers.remove_test_dirs(ctrlPre)
     thread=threading.Thread(target=start.runAgent,
                      args=[kName,
                     "",
@@ -74,11 +76,11 @@ def test_init(setup,teardown):
         SignifyClient(url="ftp://www.example.com", passcode=bran, tier=tier)
 
     client = SignifyClient(url=url, passcode=bran, tier=tier)
-    assert client.controller == ctrl
+    assert client.controller == ctrlPre
 
     tier = Tiers.low
     client = SignifyClient(url=url, passcode=bran, tier=tier)
-    assert client.controller == ctrl
+    assert client.controller == ctrlPre
 
     # Raises configuration error because the started agent has a different controller AID
     # assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
@@ -103,7 +105,7 @@ def test_init(setup,teardown):
 
 # @responses.activate
 def test_connect(setup,teardown):
-    url = "http://localhost:3901"
+    # url = "http://localhost:3901"
     # responses._add_from_file(file_path=os.path.join(TEST_DIR, "connect.toml"))
     #responses.add_callback(content_type="text/plain",method="GET",url="http://localhost:3901/identifiers?last=&limit=25",callback=request_callback)
     #bran = b'0123456789abcdefghijk'
@@ -111,7 +113,7 @@ def test_connect(setup,teardown):
 
     tier = Tiers.low
     client = SignifyClient(passcode=bran, tier=tier)
-    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.controller == ctrlPre
 
     evt, siger = client.ctrl.event()
 
@@ -130,15 +132,14 @@ def test_connect(setup,teardown):
 
     client.connect(url=url)
     assert client.agent is not None
-    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
-    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == agentPre
+    assert client.agent.delpre == ctrlPre
 
     identifiers = client.identifiers()
     aids = identifiers.list()
     assert aids == []
 
-
-    aid = identifiers.create("aid1", delpre=agentPre)
+    aid = identifiers.create("aid1", bran=f"{bran}_1")
     icp = Serder(ked=aid)
     assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert len(icp.verfers) == 1
@@ -149,28 +150,33 @@ def test_connect(setup,teardown):
     assert icp.ntholder.num == 1
 
     rpy = identifiers.makeEndRole(pre=icp.pre, eid="EPGaq6inGxOx-VVVEcUb_KstzJZldHJvVsHqD4IPxTWf")
-    print(rpy.ked)
+    print(rpy.pretty())
+    assert rpy.ked['a']['cid'] == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
+    assert rpy.ked['a']['eid'] == "EPGaq6inGxOx-VVVEcUb_KstzJZldHJvVsHqD4IPxTWf"
 
     aids = identifiers.list()
     assert len(aids) == 1
     aid = aids.pop()
 
+    salt = aid[Algos.salty]
     assert aid['name'] == "aid1"
-    assert aid["salty"]["pidx"] == 0
+    assert salt["pidx"] == 0
     assert aid["prefix"] == icp.pre
-    assert aid["salty"]["stem"] == "signify:aid"
+    assert salt["stem"] == "signify:aid"
 
-    aid2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2")
+    aid2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2", bran="0123456789lmnopqrstuv")
     icp2 = Serder(ked=aid2)
-    assert icp2.pre == "EI5e4q43vsTsy-vJFcVGKfI3YKHbOT5ffuseaxtuYydL"
+    print(icp2.pre)
+    assert icp2.pre == "EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX"
     assert len(icp2.verfers) == 3
-    assert icp2.verfers[0].qb64 == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
-    assert icp2.verfers[1].qb64 == "DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"
-    assert icp2.verfers[2].qb64 == "DEfdjYZMI2hLaHBOpUubn5AUItgOvh2W1vckGE33SIPf"
+    assert icp2.verfers[0].qb64 == "DGBw7C7AfC7jbD3jLLRS3SzIWFndM947TyNWKQ52iQx5"
+    assert icp2.verfers[1].qb64 == "DD_bHYFsgWXuCbz3SD0HjCIe_ITjRvEoCGuZ4PcNFFDz"
+    assert icp2.verfers[2].qb64 == "DEe9u8k0fm1wMFAuOIsCtCNrpduoaV5R21rAcJl0awze"
     assert len(icp2.digers) == 3
-    assert icp2.digers[0].qb64 == "EEvyqpRLktts-_aSfPHKKv1mTKTV4ngwKKkOaqm3ZuPX"
-    assert icp2.digers[1].qb64 == "EEkMimwsv_JMZh7k-Rfq5wvhvbEdjVr8NhGQpyssVmNJ"
-    assert icp2.digers[2].qb64 == "EJy_MjjMWLJkn_5cRaUtDr7asfLe70xbAPD2nablr0iv"
+    print([diger.qb64 for diger in icp2.digers])
+    assert icp2.digers[0].qb64 == "EML5FrjCpz8SEl4dh0U15l8bMRhV_O5iDcR1opLJGBSH"
+    assert icp2.digers[1].qb64 == "EJpKquuibYTqpwMDqEFAFs0gwq0PASAHZ_iDmSF3I2Vg"
+    assert icp2.digers[2].qb64 == "ELplTAiEKdobFhlf-dh1vUb2iVDW0dYOSzs1dR7fQo60"
     assert icp2.tholder.num == 2
     assert icp2.ntholder.num == 2
 
@@ -178,9 +184,10 @@ def test_connect(setup,teardown):
     assert len(aids) == 2
     aid = aids[1]
     assert aid['name'] == "aid2"
-    assert aid["salty"]["pidx"] == 1
     assert aid["prefix"] == icp2.pre
-    assert aid["salty"]["stem"] == "signify:aid"
+    salt = aid[Algos.salty]
+    assert salt["pidx"] == 1
+    assert salt["stem"] == "signify:aid"
 
     ked = identifiers.rotate("aid1")
     rot = Serder(ked=ked)
@@ -188,6 +195,7 @@ def test_connect(setup,teardown):
     assert rot.said == "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg"
     assert rot.sn == 1
     assert len(rot.digers) == 1
+    assert rot.verfers[0].qb64 == "DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"
     assert rot.digers[0].qb64 == "EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"
 
     ked = identifiers.interact("aid1", data=[icp.pre])
@@ -196,22 +204,54 @@ def test_connect(setup,teardown):
     assert ixn.sn == 2
     assert ixn.ked["a"] == [icp.pre]
 
+    aid = identifiers.get("aid1")
+    state = aid["state"]
+    assert state['s'] == '2'
+    assert state['f'] == '2'
+    assert state['et'] == 'ixn'
+    assert state['d'] == ixn.said
+    assert state['ee']['d'] == rot.said
 
-@responses.activate
-def test_witnesses():
+    events = client.keyEvents()
+    log = events.get(pre=aid["prefix"])
+    assert len(log) == 3
+    serder = Serder(ked=log[0])
+    assert serder.pre == icp.pre
+    assert serder.said == icp.said
+    serder = Serder(ked=log[1])
+    assert serder.pre == rot.pre
+    assert serder.said == rot.said
+    serder = Serder(ked=log[2])
+    assert serder.pre == ixn.pre
+    assert serder.said == ixn.said
+
+    print(identifiers.list())
+
+# @responses.activate
+def test_witnesses(setup,teardown):
     # responses._add_from_file(file_path=os.path.join(TEST_DIR, "witness.toml"))
-    url = "http://localhost:3901"
-    bran = b'0123456789abcdefghijk'
+    # url = "http://localhost:3901"
+    # bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
     client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+    
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+    
     client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
-    # assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
     operations = client.operations()
