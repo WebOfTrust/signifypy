@@ -67,6 +67,45 @@ function runDelegator() {
     fi
 }
 
+function runMultisig() {
+    #create the delegator from keripy
+    keriDir=$1
+    echo "Creating multisig"
+    KERIPY_SCRIPTS_DIR="${keriDir}/scripts"
+    delPid=-1
+    if [ -d "${KERIPY_SCRIPTS_DIR}" ]; then
+
+        # Follow commands run in parallel
+        kli multisig incept --name multisig1 --alias multisig1 --group multisig --file ${KERI_DEMO_SCRIPT_DIR}/data/multisig-triple-sample.json &
+        pid=$!
+        PID_LIST+=" $pid"
+        kli multisig incept --name multisig2 --alias multisig2 --group multisig --file ${KERI_SCRIPTS_DIR}/data/multisig-triple-sample.json &
+        pid=$!
+        PID_LIST+=" $pid"
+
+
+        kli init --name multisig1 --salt 0ACDEyMzQ1Njc4OWxtbm9aBc --nopasscode --config-dir "${KERIPY_SCRIPTS_DIR}" --config-file demo-witness-oobis
+        kli init --name multisig2 --salt 0ACDEyMzQ1Njc4OWdoaWpsaw --nopasscode --config-dir "${KERIPY_SCRIPTS_DIR}" --config-file demo-witness-oobis
+        KERIPY_MULTISIG_CONF_1="${KERIPY_SCRIPTS_DIR}/demo/data/multisig-1-sample.json"
+        KERIPY_MULTISIG_CONF_2="${KERIPY_SCRIPTS_DIR}/demo/data/multisig-2-sample.json"
+        if [ -f "${KERIPY_MULTISIG_CONF_2}" ]; then
+            kli incept --name multisig1 --alias multisig1 --file "${KERIPY_MULTISIG_CONF_1}"
+            kli incept --name multisig2 --alias multisig2 --file "${KERIPY_MULTISIG_CONF_2}"
+
+            echo "Multisig 1 and 2 created"
+            kli oobi resolve --name multisig1 --oobi-alias multisig2 --oobi http://127.0.0.1:5642/oobi/EJccSRTfXYF6wrUVuenAIHzwcx3hJugeiJsEKmndi5q1/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha &
+            kli oobi resolve --name multisig1 --oobi-alias multisig3 --oobi http://127.0.0.1:5642/oobi/EKzS2BGQ7qkmEfsjGdx2w5KwmpWKf7lEXAMfB4AKqvUe/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha &
+            kli oobi resolve --name multisig2 --oobi-alias multisig1 --oobi http://127.0.0.1:5642/oobi/EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha &
+            kli oobi resolve --name multisig2 --oobi-alias multisig3 --oobi http://127.0.0.1:5642/oobi/EKzS2BGQ7qkmEfsjGdx2w5KwmpWKf7lEXAMfB4AKqvUe/witness/BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha &
+            echo "All participants of multisig looking for each other"
+        else
+            echo "Multisig configuration missing ${KERIPY_MULTISIG_CONF_2}"
+        fi
+    else
+        echo "KERIPY directory ${KERIPY_SCRIPTS_DIR} does not exist."
+    fi
+}
+
 echo "Welcome to the integration test setup/run/teardown script"
 
 runSignify="test_salty"
@@ -129,6 +168,9 @@ do
         if [ -f "${iClient}" ]; then
             if [ "${runSignify}" == "test_delegation" ]; then
                 runDelegator ${keriDir}
+            fi
+            if [ "${runSignify}" == "test_multisig" ]; then
+                runMultisig ${keriDir}
             fi
             python -c "from ${integrationTestModule} import ${runSignify}; ${runSignify}()" &
             signifyPid=$!

@@ -12,10 +12,11 @@ import responses
 
 import pytest
 from keri import kering
+from keri.app.cli.commands.witness import start as wstart
 from keri.app.keeping import Algos
 from keri.core.coring import Tiers, Serder
 
-from keria.app.cli.commands import start
+from keria.app.cli.commands import start as kstart
 from keria.testing.testing_helper import Helpers
 
 from signify.app.clienting import SignifyClient
@@ -23,103 +24,102 @@ from signify.app.clienting import SignifyClient
 import threading
 
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+cwd = os.getcwd()
 
-
-bran = '0123456789abcdefghijk'
-ctrlPre = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+host="localhost"
+adminport=3901
+httpport=3902
+bootport=3903
 agentPre = "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
-kName = "keria"
-url = "http://localhost:3901"
-
-class KeriaArgs: 
-    def __init__(self):
-        self.name="keria"
-        self.base="testing"
-        self.bran = bran
-        self.admin="3901"
-        self.http="3902"
-        self.boot="3903"
-        self.configFile="demo-witness-oobis.json"
-        self.configDir="/Users/meenyleeny/VSCode/keria/scripts"
-
+ctrlPre = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+base=""
+kname="keria"
+kbran=""
+wname="witness"
+wbase=""
+walias="witness"
+wbran=""
+wtcp=5631
+whttp=5632
+wexpire=0.0
+bran = "0123456789abcdefghijk"
+burl = f"http://{host}:{bootport}/boot"
+url = f"http://{host}:{adminport}"
+configDir=f"{cwd}/tests/"
+configFile="demo-witness-oobis.json"
+wconfigDir=f"{cwd}/tests/"
+wconfigFile="demo-witness-oobis.json"
+wit1 = "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
+wit2 = "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"
+wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
 
 @pytest.fixture
 def setup():
     print("Before test", )
     Helpers.remove_test_dirs(ctrlPre)
-    thread=threading.Thread(target=start.runAgent,
-                     args=[kName,
-                    "",
-                    bran,
-                    3901,
-                    3902,
-                    3903,
-                    "demo-witness-oobis.json",
-                    "/Users/meenyleeny/VSCode/keria/scripts",
+    
+    # Start witness network
+    wThread=threading.Thread(target=wstart.runWitness,
+                             args=[wname,
+               wbase,
+               walias,
+               wbran,
+               wtcp,
+               whttp,
+               wconfigDir,
+               wconfigFile])
+    
+    # Start keria cloud agent
+    kThread=threading.Thread(target=kstart.runAgent,
+                     args=[kname,
+                    base,
+                    kbran,
+                    adminport,
+                    httpport,
+                    bootport,
+                    configFile,
+                    configDir,
                     0.0])
-    thread.daemon=True
-    thread.start()
+    kThread.daemon=True
+    kThread.start()
 
 @pytest.fixture
 def teardown():
     print("After test")
     
 def test_init(setup,teardown):
-    tier = None
-    
     # Try with bran that is too short
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url=url, passcode=bran[:16], tier=tier)
+        SignifyClient(passcode=bran[:16], tier=Tiers.low)
 
     # Try with an invalid URL
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url="ftp://www.example.com", passcode=bran, tier=tier)
+        SignifyClient(url="ftp://www.example.com", passcode=bran, tier=Tiers.low)
 
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran)
     assert client.controller == ctrlPre
-
-    tier = Tiers.low
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
-    assert client.controller == ctrlPre
-
-    # Raises configuration error because the started agent has a different controller AID
-    # assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
-    with pytest.raises(kering.ConfigurationError):
-        tier = Tiers.med
-        client = SignifyClient(url=url, passcode=bran, tier=tier)
-
-    # assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
-    with pytest.raises(kering.ConfigurationError):
-        tier = Tiers.high
-        client = SignifyClient(url=url, passcode=bran, tier=tier)
-
-# def request_callback(request):
-#     headers = {"SIGNIFY-RESOURCE": "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei",
-#             "SIGNIFY-TIMESTAMP": "2022-09-24T00:05:48.196795+00:00",
-#             'SIGNATURE-INPUT': 'signify=("@method" "@path" "content-length" '
-#                                                     '"signify-resource" '
-#                                                     '"signify-timestamp");created=1609459200;keyid="EJ-t3M9T3Sq0Xa6XmpWMoNtstEqJWvJoXD_GdIRwvINc";alg="ed25519"',
-#             "SIGNATURE": 'indexed="?0";signify="0BAagZpIHOhyE98pffMUXpqQPVmpTjvVyAE1DFWsqEPLVbE4fQaR7B3DTcwoYKFs0k9A4OFQh6C0bATNfVs5wLwH"'
-#             }
-#     return (200, headers, request.body)
-
-# @responses.activate
-def test_connect(setup,teardown):
-    # url = "http://localhost:3901"
-    # responses._add_from_file(file_path=os.path.join(TEST_DIR, "connect.toml"))
-    #responses.add_callback(content_type="text/plain",method="GET",url="http://localhost:3901/identifiers?last=&limit=25",callback=request_callback)
-    #bran = b'0123456789abcdefghijk'
-    tier = Tiers.low
 
     tier = Tiers.low
     client = SignifyClient(passcode=bran, tier=tier)
+    assert client.controller == ctrlPre
+
+    tier = Tiers.med
+    client = SignifyClient(passcode=bran, tier=tier)
+    assert client.controller != ctrlPre
+
+    tier = Tiers.high
+    client = SignifyClient(passcode=bran, tier=tier)
+    assert client.controller != ctrlPre
+
+def test_connect(setup,teardown):
+    client = SignifyClient(passcode=bran, tier=Tiers.low)
     assert client.controller == ctrlPre
 
     evt, siger = client.ctrl.event()
 
     print(evt.pretty())
     print(siger.qb64)
-    res = requests.post(url="http://localhost:3903/boot",
+    res = requests.post(url=burl,
                         json=dict(
                             icp=evt.ked,
                             sig=siger.qb64,
@@ -139,7 +139,8 @@ def test_connect(setup,teardown):
     aids = identifiers.list()
     assert aids == []
 
-    aid = identifiers.create("aid1", bran=f"{bran}_1")
+    op1 = identifiers.create("aid1", bran=f"{bran}_1")
+    aid = op1["response"]
     icp = Serder(ked=aid)
     assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert len(icp.verfers) == 1
@@ -164,7 +165,8 @@ def test_connect(setup,teardown):
     assert aid["prefix"] == icp.pre
     assert salt["stem"] == "signify:aid"
 
-    aid2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2", bran="0123456789lmnopqrstuv")
+    op2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2", bran="0123456789lmnopqrstuv")
+    aid2 = op2["response"]
     icp2 = Serder(ked=aid2)
     print(icp2.pre)
     assert icp2.pre == "EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX"
@@ -189,7 +191,8 @@ def test_connect(setup,teardown):
     assert salt["pidx"] == 1
     assert salt["stem"] == "signify:aid"
 
-    ked = identifiers.rotate("aid1")
+    op3 = identifiers.rotate("aid1")
+    ked = op3["response"]
     rot = Serder(ked=ked)
 
     assert rot.said == "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg"
@@ -198,7 +201,8 @@ def test_connect(setup,teardown):
     assert rot.verfers[0].qb64 == "DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"
     assert rot.digers[0].qb64 == "EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"
 
-    ked = identifiers.interact("aid1", data=[icp.pre])
+    op4 = identifiers.interact("aid1", data=[icp.pre])
+    ked = op4["response"]
     ixn = Serder(ked=ked)
     assert ixn.said == "ENsmRAg_oM7Hl1S-GTRMA7s4y760lQMjzl0aqOQ2iTce"
     assert ixn.sn == 2
@@ -227,17 +231,11 @@ def test_connect(setup,teardown):
 
     print(identifiers.list())
 
-# @responses.activate
 def test_witnesses(setup,teardown):
-    # responses._add_from_file(file_path=os.path.join(TEST_DIR, "witness.toml"))
-    # url = "http://localhost:3901"
-    # bran = b'0123456789abcdefghijk'
-    tier = Tiers.low
-
-    client = SignifyClient(passcode=bran, tier=tier)
-    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    client = SignifyClient(passcode=bran, tier=Tiers.low)
+    assert client.controller == ctrlPre
     evt, siger = client.ctrl.event()
-    res = requests.post(url="http://localhost:3903/boot",
+    res = requests.post(url=burl,
                         json=dict(
                             icp=evt.ked,
                             sig=siger.qb64,
@@ -250,16 +248,25 @@ def test_witnesses(setup,teardown):
     
     client.connect(url=url)
     assert client.agent is not None
-    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
+    assert client.agent.delpre == ctrlPre
+    assert client.agent.pre == agentPre
 
     identifiers = client.identifiers()
     operations = client.operations()
+    oobis = client.oobis()
+
+    op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{agentPre}/witness")
+    print("OOBI op is: ", op)
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+    # op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{agentPre}/witness")
+ 
 
     # Use witnesses
-    op = identifiers.create("aid1", bran="canIGetAWitnessSaltGreaterThan21", toad="2", wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-                                                    "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-                                                    "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"])
+    op = identifiers.create("aid1", bran="canIGetAWitnessSaltGreaterThan21", toad="2", wits=[wit1,
+                                                    wit2,
+                                                    wit3])
 
     while not op["done"]:
         op = operations.get(op["name"])
@@ -267,9 +274,9 @@ def test_witnesses(setup,teardown):
 
     icp1 = Serder(ked=op["response"])
     assert icp1.pre == "EGTFIbnFoA7G-f4FHzzXUMp6VAgQfJ-2nXqzfb5hVwKa"
-    assert icp1.ked['b'] == ["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-                             "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-                             "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"]
+    assert icp1.ked['b'] == [wit1,
+                             wit2,
+                             wit3]
     assert icp1.ked['bt'] == "2"
 
     aid1 = identifiers.get("aid1")
@@ -282,39 +289,51 @@ def test_witnesses(setup,teardown):
     assert aid['prefix'] == icp1.pre
 
 
-@responses.activate
-def test_delegation():
-    # responses._add_from_file(file_path=os.path.join(TEST_DIR, "delegation.toml"))
-    url = "http://localhost:3901"
-    bran = b'0123456789abcdefghijk'
-    tier = Tiers.low
-
-    client = SignifyClient(passcode=bran, tier=tier)
+def test_delegation(setup,teardown):
+    client = SignifyClient(passcode=bran, tier=Tiers.low)
+    print(client.controller)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
     client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    # Delegator OOBI:
+    # http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness
 
     delpre = "EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7"
     identifiers = client.identifiers()
     operations = client.operations()
     oobis = client.oobis()
 
-    op = oobis.resolve("http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness/"
-                       "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha")
+    op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{delpre}/witness")
+    print("OOBI op is: ", op)
 
-    while not op["done"]:
+    count = 0
+    while not op["done"] and not count > 25:
         op = operations.get(op["name"])
         sleep(1)
 
-    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
-                                                                   "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
-                                                                   "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"])
+    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=[wit1, wit2, wit3])
+    pre = op["metadata"]["pre"]
 
     while not op["done"]:
         op = operations.get(op["name"])
         sleep(1)
 
     icp1 = Serder(ked=op["response"])
-    assert icp1.pre == "EITU8bCJwnaQSZn3aH6qIIud_9qh9Z8f0FlgLc6lqmGl"
+
+    print(icp1.pretty())
+    assert icp1.pre == pre

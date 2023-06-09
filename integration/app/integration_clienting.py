@@ -155,7 +155,8 @@ def test_salty():
     aids = identifiers.list()
     assert aids == []
 
-    aid = identifiers.create("aid1", bran="0123456789abcdefghijk")
+    op = identifiers.create("aid1", bran="0123456789abcdefghijk")
+    aid = op["response"]
     icp = Serder(ked=aid)
     assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert len(icp.verfers) == 1
@@ -180,7 +181,8 @@ def test_salty():
     assert aid["prefix"] == icp.pre
     assert salt["stem"] == "signify:aid"
 
-    aid2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2", bran="0123456789lmnopqrstuv")
+    op2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2", bran="0123456789lmnopqrstuv")
+    aid2 = op2["response"]
     icp2 = Serder(ked=aid2)
     print(icp2.pre)
     assert icp2.pre == "EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX"
@@ -205,7 +207,8 @@ def test_salty():
     assert salt["pidx"] == 1
     assert salt["stem"] == "signify:aid"
 
-    ked = identifiers.rotate("aid1")
+    op3 = identifiers.rotate("aid1")
+    ked = op3["response"]
     rot = Serder(ked=ked)
 
     assert rot.said == "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg"
@@ -214,7 +217,8 @@ def test_salty():
     assert rot.verfers[0].qb64 == "DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"
     assert rot.digers[0].qb64 == "EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"
 
-    ked = identifiers.interact("aid1", data=[icp.pre])
+    op4 = identifiers.interact("aid1", data=[icp.pre])
+    ked = op4["response"]
     ixn = Serder(ked=ked)
     assert ixn.said == "ENsmRAg_oM7Hl1S-GTRMA7s4y760lQMjzl0aqOQ2iTce"
     assert ixn.sn == 2
@@ -391,27 +395,37 @@ def test_multisig():
 
     client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
 
     client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
     # assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
     operations = client.operations()
     oobis = client.oobis()
 
-    icp = identifiers.create("aid1")
+    op1 = identifiers.create("multisig3",bran="0ACDEyMzQ1Njc4OWdoaWpsaw")
+    icp = op1["response"]
     serder = coring.Serder(ked=icp)
     print(serder.pretty())
-    assert serder.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
+    assert serder.pre == "EKzS2BGQ7qkmEfsjGdx2w5KwmpWKf7lEXAMfB4AKqvUe"
     print(f"created AID {serder.pre}")
 
-    identifiers.addEndRole("aid1", eid=client.agent.pre)
+    identifiers.addEndRole("multisig3", eid=client.agent.pre)
 
     print(f"OOBI for {serder.pre}:")
-    oobi = oobis.get("aid1")
+    oobi = oobis.get("multisig3")
     print(oobi)
 
     op = oobis.resolve(oobi="http://127.0.0.1:5642/oobi/EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4/witness/BBilc4"
@@ -434,12 +448,13 @@ def test_multisig():
         sleep(1)
     multisig2 = op["response"]
 
-    aid1 = identifiers.get("aid1")
-    agent0 = aid1["state"]
+    m3 = identifiers.get("multisig3")
+    agent0 = m3["state"]
+    print(f"agent is {agent0}")
 
     states = rstates = [multisig2, multisig1, agent0]
 
-    op = identifiers.create("multisig", algo=Algos.group, mhab=aid1,
+    op = identifiers.create("multisig", algo=Algos.group, mhab=m3,
                             isith=["1/3", "1/3", "1/3"], nsith=["1/3", "1/3", "1/3"],
                             toad=3,
                             wits=[
@@ -453,6 +468,8 @@ def test_multisig():
     while not op["done"]:
         op = operations.get(op["name"])
         sleep(1)
+    gAid = op["response"]
+    print(f"group multisig created {gAid}")
 
     # Join an interaction event with the group
     data = {"i": "EE77q3_zWb5ojgJr-R1vzsL5yiL4Nzm-bfSOQzQl02dy"}
@@ -469,11 +486,12 @@ def test_multisig():
     for event in log:
         print(coring.Serder(ked=event).pretty())
 
-    rot = identifiers.rotate("aid1")
+    op2 = identifiers.rotate("multisig3")
+    rot = op2["response"]
     serder = coring.Serder(ked=rot)
-    print(f"rotated aid1 to {serder.sn}")
+    print(f"rotated multisig3 to {serder.sn}")
 
-    aid1 = identifiers.get("aid1")
+    aid1 = identifiers.get("multisig3")
     agent0 = aid1["state"]
     keyState = client.keyStates()
     op = keyState.query(pre="EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4", sn=1)
@@ -845,9 +863,9 @@ def test_recreate_client():
 if __name__ == "__main__":
     # test_delegation()
     # test_witnesses()
-    test_salty()
+    # test_salty()
     # test_randy()
-    # test_multisig()
+    test_multisig()
     # test_query()
     # test_multi_tenant()
     # test_extern()
