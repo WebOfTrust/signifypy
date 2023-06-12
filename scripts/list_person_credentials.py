@@ -7,6 +7,7 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 
 from keri.core.coring import Tiers
+from keri.vc.proving import Creder
 
 from signify.app.clienting import SignifyClient
 from signify.app.credentialing import CredentialTypes
@@ -24,7 +25,13 @@ def list_credentials():
     creds = credentials.list(typ=CredentialTypes.received)
     assert len(creds) == 1
 
-    print(f"{creds[0]}")
+    creder = Creder(ked=creds[0]['sad'])
+    said = creder.said
+
+    print(f"Exporting credential {said}")
+
+    export = credentials.export(said)
+    print(export)
 
 
 if __name__ == "__main__":

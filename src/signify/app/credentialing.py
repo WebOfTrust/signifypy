@@ -68,3 +68,8 @@ class Credentials:
         res = self.client.get(f"/identfiers/{self.aid}/credentials", params=params)
         return res.json()
 
+    def export(self, said):
+        headers = dict(accepts="application/json+cesr")
+
+        res = self.client.get(f"/identfiers/{self.aid}/credentials/{said}", headers=headers)
+        return res.content
