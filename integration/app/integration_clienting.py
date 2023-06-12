@@ -150,7 +150,8 @@ def test_salty():
     aids = identifiers.list()
     assert aids == []
 
-    aid = identifiers.create("aid1", bran="0123456789abcdefghijk")
+    op = identifiers.create("aid1", bran="0123456789abcdefghijk")
+    aid = op["response"]
     icp = Serder(ked=aid)
     assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert len(icp.verfers) == 1

@@ -184,11 +184,8 @@ class Identifiers:
             sigs=sigs
         )
 
-        try:
-            res = self.client.post(f"/identifiers/{name}/endroles", json=json)
-            return res.json()
-        except exceptions.HTTPError as e:
-            print(e.response.json())
+        res = self.client.post(f"/identifiers/{name}/endroles", json=json)
+        return res.json()
 
     @staticmethod
     def makeEndRole(pre, role=Roles.agent, eid=None):
