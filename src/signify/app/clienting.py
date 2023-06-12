@@ -205,6 +205,10 @@ class SignifyClient:
         from signify.app.coring import Oobis
         return Oobis(client=self)
 
+    def credentials(self, aid):
+        from signify.app.credentialing import Credentials
+        return Credentials(client=self, aid=aid)
+
     def groups(self):
         from signify.app.grouping import Groups
         return Groups(client=self)

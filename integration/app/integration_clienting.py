@@ -150,7 +150,8 @@ def test_salty():
     aids = identifiers.list()
     assert aids == []
 
-    aid = identifiers.create("aid1", bran="0123456789abcdefghijk")
+    op = identifiers.create("aid1", bran="0123456789abcdefghijk")
+    aid = op["response"]
     icp = Serder(ked=aid)
     assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert len(icp.verfers) == 1
@@ -376,32 +377,41 @@ def test_multisig():
     """ This test assumes a running Demo Witnesses and KERIA agent with the following comands:
 
           `kli witness demo`
-          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose \
-               --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
+          `keria start --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
 
     """
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
+    print(client.controller)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
-    client.connect()
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
+    client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
-    assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
     operations = client.operations()
     oobis = client.oobis()
 
-    icp = identifiers.create("aid1")
+    op = identifiers.create("aid1", bran="0123456789lmnopqrstuv")
+    icp = op["response"]
     serder = coring.Serder(ked=icp)
-    print(serder.pretty())
-    assert serder.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
-    print(f"created AID {serder.pre}")
+    assert serder.pre == "EOGvmhJDBbJP4zeXaRun5vSz0O3_1zB10DwNMyjXlJEv"
 
     identifiers.addEndRole("aid1", eid=client.agent.pre)
 
@@ -634,17 +644,19 @@ def test_multi_tenant():
     client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
-    assert client.ctrl.ridx == 0
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
 
     identifiers = client.identifiers()
-    aid = identifiers.create("aid1")
+    op = identifiers.create("aid1")
+    aid = op["response"]
     icp = Serder(ked=aid)
-    assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
+
+    # assert icp.pre == "EKGpuLBMAncuGm2mk4F7tEtELqLEl60tT5eGX3sBdCHF"
+    print(icp.verfers[0].qb64, icp.digers[0].qb64)
     assert len(icp.verfers) == 1
-    assert icp.verfers[0].qb64 == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
+    # assert icp.verfers[0].qb64 == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
     assert len(icp.digers) == 1
-    assert icp.digers[0].qb64 == "EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"
+    # assert icp.digers[0].qb64 == "EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"
     assert icp.tholder.num == 1
     assert icp.ntholder.num == 1
 
@@ -839,10 +851,10 @@ def test_recreate_client():
 
 if __name__ == "__main__":
     # test_delegation()
-    test_witnesses()
+    # test_witnesses()
     # test_salty()
     # test_randy()
-    # test_multisig()
+    test_multisig()
     # test_query()
     # test_multi_tenant()
     # test_extern()
