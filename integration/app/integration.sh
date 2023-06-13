@@ -29,6 +29,19 @@ function getKeripyDir() {
     echo "$KERIPY_DIR"
 }
 
+function getVleiDir() {
+    # Check if the environment variable is set
+    if [ -z "$VLEI_DIR" ]; then
+        default_value="../vLEI"
+        # Prompt the user for input with a default value
+        read -p "Set vlei dir [${default_value}]: " input
+        # Set the value to the user input or the default value
+        VLEI_DIR=${input:-$default_value}
+    fi
+    # Use the value of the environment variable
+    echo "$VLEI_DIR"
+}
+
 function getKeriaDir() {
     # Check if the environment variable is set
     if [ -z "$KERIA_DIR" ]; then
@@ -112,6 +125,7 @@ runSignify="test_salty"
 while [ "${runSignify}" != "n" ]
 do
     echo "Setting up..."
+    cd ${ORIG_CUR_DIR} || exit
     witPid=-1
     keriDir=$(getKeripyDir)
     echo "Keripy dir set to: ${keriDir}"
@@ -130,6 +144,26 @@ do
         fi
     else
         echo "Skipping witness network"
+    fi
+    echo ""
+
+    # run vLEI cloud agent
+    cd ${ORIG_CUR_DIR} || exit
+    vleiPid=-1
+    read -p "Run vLEI (y/n)? [y]: " input
+    runVlei=${input:-"y"}
+    if [ "${runVlei}" == "y" ]; then
+        echo "Running vLEI server"
+        vleiDir=$(getVleiDir)
+        if [ -d "${vleiDir}" ]; then
+            cd "${vleiDir}" || exit
+            vLEI-server -s ./schema/acdc -c ./samples/acdc/ -o ./samples/oobis/ &
+            vleiPid=$!
+            sleep 5
+            echo "vLEI server is running"
+        else
+            echo "vLEI dir missing ${vleiDir}"
+        fi
     fi
     echo ""
 
@@ -181,9 +215,28 @@ do
             exit 1
         fi
     fi
+
+    cd ${ORIG_CUR_DIR} || exit
+    read -p "Run vLEI issue ECR script (n to skip)?, [${runIssueEcr}]: " input
+    runIssueEcr=${input:-"y"}
+    if [ "${runIssueEcr}" == "n" ]; then
+        echo "Skipping Issue ECR script"
+    else
+        echo "Running issue ECR script"
+        scriptsDir="scripts"
+        if [ -d "${scriptsDir}" ]; then
+            echo "Launching Issue ECR script"
+            cd ${scriptsDir} || exit
+            source env.sh
+            source issue-ecr.sh
+            echo "Completed issue ECR script"
+        fi
+    fi
+    cd ${ORIG_CUR_DIR} || exit
+    
     echo ""
 
-    read -p "Your witness network and KERIA are still running, hit enter to tear down: " input
+    read -p "Your servers still running, hit enter to tear down: " input
     echo "Tearing down any leftover processes"
     #tear down the signify client
     kill "$signifyPid" >/dev/null 2>&1
@@ -191,6 +244,8 @@ do
     kill $keriaPid >/dev/null 2>&1
     # tear down the delegator
     kill "$delPid" >/dev/null 2>&1
+    # tear down the vLEI server
+    kill $vleiPid >/dev/null 2>&1
     # tear down the witness network
     kill $witPid >/dev/null 2>&1
 
