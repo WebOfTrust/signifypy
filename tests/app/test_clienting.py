@@ -68,6 +68,8 @@ def setup():
                whttp,
                wconfigDir,
                wconfigFile])
+    wThread.daemon=True
+    wThread.start()
     
     # Start keria cloud agent
     kThread=threading.Thread(target=kstart.runAgent,
@@ -261,12 +263,10 @@ def test_witnesses(setup,teardown):
         op = operations.get(op["name"])
         sleep(1)
     # op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{agentPre}/witness")
- 
 
     # Use witnesses
-    op = identifiers.create("aid1", bran="canIGetAWitnessSaltGreaterThan21", toad="2", wits=[wit1,
-                                                    wit2,
-                                                    wit3])
+    op = identifiers.create("aid1", bran="canIGetAWitnessSaltGreaterThan21", toad="2", 
+                            wits=[wit1, wit2, wit3])
 
     while not op["done"]:
         op = operations.get(op["name"])
