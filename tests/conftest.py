@@ -5,22 +5,19 @@ Use this module to configure pytest
 https://docs.pytest.org/en/latest/pythonpath.html
 
 """
-import os
-import shutil
-
 import pytest
 from keri.core import coring
 from keri.help import helping
 
-WitnessUrls = {
-    "wan:tcp": "tcp://127.0.0.1:5632/",
-    "wan:http": "http://127.0.0.1:5642/",
-    "wes:tcp": "tcp://127.0.0.1:5634/",
-    "wes:http": "http://127.0.0.1:5644/",
-    "wil:tcp": "tcp://127.0.0.1:5633/",
-    "wil:http": "http://127.0.0.1:5643/",
-}
+from keria.testing import testing_helper
 
+@pytest.fixture
+def helpers():
+    return testing_helper.Helpers
+
+@pytest.fixture
+def seeder():
+    return testing_helper.DbSeed
 
 @pytest.fixture()
 def mockHelpingNowUTC(monkeypatch):
@@ -53,6 +50,7 @@ def mockHelpingNowIso8601(monkeypatch):
 
     monkeypatch.setattr(helping, "nowIso8601", mockNowIso8601)
 
+
 @pytest.fixture()
 def mockCoringRandomNonce(monkeypatch):
     """ Replay randomNonce with fixed falue for testing"""
@@ -61,34 +59,3 @@ def mockCoringRandomNonce(monkeypatch):
         return "A9XfpxIl1LcIkMhUSCCC8fgvkuX8gG9xK3SM-S8a8Y_U"
 
     monkeypatch.setattr(coring, "randomNonce", mockRandomNonce)
-
-
-class Helpers:
-
-    @staticmethod
-    def remove_test_dirs(name):
-        if os.path.exists(f'/usr/local/var/keri/db/{name}'):
-            shutil.rmtree(f'/usr/local/var/keri/db/{name}')
-        if os.path.exists(f'/usr/local/var/keri/ks/{name}'):
-            shutil.rmtree(f'/usr/local/var/keri/ks/{name}')
-        if os.path.exists(f'/usr/local/var/keri/reg/{name}'):
-            shutil.rmtree(f'/usr/local/var/keri/reg/{name}')
-        if os.path.exists(f'/usr/local/var/keri/cf/{name}.json'):
-            os.remove(f'/usr/local/var/keri/cf/{name}.json')
-        if os.path.exists(f'/usr/local/var/keri/cf/{name}'):
-            shutil.rmtree(f'/usr/local/var/keri/cf/{name}')
-        if os.path.exists(f'~/.keri/db/{name}'):
-            shutil.rmtree(f'~/.keri/db/{name}')
-        if os.path.exists(f'~/.keri/ks/{name}'):
-            shutil.rmtree(f'~/.keri/ks/{name}')
-        if os.path.exists(f'~/.keri/reg/{name}'):
-            shutil.rmtree(f'~/.keri/reg/{name}')
-        if os.path.exists(f'~/.keri/cf/{name}.json'):
-            os.remove(f'~/.keri/cf/{name}.json')
-        if os.path.exists(f'~/.keri/cf/{name}'):
-            shutil.rmtree(f'~/.keri/cf/{name}')
-
-
-@pytest.fixture
-def helpers():
-    return Helpers

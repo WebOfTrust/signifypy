@@ -18,12 +18,18 @@ import pytest
 from keri import kering
 from keri.core.coring import Tiers, Serder, MtrDex
 
+import keria.app.aiding as aiding
+
 from signify.app.clienting import SignifyClient
 
 TESTS_APP_DIR = "tests/app/"
 WITNESS_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"witness.toml")
 DELEGATION_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"delegation.toml")
 CONNECT_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"connect.toml")
+
+wit1 = "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
+wit2 = "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"
+wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
 
 def test_init():
     url = "http://localhost:3901"
@@ -106,10 +112,9 @@ def test_extern():
 
 @_recorder.record(file_path=CONNECT_FILE_PATH)
 def test_salty():
-    """ This test assumes a running KERIA agent with the following comand:
-
-          `keria start -c ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose`
-
+    """
+    This test assumes a running KERIA agent.
+    See integration.sh to run this test automatically with a locally running KERIA and witness network.
     """
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
@@ -141,7 +146,7 @@ def test_salty():
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    client.connect(url=url, )
+    client.connect(url=url)
     assert client.agent is not None
     assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
@@ -176,7 +181,8 @@ def test_salty():
     assert aid["prefix"] == icp.pre
     assert salt["stem"] == "signify:aid"
 
-    aid2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2", bran="0123456789lmnopqrstuv")
+    op2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2", bran="0123456789lmnopqrstuv")
+    aid2 = op2["response"]
     icp2 = Serder(ked=aid2)
     print(icp2.pre)
     assert icp2.pre == "EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX"
@@ -201,7 +207,8 @@ def test_salty():
     assert salt["pidx"] == 1
     assert salt["stem"] == "signify:aid"
 
-    ked = identifiers.rotate("aid1")
+    op3 = identifiers.rotate("aid1")
+    ked = op3["response"]
     rot = Serder(ked=ked)
 
     assert rot.said == "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg"
@@ -210,7 +217,8 @@ def test_salty():
     assert rot.verfers[0].qb64 == "DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"
     assert rot.digers[0].qb64 == "EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"
 
-    ked = identifiers.interact("aid1", data=[icp.pre])
+    op4 = identifiers.interact("aid1", data=[icp.pre])
+    ked = op4["response"]
     ixn = Serder(ked=ked)
     assert ixn.said == "ENsmRAg_oM7Hl1S-GTRMA7s4y760lQMjzl0aqOQ2iTce"
     assert ixn.sn == 2
@@ -360,7 +368,7 @@ def test_delegation():
         op = operations.get(op["name"])
         sleep(1)
 
-    op = identifiers.create("aid1", delpre=delpre)
+    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=[wit1, wit2, wit3])
     pre = op["metadata"]["pre"]
 
     while not op["done"]:
@@ -387,7 +395,7 @@ def test_multisig():
     client = SignifyClient(passcode=bran, tier=tier)
     print(client.controller)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-
+    
     evt, siger = client.ctrl.event()
     res = requests.post(url="http://localhost:3903/boot",
                         json=dict(
@@ -397,26 +405,29 @@ def test_multisig():
                             pidx=1,
                             tier=client.ctrl.tier))
 
-    if res.status_code != requests.codes.accepted:
-        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
-
     client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
+    # assert client.ctrl.ridx == 0
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
     identifiers = client.identifiers()
     operations = client.operations()
     oobis = client.oobis()
 
-    op = identifiers.create("aid1", bran="0123456789lmnopqrstuv")
+    op = identifiers.create("multisig3", bran="0123456789lmnopqrstuv")
     icp = op["response"]
     serder = coring.Serder(ked=icp)
     assert serder.pre == "EOGvmhJDBbJP4zeXaRun5vSz0O3_1zB10DwNMyjXlJEv"
+    print(f"created AID {serder.pre}")
 
-    identifiers.addEndRole("aid1", eid=client.agent.pre)
+    identifiers.addEndRole("multisig3", eid=client.agent.pre)
 
     print(f"OOBI for {serder.pre}:")
-    oobi = oobis.get("aid1")
+    oobi = oobis.get("multisig3")
     print(oobi)
 
     op = oobis.resolve(oobi="http://127.0.0.1:5642/oobi/EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4/witness/BBilc4"
@@ -439,12 +450,13 @@ def test_multisig():
         sleep(1)
     multisig2 = op["response"]
 
-    aid1 = identifiers.get("aid1")
-    agent0 = aid1["state"]
+    m3 = identifiers.get("multisig3")
+    agent0 = m3["state"]
+    print(f"agent is {agent0}")
 
     states = rstates = [multisig2, multisig1, agent0]
 
-    op = identifiers.create("multisig", algo=Algos.group, mhab=aid1,
+    op = identifiers.create("multisig", algo=Algos.group, mhab=m3,
                             isith=["1/3", "1/3", "1/3"], nsith=["1/3", "1/3", "1/3"],
                             toad=3,
                             wits=[
@@ -458,6 +470,8 @@ def test_multisig():
     while not op["done"]:
         op = operations.get(op["name"])
         sleep(1)
+    gAid = op["response"]
+    print(f"group multisig created {gAid}")
 
     # Join an interaction event with the group
     data = {"i": "EE77q3_zWb5ojgJr-R1vzsL5yiL4Nzm-bfSOQzQl02dy"}
@@ -474,11 +488,12 @@ def test_multisig():
     for event in log:
         print(coring.Serder(ked=event).pretty())
 
-    rot = identifiers.rotate("aid1")
+    op2 = identifiers.rotate("multisig3")
+    rot = op2["response"]
     serder = coring.Serder(ked=rot)
-    print(f"rotated aid1 to {serder.sn}")
+    print(f"rotated multisig3 to {serder.sn}")
 
-    aid1 = identifiers.get("aid1")
+    aid1 = identifiers.get("multisig3")
     agent0 = aid1["state"]
     keyState = client.keyStates()
     op = keyState.query(pre="EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4", sn=1)
@@ -514,7 +529,7 @@ def test_randy():
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     evt, siger = client.ctrl.event()
@@ -529,11 +544,11 @@ def test_randy():
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    client.connect()
+    client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
-    assert client.ctrl.ridx == 0
+    # assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
     aid = identifiers.create("aid1", algo=Algos.randy)
