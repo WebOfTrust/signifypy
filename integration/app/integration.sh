@@ -175,6 +175,7 @@ do
         echo "Running keria cloud agent"
         keriaDir=$(getKeriaDir)
         if [ -d "${keriaDir}" ]; then
+            export KERI_AGENT_CORS=true
             keria start --config-file demo-witness-oobis.json --config-dir ${keriaDir}/scripts &
             keriaPid=$!
             sleep 5
@@ -217,7 +218,7 @@ do
     fi
 
     cd ${ORIG_CUR_DIR} || exit
-    read -p "Run vLEI issue ECR script (n to skip)?, [${runIssueEcr}]: " input
+    read -p "Run vLEI issue ECR script (n to skip)?, [y]: " input
     runIssueEcr=${input:-"y"}
     if [ "${runIssueEcr}" == "n" ]; then
         echo "Skipping Issue ECR script"
@@ -230,10 +231,12 @@ do
             source env.sh
             source issue-ecr.sh
             echo "Completed issue ECR script"
+            python list_person_credentials.py
+            echo "Listed person credentials"
         fi
     fi
     cd ${ORIG_CUR_DIR} || exit
-    
+
     echo ""
 
     read -p "Your servers still running, hit enter to tear down: " input
