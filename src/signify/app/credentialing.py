@@ -65,11 +65,11 @@ class Credentials:
         if schema is not None:
             params["schema"] = schema
 
-        res = self.client.get(f"/identfiers/{self.aid}/credentials", params=params)
+        res = self.client.get(f"/identifiers/{self.aid}/credentials", params=params)
         return res.json()
 
     def export(self, said):
         headers = dict(accepts="application/json+cesr")
 
-        res = self.client.get(f"/identfiers/{self.aid}/credentials/{said}", headers=headers)
+        res = self.client.get(f"/identifiers/{self.aid}/credentials/{said}", headers=headers)
         return res.content
