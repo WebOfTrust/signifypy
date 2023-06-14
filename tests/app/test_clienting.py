@@ -66,6 +66,7 @@ def setup():
                wbran,
                wtcp,
                whttp,
+               0.0,
                wconfigDir,
                wconfigFile])
     wThread.daemon=True
@@ -255,14 +256,6 @@ def test_witnesses(setup,teardown):
 
     identifiers = client.identifiers()
     operations = client.operations()
-    oobis = client.oobis()
-
-    op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{agentPre}/witness")
-    print("OOBI op is: ", op)
-    while not op["done"]:
-        op = operations.get(op["name"])
-        sleep(1)
-    # op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{agentPre}/witness")
 
     # Use witnesses
     op = identifiers.create("aid1", bran="canIGetAWitnessSaltGreaterThan21", toad="2", 
