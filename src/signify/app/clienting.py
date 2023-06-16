@@ -201,6 +201,10 @@ class SignifyClient:
         from signify.app.coring import Operations
         return Operations(client=self)
 
+    def registries(self):
+        from signify.app.credentialing import Registries
+        return Registries(self)
+
     def oobis(self):
         from signify.app.coring import Oobis
         return Oobis(client=self)

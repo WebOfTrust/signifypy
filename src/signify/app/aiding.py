@@ -4,6 +4,7 @@ from keri import kering
 from keri.app.keeping import Algos
 from keri.core import eventing
 from keri.core.coring import MtrDex, Tholder
+from keri.core.eventing import TraitDex
 from keri.kering import Roles
 from requests import exceptions
 
@@ -195,3 +196,5 @@ class Identifiers:
 
         route = "/end/role/add"
         return eventing.reply(route=route, data=data)
+
+

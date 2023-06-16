@@ -18,9 +18,8 @@ import pytest
 from keri import kering
 from keri.core.coring import Tiers, Serder, MtrDex
 
-import keria.app.aiding as aiding
-
 from signify.app.clienting import SignifyClient
+from signify.app.credentialing import Registries
 
 TESTS_APP_DIR = "tests/app/"
 WITNESS_FILE_PATH = "{}{}".format(TESTS_APP_DIR,"witness.toml")
@@ -257,7 +256,7 @@ def test_witnesses():
                --config-file demo-witness-oobis --config-dir <path to KERIpy>/scripts`
 
     """
-    import os 
+    import os
     dir_path = os.path.dirname(os.path.realpath(__file__))
     print("current path: ", dir_path)
     print("should find witenss toml file here: ",os.listdir("{}/../../{}".format(dir_path,TESTS_APP_DIR)))
@@ -317,6 +316,57 @@ def test_witnesses():
     assert len(aids) == 1
     aid = aids.pop()
     assert aid['prefix'] == icp1.pre
+
+def test_registry_creation():
+    url = "http://localhost:3901"
+    booturl = "http://localhost:3903/boot"
+    bran = b'0123456789abcdefghijk'
+    tier = Tiers.low
+    client = SignifyClient(passcode=bran, tier=tier)
+    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    evt, siger = client.ctrl.event()
+    res = requests.post(url=booturl,
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    client.connect(url=url)
+
+    identifiers = client.identifiers()
+    operations = client.operations()
+
+    # TODO use a different AID name and bran
+    op = identifiers.create("aid1", bran="canIGetAWitnessSaltGreaterThan21",
+                            toad="2", wits=["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+                                            "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM",
+                                            "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"])
+
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+
+    icp1 = Serder(ked=op["response"])
+
+    aid1 = identifiers.get("aid1")
+
+    # Make request to create registry
+    registries: Registries = client.registries()
+    res = registries.registryIncept(pre=aid1["prefix"],
+                                    alias="aid1",
+                                    name="myregistry",
+                                    body={
+                                        "baks": ["BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
+                                        "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"],
+                                        "toad": 2
+                                    })
+    print(res)
+
+
+
 
 
 @_recorder.record(file_path=DELEGATION_FILE_PATH)
@@ -395,7 +445,7 @@ def test_multisig():
     client = SignifyClient(passcode=bran, tier=tier)
     print(client.controller)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    
+
     evt, siger = client.ctrl.event()
     res = requests.post(url="http://localhost:3903/boot",
                         json=dict(
