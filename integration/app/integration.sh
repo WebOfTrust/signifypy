@@ -16,6 +16,11 @@ echo "Launching a clean witness network"
 KERI_PRIMARY_STORAGE="/usr/local/var/keri"
 KERI_FALLBACK_STORAGE="${HOME}/.keri"
 
+KERI_DEV_BRANCH="development"
+VLEI_DEV_BRANCH="dev"
+KERIA_DEV_BRANCH="main"
+SIGNIFY_DEV_BRANCH="main"
+
 function getKeripyDir() {
     # Check if the environment variable is set
     if [ -z "$KERIPY_DIR" ]; then
@@ -119,105 +124,8 @@ function runMultisig() {
     fi
 }
 
-echo "Welcome to the integration test setup/run/teardown script"
-
-runSignify="test_salty"
-while [ "${runSignify}" != "n" ]
-do
-    echo "Setting up..."
-    cd ${ORIG_CUR_DIR} || exit
-    witPid=-1
-    keriDir=$(getKeripyDir)
-    echo "Keripy dir set to: ${keriDir}"
-    read -p "Run witness network (y/n)? [y]: " input
-    runWit=${input:-"y"}
-    if [ "${runWit}" == "y" ]; then
-        if [ -d  "${keriDir}" ]; then
-            cd "${keriDir}" || exit
-            rm -rf ${KERI_PRIMARY_STORAGE}/*;rm -Rf ${KERI_FALLBACK_STORAGE}/*;kli witness demo &
-            witPid=$!
-            sleep 5
-            echo "Clean witness network launched"
-        else
-            echo "KERIPY dir missing ${keriDir}"
-            exit 1
-        fi
-    else
-        echo "Skipping witness network"
-    fi
-    echo ""
-
-    # run vLEI cloud agent
-    cd ${ORIG_CUR_DIR} || exit
-    vleiPid=-1
-    read -p "Run vLEI (y/n)? [y]: " input
-    runVlei=${input:-"y"}
-    if [ "${runVlei}" == "y" ]; then
-        echo "Running vLEI server"
-        vleiDir=$(getVleiDir)
-        if [ -d "${vleiDir}" ]; then
-            cd "${vleiDir}" || exit
-            vLEI-server -s ./schema/acdc -c ./samples/acdc/ -o ./samples/oobis/ &
-            vleiPid=$!
-            sleep 5
-            echo "vLEI server is running"
-        else
-            echo "vLEI dir missing ${vleiDir}"
-        fi
-    fi
-    echo ""
-
-    # run keria cloud agent
-    keriaPid=-1
-    read -p "Run Keria (y/n)? [y]: " input
-    runKeria=${input:-"y"}
-    if [ "${runKeria}" == "y" ]; then
-        echo "Running keria cloud agent"
-        keriaDir=$(getKeriaDir)
-        if [ -d "${keriaDir}" ]; then
-            export KERI_AGENT_CORS=true
-            keria start --config-file demo-witness-oobis.json --config-dir ${keriaDir}/scripts &
-            keriaPid=$!
-            sleep 5
-            echo "Keria cloud agent running"
-        else
-            echo "Keria dir missing ${keriaDir}"
-        fi
-    fi
-    echo ""
-
-    # Assumes you are running from the base signify dir (see hints at the top)
+function runIssueEcr() {
     cd "${ORIG_CUR_DIR}" || exit
-    integrationTestModule="integration.app.integration_clienting"
-    echo "Available functions in ${integrationTestModule}"
-    python -c "import ${integrationTestModule}; print('\n'.join(x for x in dir(${integrationTestModule}) if x.startswith('test_')))"
-
-    read -p "What signify test to run (n to skip)?, [${runSignify}]: " input
-    runSignify=${input:-$runSignify}
-    if [ "${runSignify}" == "n" ]; then
-        echo "Skipping signify test"
-    else
-        echo "Launching Signifypy test ${runSignify}"
-        signifyPid=-1
-        iClient="./integration/app/integration_clienting.py"
-        if [ -f "${iClient}" ]; then
-            if [ "${runSignify}" == "test_delegation" ]; then
-                runDelegator ${keriDir}
-            fi
-            if [ "${runSignify}" == "test_multisig" ]; then
-                runMultisig ${keriDir}
-            fi
-            python -c "from ${integrationTestModule} import ${runSignify}; ${runSignify}()" &
-            signifyPid=$!
-            sleep 10
-            echo "Completed signify ${runSignify}"
-        else
-            echo "${iClient} module missing"
-            exit 1
-        fi
-    fi
-
-    cd ${ORIG_CUR_DIR} || exit
     read -p "Run vLEI issue ECR script (n to skip)?, [y]: " input
     runIssueEcr=${input:-"y"}
     if [ "${runIssueEcr}" == "n" ]; then
@@ -235,7 +143,138 @@ do
             echo "Listed person credentials"
         fi
     fi
+    cd "${ORIG_CUR_DIR}" || exit
+}
+
+function runKeri() {
     cd ${ORIG_CUR_DIR} || exit
+    witPid=-1
+    keriDir=$(getKeripyDir)
+    echo "Keripy dir set to: ${keriDir}"
+    read -p "Run witness network (y/n)? [y]: " input
+    runWit=${input:-"y"}
+    if [ "${runWit}" == "y" ]; then
+        if [ -d  "${keriDir}" ]; then
+            cd "${keriDir}" || exit
+            updateFromGit ${KERI_DEV_BRANCH}
+            rm -rf ${KERI_PRIMARY_STORAGE}/*;rm -Rf ${KERI_FALLBACK_STORAGE}/*;kli witness demo &
+            witPid=$!
+            sleep 5
+            echo "Clean witness network launched"
+        else
+            echo "KERIPY dir missing ${keriDir}"
+            exit 1
+        fi
+    else
+        echo "Skipping witness network"
+    fi
+    echo ""
+}
+
+function runKeria() {
+        # run keria cloud agent
+    keriaPid=-1
+    read -p "Run Keria (y/n)? [y]: " input
+    runKeria=${input:-"y"}
+    if [ "${runKeria}" == "y" ]; then
+        echo "Running keria cloud agent"
+        keriaDir=$(getKeriaDir)
+        if [ -d "${keriaDir}" ]; then
+            cd "${keriaDir}" || exit
+            updateFromGit ${KERIA_DEV_BRANCH}
+            export KERI_AGENT_CORS=true
+            keria start --config-file demo-witness-oobis.json --config-dir ${keriaDir}/scripts &
+            keriaPid=$!
+            sleep 5
+            echo "Keria cloud agent running"
+        else
+            echo "Keria dir missing ${keriaDir}"
+        fi
+    fi
+    echo ""
+}
+
+function runSignifyIntegrationTests() {
+    # Assumes you are running from the base signify dir (see hints at the top)
+    cd "${ORIG_CUR_DIR}" || exit
+    integrationTestModule="integration.app.integration_clienting"
+    echo "Available functions in ${integrationTestModule}"
+    python -c "import ${integrationTestModule}; print('\n'.join(x for x in dir(${integrationTestModule}) if x.startswith('test_')))"
+
+    read -p "What signify test to run (n to skip)?, [${runSignify}]: " input
+    runSignify=${input:-$runSignify}
+    if [ "${runSignify}" == "n" ]; then
+        echo "Skipping signify test"
+    else
+        echo "Launching Signifypy test ${runSignify}"
+        signifyPid=-1
+        updateFromGit ${SIGNIFY_DEV_BRANCH}
+        iClient="./integration/app/integration_clienting.py"
+        if [ -f "${iClient}" ]; then
+            if [ "${runSignify}" == "test_delegation" ]; then
+                runDelegator ${keriDir}
+            fi
+            if [ "${runSignify}" == "test_multisig" ]; then
+                runMultisig ${keriDir}
+            fi
+            python -c "from ${integrationTestModule} import ${runSignify}; ${runSignify}()" &
+            signifyPid=$!
+            sleep 10
+            echo "Completed signify ${runSignify}"
+        else
+            echo "${iClient} module missing"
+            exit 1
+        fi
+    fi
+}
+
+function runVlei() {
+    # run vLEI cloud agent
+    cd ${ORIG_CUR_DIR} || exit
+    vleiPid=-1
+    read -p "Run vLEI (y/n)? [y]: " input
+    runVlei=${input:-"y"}
+    if [ "${runVlei}" == "y" ]; then
+        echo "Running vLEI server"
+        vleiDir=$(getVleiDir)
+        if [ -d "${vleiDir}" ]; then
+            cd "${vleiDir}" || exit
+            updateFromGit ${VLEI_DEV_BRANCH}
+            vLEI-server -s ./schema/acdc -c ./samples/acdc/ -o ./samples/oobis/ &
+            vleiPid=$!
+            sleep 5
+            echo "vLEI server is running"
+        else
+            echo "vLEI dir missing ${vleiDir}"
+        fi
+    fi
+    echo ""
+}
+
+function updateFromGit() {
+    branch=$1
+    echo "Updating git branch ${branch}"
+    git fetch
+    git switch "${branch}"
+    git pull
+}
+
+echo "Welcome to the integration test setup/run/teardown script"
+
+runSignify="test_salty"
+while [ "${runSignify}" != "n" ]
+do
+    echo "Setting up..."
+
+    runKeri
+
+    runVlei
+
+    runKeria
+
+    runSignifyIntegrationTests
+
+    runIssueEcr
 
     echo ""
 
