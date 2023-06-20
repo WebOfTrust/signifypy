@@ -348,14 +348,11 @@ def test_registry_creation():
         op = operations.get(op["name"])
         sleep(1)
 
-
-    icp1 = Serder(ked=op["response"])
-
     aid1 = identifiers.get("aid1")
 
     # Make request to create registry
     registries: Registries = client.registries()
-    res = registries.registryIncept(pre=aid1["prefix"],
+    op = registries.registryIncept(pre=aid1["prefix"],
                                     alias="aid1",
                                     name="myregistry",
                                     body={
@@ -363,10 +360,11 @@ def test_registry_creation():
                                         "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"],
                                         "toad": 2
                                     })
-    print(res)
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
 
-
-
+    print(op)
 
 
 @_recorder.record(file_path=DELEGATION_FILE_PATH)
@@ -615,7 +613,8 @@ def test_randy():
     aid = aids[0]
     assert aid["prefix"] == icp.pre
 
-    ked = identifiers.interact("aid1", data=[icp.pre])
+    op = identifiers.interact("aid1", data=[icp.pre])
+    ked = op["response"]
     ixn = Serder(ked=ked)
     assert ixn.sn == 1
     assert ixn.ked["a"] == [icp.pre]

@@ -1,9 +1,10 @@
-from keri import kering
 from collections import namedtuple
+from time import sleep
 
+from keri import kering
 from keri.app.keeping import Algos
 from keri.core import coring
-from keri.core.eventing import TraitDex
+from keri.core.eventing import TraitDex, SealEvent
 from keri.vdr import eventing
 
 from signify.app.clienting import SignifyClient
@@ -47,11 +48,24 @@ class Registries:
         keeper = self.client.manager.new(algo, self.client.pidx, **kwargs)
         sigs = keeper.sign(regser.raw)
 
+        rseal = SealEvent(regser.pre, "0", regser.said)
+        rseal = dict(i=rseal.i, s=rseal.s, d=rseal.d)
+
+        identifiers = self.client.identifiers()
+        operations = self.client.operations()
+        op = identifiers.interact(alias, data=[rseal])
+
+        while not op["done"]:
+            op = operations.get(op["name"])
+            sleep(1)
+        ixn = op["response"]
+
         json = dict(
             name=name,
             alias=alias,
             sigs=sigs,
-            vcp=regser.ked
+            vcp=regser.ked,
+            ixn=ixn
         )
         json[algo] = keeper.params()
 
