@@ -187,6 +187,13 @@ class Identifiers:
         res = self.client.post(f"/identifiers/{name}/endroles", json=json)
         return res.json()
 
+    def sign(self, name, ser):
+        hab = self.get(name)
+        keeper = self.client.manager.get(aid=hab)
+        sigs = keeper.sign(ser=ser)
+
+        return sigs
+
     @staticmethod
     def makeEndRole(pre, role=Roles.agent, eid=None):
         data = dict(cid=pre, role=role)

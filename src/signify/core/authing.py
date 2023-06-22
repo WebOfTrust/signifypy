@@ -24,17 +24,15 @@ class Agent:
         self.parse(state)
 
     def parse(self, state):
-        serder = coring.Serder(ked=state)
+        self.pre = state['i']
+        self.sn = coring.Number(num=state['s']).num
+        self.delpre = state['di']
+        self.said = state['d']
 
-        self.pre = serder.pre
-        self.sn = serder.sn
-        self.delpre = serder.ked['di']
-        self.said = serder.said
-
-        if len(serder.verfers) != 1:
+        if len(state['k']) != 1:
             raise kering.ValidationError(f"agent inception event can only have one key")
 
-        self.verfer = serder.verfers[0]
+        self.verfer = coring.Verfer(qb64=state['k'][0])
 
 
 class Controller:
@@ -72,12 +70,12 @@ class Controller:
     def derive(self, state):
         if state is None or state['ee']['s'] == "0":
             return eventing.incept(keys=self.keys,
-                                          isith="1",
-                                          nsith="1",
-                                          ndigs=self.ndigs,
-                                          code=coring.MtrDex.Blake3_256,
-                                          toad="0",
-                                          wits=[])
+                                   isith="1",
+                                   nsith="1",
+                                   ndigs=self.ndigs,
+                                   code=coring.MtrDex.Blake3_256,
+                                   toad="0",
+                                   wits=[])
         else:
             return coring.Serder(ked=state.controller['ee'])
 
@@ -85,7 +83,7 @@ class Controller:
         seqner = coring.Seqner(sn=agent.sn)
         anchor = dict(i=agent.pre, s=seqner.snh, d=agent.said)
 
-        self.serder = eventing.interact(pre=self.serder.pre, dig=self.serder.said, sn=self.serder.sn+1, data=[anchor])
+        self.serder = eventing.interact(pre=self.serder.pre, dig=self.serder.said, sn=self.serder.sn + 1, data=[anchor])
         return self.serder, [self.signer.sign(self.serder.raw, index=0).qb64]
 
     def rotate(self, nbran, aids):
