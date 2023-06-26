@@ -157,6 +157,7 @@ function runKeri() {
         if [ -d  "${keriDir}" ]; then
             cd "${keriDir}" || exit
             updateFromGit ${KERI_DEV_BRANCH}
+            installPythonUpdates
             rm -rf ${KERI_PRIMARY_STORAGE}/*;rm -Rf ${KERI_FALLBACK_STORAGE}/*;kli witness demo &
             witPid=$!
             sleep 5
@@ -182,8 +183,9 @@ function runKeria() {
         if [ -d "${keriaDir}" ]; then
             cd "${keriaDir}" || exit
             updateFromGit ${KERIA_DEV_BRANCH}
+            installPythonUpdates
             export KERI_AGENT_CORS=true
-            keria start --config-file demo-witness-oobis.json --config-dir ${keriaDir}/scripts &
+            keria start --config-file demo-witness-oobis.json --config-dir "${keriaDir}/scripts" &
             keriaPid=$!
             sleep 5
             echo "Keria cloud agent running"
@@ -209,6 +211,7 @@ function runSignifyIntegrationTests() {
         echo "Launching Signifypy test ${runSignify}"
         signifyPid=-1
         updateFromGit ${SIGNIFY_DEV_BRANCH}
+        installPythonUpdates
         iClient="./integration/app/integration_clienting.py"
         if [ -f "${iClient}" ]; then
             if [ "${runSignify}" == "test_delegation" ]; then
@@ -240,6 +243,7 @@ function runVlei() {
         if [ -d "${vleiDir}" ]; then
             cd "${vleiDir}" || exit
             updateFromGit ${VLEI_DEV_BRANCH}
+            installPythonUpdates
             vLEI-server -s ./schema/acdc -c ./samples/acdc/ -o ./samples/oobis/ &
             vleiPid=$!
             sleep 5
@@ -249,6 +253,11 @@ function runVlei() {
         fi
     fi
     echo ""
+}
+
+function installPythonUpdates() {
+    echo "Installing python module updates..."
+    python -m pip install -e .
 }
 
 function updateFromGit() {
