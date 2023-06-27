@@ -35,4 +35,4 @@ def list_credentials():
 
 
 if __name__ == "__main__":
-    list_credentials("aid1")
+    list_credentials()
