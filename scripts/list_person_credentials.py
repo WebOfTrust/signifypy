@@ -30,9 +30,9 @@ def list_credentials():
 
     print(f"Exporting credential {said}")
 
-    export = credentials.export(said)
+    export = credentials.export("aid1", said)
     print(export)
 
 
 if __name__ == "__main__":
-    list_credentials()
+    list_credentials("aid1")
