@@ -81,5 +81,5 @@ class Credentials:
         """
         headers = dict(accept="application/json+cesr")
 
-        res = self.client.get(f"/identifers/{name}/credentials/{said}", headers=headers)
+        res = self.client.get(f"/identifiers/{name}/credentials/{said}", headers=headers)
         return res.content

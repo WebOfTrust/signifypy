@@ -22,7 +22,7 @@ def list_credentials():
 
     credentials = client.credentials(aid="EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk")
 
-    creds = credentials.list(typ=CredentialTypes.received)
+    creds = credentials.list("aid1", typ=CredentialTypes.received)
     assert len(creds) == 1
 
     creder = Creder(ked=creds[0]['sad'])
