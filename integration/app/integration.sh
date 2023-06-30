@@ -262,10 +262,19 @@ function installPythonUpdates() {
 
 function updateFromGit() {
     branch=$1
-    echo "Updating git branch ${branch}"
-    git fetch
-    git switch "${branch}"
-    git pull
+    read -p "Update git repo ${branch}?, [n]: " input
+    update=${input:-"n"}
+    if [ "${update}" == "y" ]; then
+        echo "Updating git branch ${branch}"
+        fetch=$(git fetch)
+        echo "git fetch status ${fetch}"
+        switch=$(git switch "${branch}")
+        echo "git switch status ${switch}"
+        pull=$(git pull)
+        echo "git pull status ${pull}"
+    else
+        echo "Skipping git update ${branch}"
+    fi
 }
 
 echo "Welcome to the integration test setup/run/teardown script"
@@ -288,6 +297,7 @@ do
     echo ""
 
     read -p "Your servers still running, hit enter to tear down: " input
+    
     echo "Tearing down any leftover processes"
     #tear down the signify client
     kill "$signifyPid" >/dev/null 2>&1
@@ -300,8 +310,8 @@ do
     # tear down the witness network
     kill $witPid >/dev/null 2>&1
 
-    read -p "Run another test (n to quit, hit enter to run another test)?: " input
-    runSignify=${input:-$runSignify}
+    read -p "Run another test [n]?: " input
+    runSignify=${input:-"n"}
 done
 
 echo "Done"
