@@ -33,40 +33,42 @@ class Registries:
 class Credentials:
     """ Domain class for accessing, presenting, issuing and revoking credentials """
 
-    def __init__(self, aid, client: SignifyClient):
+    def __init__(self, client: SignifyClient):
         """ Create domain class for working with credentials for a single AID
 
             Parameters:
-                aid (str): qb64 identifier as the issuer or holder of credentials
                 client (SignifyClient): Signify client class for access resources on a KERIA service instance
 
         """
-        self.aid = aid
         self.client = client
 
-    def list(self, name, typ=None, schema=None):
+    def list(self, name, filtr=None, sort=None, skip=None, limit=None):
         """
 
         Parameters:
             name (str): Alias associated with the AID
-            typ (str): A credential type [issued|received]
-            schema (str): qb64 SAID of the schema to use as criteria for listing credentials
+            filtr (dict): Credential filter dict
+            sort(list): list of SAD Path field references to sort by
+            skip (int): number of credentials to skip at the front of the list
+            limit (int): total number of credentials to retrieve
 
         Returns:
             list: list of dicts representing the listed credentials
 
         """
-        params = dict()
-        match typ:
-            case CredentialTypes.issued:
-                params["type"] = CredentialTypes.issued
-            case CredentialTypes.received:
-                params["type"] = CredentialTypes.received
+        filtr = filtr if filtr is not None else {}
+        sort = sort if sort is not None else []
+        skip = skip if skip is not None else 0
+        limit = limit if limit is not None else 25
 
-        if schema is not None:
-            params["schema"] = schema
+        body = dict(
+            filter=filtr,
+            sort=sort,
+            skip=skip,
+            limt=limit
+        )
 
-        res = self.client.get(f"/identifiers/{name}/credentials", params=params)
+        res = self.client.get(f"/identifiers/{name}/credentials", body=body)
         return res.json()
 
     def export(self, name, said):

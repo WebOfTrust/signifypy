@@ -129,7 +129,7 @@ class SignifyClient:
         res = self.delete(f"/salt/{caid}")
         return res.status_code == 204
 
-    def get(self, path, params=None, headers=None):
+    def get(self, path, params=None, headers=None, body=None):
         url = urljoin(self.base, path)
 
         kwargs = dict()
@@ -138,6 +138,9 @@ class SignifyClient:
 
         if headers is not None:
             kwargs["headers"] = headers
+
+        if body is not None:
+            kwargs["json"] = body
 
         res = self.session.get(url, **kwargs)
         if not res.ok:
@@ -205,9 +208,9 @@ class SignifyClient:
         from signify.app.coring import Oobis
         return Oobis(client=self)
 
-    def credentials(self, aid):
+    def credentials(self):
         from signify.app.credentialing import Credentials
-        return Credentials(client=self, aid=aid)
+        return Credentials(client=self)
 
     def groups(self):
         from signify.app.grouping import Groups
