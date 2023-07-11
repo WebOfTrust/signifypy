@@ -33,7 +33,7 @@ def create_aid():
         "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
     ]
 
-    op = identifiers.create("aid1", bran="0123456789abcdefghijk", wits=wits, toad="2")
+    op = identifiers.create("BankUser", bran="0123456789abcdefghijk", wits=wits, toad="2")
 
     while not op["done"]:
         op = operations.get(op["name"])
@@ -43,7 +43,7 @@ def create_aid():
     assert icp.pre == "EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk"
     print(f"Person AID {icp.pre} created")
 
-    identifiers.addEndRole("aid1", eid=client.agent.pre)
+    identifiers.addEndRole("BankUser", eid=client.agent.pre)
 
     print("person resolving external...")
     op = oobis.resolve(

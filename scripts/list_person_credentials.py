@@ -20,18 +20,24 @@ def list_credentials():
 
     client = SignifyClient(passcode=bran, tier=tier, url=url)
 
-    credentials = client.credentials(aid="EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk")
+    identifiers = client.identifiers()
+    aids = identifiers.list()
 
-    creds = credentials.list("aid1", typ=CredentialTypes.received)
+    assert len(aids) == 1
+    aid = aids[0]['prefix']
+    print(aid)
+    credentials = client.credentials()
+
+    creds = credentials.list("BankUser", filtr={'-a-i': aid})
     assert len(creds) == 1
 
     creder = Creder(ked=creds[0]['sad'])
-    said = creder.said
+    print(creder.pretty(size=5000))
 
-    print(f"Exporting credential {said}")
-
-    export = credentials.export("aid1", said)
-    print(export)
+    # said = creder.said
+    # print(f"Exporting credential {said}")
+    # export = credentials.export("BankUser", said)
+    # print(export)
 
 
 if __name__ == "__main__":
