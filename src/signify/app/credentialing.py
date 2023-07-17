@@ -61,14 +61,14 @@ class Credentials:
         skip = skip if skip is not None else 0
         limit = limit if limit is not None else 25
 
-        body = dict(
+        json = dict(
             filter=filtr,
             sort=sort,
             skip=skip,
             limt=limit
         )
 
-        res = self.client.post(f"/identifiers/{name}/credentials", body=body)
+        res = self.client.post(f"/identifiers/{name}/credentials/query", json=json)
         return res.json()
 
     def export(self, name, said):
