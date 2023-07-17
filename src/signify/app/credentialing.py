@@ -68,7 +68,7 @@ class Credentials:
             limt=limit
         )
 
-        res = self.client.get(f"/identifiers/{name}/credentials", body=body)
+        res = self.client.post(f"/identifiers/{name}/credentials", body=body)
         return res.json()
 
     def export(self, name, said):
