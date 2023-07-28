@@ -11,24 +11,39 @@
 #save this current directory, this is where the integration_clienting file also is
 ORIG_CUR_DIR=$( pwd )
 
-#run a clean witness network
-echo "Launching a clean witness network"
 KERI_PRIMARY_STORAGE="/usr/local/var/keri"
 KERI_FALLBACK_STORAGE="${HOME}/.keri"
 
 KERI_DEV_BRANCH="development"
+KERI_DEV_TAG="c3a6fc455b5fac194aa9c264e48ea2c52328d4c5"
 VLEI_DEV_BRANCH="dev"
+VLEI_DEV_TAG="ed982313dab86bfada3825857601a10d71ce9631"
 KERIA_DEV_BRANCH="main"
+KERIA_DEV_TAG="65bebb4912557067ca290f4765e85aafa657c46f"
 SIGNIFY_DEV_BRANCH="main"
+
+prompt="y"
+function intro() {
+    echo "Welcome to the integration test setup/run/teardown script"
+    read -p "Enable prompts?, [y]: " enablePrompts
+    prompt=${enablePrompts:-"y"}
+    if [ "${prompt}" != "n" ]; then
+        echo "Prompts enabled"
+    else
+        echo "Skipping prompts, using defaults"
+    fi
+}
 
 function getKeripyDir() {
     # Check if the environment variable is set
     if [ -z "$KERIPY_DIR" ]; then
         default_value="../keripy"
         # Prompt the user for input with a default value
-        read -p "Set keripy dir [${default_value}]: " input
+        if [ "${prompt}" == "y" ]; then
+            read -p "Set keripy dir [${default_value}]: " keriDirInput
+        fi
         # Set the value to the user input or the default value
-        KERIPY_DIR=${input:-$default_value}
+        KERIPY_DIR=${keriDirInput:-$default_value}
     fi
     # Use the value of the environment variable
     echo "$KERIPY_DIR"
@@ -39,9 +54,11 @@ function getVleiDir() {
     if [ -z "$VLEI_DIR" ]; then
         default_value="../vLEI"
         # Prompt the user for input with a default value
-        read -p "Set vlei dir [${default_value}]: " input
+        if [ "${prompt}" == "y" ]; then
+            read -p "Set vlei dir [${default_value}]: " vleiDirInput
+        fi
         # Set the value to the user input or the default value
-        VLEI_DIR=${input:-$default_value}
+        VLEI_DIR=${vleiDirInput:-$default_value}
     fi
     # Use the value of the environment variable
     echo "$VLEI_DIR"
@@ -52,9 +69,11 @@ function getKeriaDir() {
     if [ -z "$KERIA_DIR" ]; then
         default_value="../keria"
         # Prompt the user for input with a default value
-        read -p "Set keria dir [${default_value}]: " input
+        if [ "${prompt}" == "y" ]; then
+            read -p "Set keria dir [${default_value}]: " keriaDirInput
+        fi
         # Set the value to the user input or the default value
-        KERIA_DIR=${input:-$default_value}
+        KERIA_DIR=${keriaDirInput:-$default_value}
     fi
     # Use the value of the environment variable
     echo "$KERIA_DIR"
@@ -126,8 +145,10 @@ function runMultisig() {
 
 function runIssueEcr() {
     cd "${ORIG_CUR_DIR}" || exit
-    read -p "Run vLEI issue ECR script (n to skip)?, [y]: " input
-    runIssueEcr=${input:-"y"}
+    if [ "${prompt}" == "y" ]; then
+        read -p "Run vLEI issue ECR script (n to skip)?, [n]: " runEcr
+    fi
+    runIssueEcr=${runEcr:-"n"}
     if [ "${runIssueEcr}" == "n" ]; then
         echo "Skipping Issue ECR script"
     else
@@ -151,13 +172,17 @@ function runKeri() {
     witPid=-1
     keriDir=$(getKeripyDir)
     echo "Keripy dir set to: ${keriDir}"
-    read -p "Run witness network (y/n)? [y]: " input
-    runWit=${input:-"y"}
+    if [ "${prompt}" == "y" ]; then
+        read -p "Run witness network (y/n)? [y]: " runWitNet
+    fi
+    runWit=${runWitNet:-"y"}
     if [ "${runWit}" == "y" ]; then
         if [ -d  "${keriDir}" ]; then
+            #run a clean witness network
+            echo "Launching a clean witness network"
             cd "${keriDir}" || exit
             updateFromGit ${KERI_DEV_BRANCH}
-            installPythonUpdates
+            installPythonUpdates "keri"
             rm -rf ${KERI_PRIMARY_STORAGE}/*;rm -Rf ${KERI_FALLBACK_STORAGE}/*;kli witness demo &
             witPid=$!
             sleep 5
@@ -175,15 +200,18 @@ function runKeri() {
 function runKeria() {
         # run keria cloud agent
     keriaPid=-1
-    read -p "Run Keria (y/n)? [y]: " input
-    runKeria=${input:-"y"}
+
+    if [ "${prompt}" == "y" ]; then
+        read -p "Run Keria (y/n)? [y]: " runKeriaInput
+    fi
+    runKeria=${runKeriaInput:-"y"}
     if [ "${runKeria}" == "y" ]; then
         echo "Running keria cloud agent"
         keriaDir=$(getKeriaDir)
         if [ -d "${keriaDir}" ]; then
             cd "${keriaDir}" || exit
             updateFromGit ${KERIA_DEV_BRANCH}
-            installPythonUpdates
+            installPythonUpdates "keria"
             export KERI_AGENT_CORS=true
             keria start --config-file demo-witness-oobis.json --config-dir "${keriaDir}/scripts" &
             keriaPid=$!
@@ -203,19 +231,19 @@ function runSignifyIntegrationTests() {
     echo "Available functions in ${integrationTestModule}"
     python -c "import ${integrationTestModule}; print('\n'.join(x for x in dir(${integrationTestModule}) if x.startswith('test_')))"
 
-    read -p "What signify test to run (n to skip)?, [${runSignify}]: " input
-    runSignify=${input:-$runSignify}
+    read -p "What signify test to run (n to skip)?, [${runSignify}]: " runSigInput
+    runSignify=${runSigInput:-$runSignify}
     if [ "${runSignify}" == "n" ]; then
         echo "Skipping signify test"
     else
         echo "Launching Signifypy test ${runSignify}"
         signifyPid=-1
         updateFromGit ${SIGNIFY_DEV_BRANCH}
-        installPythonUpdates
+        installPythonUpdates "signify"
         iClient="./integration/app/integration_clienting.py"
         if [ -f "${iClient}" ]; then
             if [ "${runSignify}" == "test_delegation" ]; then
-                runDelegator ${keriDir}
+                runDelegator "${keriDir}"
             fi
             if [ "${runSignify}" == "test_multisig" ]; then
                 runMultisig ${keriDir}
@@ -235,15 +263,17 @@ function runVlei() {
     # run vLEI cloud agent
     cd ${ORIG_CUR_DIR} || exit
     vleiPid=-1
-    read -p "Run vLEI (y/n)? [y]: " input
-    runVlei=${input:-"y"}
+    if [ "${prompt}" == "y" ]; then
+        read -p "Run vLEI (y/n)? [y]: " runVleiInput
+    fi
+    runVlei=${runVleiInput:-"y"}
     if [ "${runVlei}" == "y" ]; then
         echo "Running vLEI server"
         vleiDir=$(getVleiDir)
         if [ -d "${vleiDir}" ]; then
             cd "${vleiDir}" || exit
             updateFromGit ${VLEI_DEV_BRANCH}
-            installPythonUpdates
+            installPythonUpdates "vlei"
             vLEI-server -s ./schema/acdc -c ./samples/acdc/ -o ./samples/oobis/ &
             vleiPid=$!
             sleep 5
@@ -256,47 +286,75 @@ function runVlei() {
 }
 
 function installPythonUpdates() {
-    echo "Installing python module updates..."
-    python -m pip install -e .
+    name=$1
+    if [ "${prompt}" == "y" ]; then
+        read -p "Install $name?, [n]: " installInput
+    fi
+    install=${installInput:-"n"}
+    if [ "${install}" == "n" ]; then
+        echo "Skipping install of $name"
+    else
+        echo "Installing python module updates..."
+        python -m pip install -e .
+    fi
 }
 
 function updateFromGit() {
     branch=$1
-    read -p "Update git repo ${branch}?, [n]: " input
-    update=${input:-"n"}
+    commit=$2
+
+    if [ "${prompt}" == "y" ]; then
+        read -p "Update git repo ${branch} ${commit}?, [n]: " upGitInput
+    fi
+    update=${upGitInput:-"n"}
     if [ "${update}" == "y" ]; then
-        echo "Updating git branch ${branch}"
+        echo "Updating git branch ${branch} ${commit}"
         fetch=$(git fetch)
         echo "git fetch status ${fetch}"
-        switch=$(git switch "${branch}")
-        echo "git switch status ${switch}"
-        pull=$(git pull)
-        echo "git pull status ${pull}"
+        if [ -z "${commit}" ]; then
+            switch=$(git switch "${branch}")
+            echo "git switch status ${switch}"
+            pull=$(git pull)
+            echo "git pull status ${pull}"
+        else
+            switch=$(git checkout "${commit}")
+            echo "git checkout commit status ${switch}"
+        fi
     else
         echo "Skipping git update ${branch}"
     fi
 }
 
-echo "Welcome to the integration test setup/run/teardown script"
-
-runSignify="test_salty"
-while [ "${runSignify}" != "n" ]
+runInt="test_salty"
+while [ "${runInt}" != "n" ]
 do
+    intro
+
     echo "Setting up..."
 
     runKeri
 
+    sleep 3
+
     runVlei
+
+    sleep 3
 
     runKeria
 
+    sleep 3
+
     runSignifyIntegrationTests
+
+    sleep 3
 
     runIssueEcr
 
     echo ""
 
-    read -p "Your servers still running, hit enter to tear down: " input
+    if [ "${prompt}" == "y" ]; then
+        read -p "Your servers still running, hit enter to tear down: " teardown
+    fi
     
     echo "Tearing down any leftover processes"
     #tear down the signify client
@@ -310,8 +368,8 @@ do
     # tear down the witness network
     kill $witPid >/dev/null 2>&1
 
-    read -p "Run another test [n]?: " input
-    runSignify=${input:-"n"}
+    read -p "Run another test [n]?: " runAgain
+    runInt=${runAgain:-"n"}
 done
 
 echo "Done"
