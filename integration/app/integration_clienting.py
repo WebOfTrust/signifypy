@@ -99,7 +99,7 @@ def test_extern():
     client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
     assert client.ctrl.ridx == 0
 
     # Create AID using external HSM module
@@ -547,11 +547,12 @@ def test_randy():
     client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EJoqUMpQAfqsJhBqv02ehR-9BJYBTCrW8h5JlLdMTWBg"
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
     # assert client.ctrl.ridx == 0
 
     identifiers = client.identifiers()
-    aid = identifiers.create("aid1", algo=Algos.randy)
+    op = identifiers.create("aid1", algo=Algos.randy)
+    aid = op["response"]
     icp = Serder(ked=aid)
     assert len(icp.verfers) == 1
     assert len(icp.verfers) == 1
@@ -565,7 +566,8 @@ def test_randy():
     aid = aids[0]
     assert aid["prefix"] == icp.pre
 
-    ked = identifiers.interact("aid1", data=[icp.pre])
+    op = identifiers.interact("aid1", data=[icp.pre])
+    ked = op["response"]
     ixn = Serder(ked=ked)
     assert ixn.sn == 1
     assert ixn.ked["a"] == [icp.pre]
@@ -577,7 +579,8 @@ def test_randy():
     log = events.get(pre=aid["prefix"])
     assert len(log) == 2
 
-    ked = identifiers.rotate("aid1")
+    op = identifiers.rotate("aid1")
+    ked = op["response"]
     rot = Serder(ked=ked)
     assert rot.pre == icp.pre
     assert rot.sn == 2
@@ -868,8 +871,8 @@ if __name__ == "__main__":
     # test_delegation()
     # test_witnesses()
     # test_salty()
-    # test_randy()
-    test_multisig()
+    test_randy()
+    # test_multisig()
     # test_query()
     # test_multi_tenant()
     # test_extern()
