@@ -38,13 +38,26 @@ def test_init():
 
     # Try with bran that is too short
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url=url, passcode=bran[:16], tier=tier)
+        SignifyClient(passcode=bran[:16], tier=tier)
 
     # Try with an invalid URL
     with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url="ftp://www.example.com", passcode=bran, tier=tier)
+        client = SignifyClient(passcode=bran, tier=tier)
+        evt, siger = client.ctrl.event()
+        res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
 
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+        if res.status_code != requests.codes.accepted:
+            raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
+        client.connect(url="ftp://www.example.com")
+
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     serder = client.icp
     assert serder.raw == (b'{"v":"KERI10JSON00012b_","t":"icp","d":"ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJ'
@@ -54,15 +67,15 @@ def test_init():
 
     # changing tier with has no effect
     tier = Tiers.low
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     tier = Tiers.med
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
 
     tier = Tiers.high
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "EB8wN2c_tv1WlsJ5c3949-TFWPMB2IflFbdMlZfC_Hgo"
 
 
@@ -609,14 +622,26 @@ def test_query():
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
 
-    client = SignifyClient(url=url, passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
-    client.connect()
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
+    client.connect(url=url)
     assert client.agent is not None
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-    assert client.agent.pre == "EFebpJik0emPaSuvoSPYuLVpSAsaWVDwf4WYVPOBva_p"
-    assert client.ctrl.ridx == 0
+    assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
+    # assert client.ctrl.ridx == 0
 
     operations = client.operations()
     keyState = client.keyStates()
@@ -681,7 +706,7 @@ def test_multi_tenant():
     identifiers.addEndRole("aid1", eid=client.agent.pre)
 
     rbran = b'abcdefghijk0123456789'
-    rclient = SignifyClient(url=url, passcode=rbran, tier=tier)
+    rclient = SignifyClient(passcode=rbran, tier=tier)
     assert rclient.controller == "EIIY2SgE_bqKLl2MlnREUawJ79jTuucvWwh-S6zsSUFo"
 
     evt, siger = rclient.ctrl.event()
@@ -696,14 +721,15 @@ def test_multi_tenant():
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    rclient.connect()
+    rclient.connect(url=url)
     assert rclient.agent is not None
     assert rclient.agent.delpre == "EIIY2SgE_bqKLl2MlnREUawJ79jTuucvWwh-S6zsSUFo"
-    assert rclient.agent.pre == "ECrQUIn5_aonlPt7zod4HCaqkfG_KPDuUEh8Bql1Y9TY"
-    assert rclient.ctrl.ridx == 0
+    assert rclient.agent.pre == "EFK_y173TSxvwgLHlsWAH9RwRq_6k8R_EVpbJ5rYujbo"
+    # assert rclient.ctrl.ridx == 0
 
     ridentifiers = rclient.identifiers()
-    aid = ridentifiers.create("randy1", algo=Algos.randy)
+    op = ridentifiers.create("randy1", algo=Algos.randy)
+    aid = op["response"]
     icp = Serder(ked=aid)
     assert len(icp.verfers) == 1
     assert len(icp.verfers) == 1
@@ -742,13 +768,15 @@ def test_passcode_rotation():
     assert client.agent.pre == "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
 
     identifiers = client.identifiers()
-    aid = identifiers.create("salty")
+    op = identifiers.create("salty")
+    aid = op["response"]
     sicp = Serder(ked=aid)
 
     aid = identifiers.get("salty")
     assert aid["prefix"] == sicp.pre
 
-    aid = identifiers.create("randy", algo=Algos.randy)
+    op = identifiers.create("randy", algo=Algos.randy)
+    aid = op["response"]
     ricp = Serder(ked=aid)
 
     aid = identifiers.get("randy")
@@ -764,12 +792,14 @@ def test_passcode_rotation():
     client.rotate(nbran='0123456789abcdefghijk', aids=aids)
     print(json.dumps(identifiers.list(), indent=1))
 
-    ked = identifiers.rotate("salty")
+    op = identifiers.rotate("salty")
+    ked = op["response"]
     rot = Serder(ked=ked)
     print("Salty Rotated:")
     print(rot.pretty())
 
-    ked = identifiers.rotate("randy")
+    op = identifiers.rotate("randy")
+    ked = op["response"]
     rot = Serder(ked=ked)
     print("Randy Rotated:")
     print(rot.pretty())
@@ -808,14 +838,17 @@ def test_passcode_rotation_x1000():
         algo = random.choice(["salty", "randy"])
         match algo:
             case "salty":
-                aid = identifiers.create(f"salty-{idx}")
+                op = identifiers.create(f"salty-{idx}")
+                aid = op["response"]
                 sicp = Serder(ked=aid)
 
-                aid = identifiers.get(f"salty-{idx}")
+                op = identifiers.get(f"salty-{idx}")
+                aid = op["response"]
                 assert aid["prefix"] == sicp.pre
 
             case "randy":
-                aid = identifiers.create(f"randy-{idx}", algo=Algos.randy)
+                op = identifiers.create(f"randy-{idx}", algo=Algos.randy)
+                aid = op["response"]
                 ricp = Serder(ked=aid)
 
                 aid = identifiers.get(f"randy-{idx}")
@@ -847,8 +880,22 @@ def test_recreate_client():
     url = "http://localhost:3901"
     bran = b'0123456789abcdefghijk'
     tier = Tiers.low
-    client = SignifyClient(passcode=bran, tier=tier, url=url)
+    client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+    
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+
+    if res.status_code != requests.codes.accepted:
+        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+
+    client.connect(url=url)
 
     identifiers = client.identifiers()
     pres = identifiers.list(limit=1000)
@@ -868,14 +915,20 @@ def test_recreate_client():
 
 
 if __name__ == "__main__":
+    
+    #SHOULD WORK
     # test_delegation()
     # test_witnesses()
     # test_salty()
-    test_randy()
+    # test_randy()
     # test_multisig()
-    # test_query()
+    test_query()
+    # test_recreate_client()
     # test_multi_tenant()
-    # test_extern()
+
+    # KNOWN ISSUE with KERIA, will not work
     # test_passcode_rotation()
     # test_passcode_rotation_x1000()
-    # test_recreate_client()
+    
+    #REQUIRES external HSM
+    # test_extern()

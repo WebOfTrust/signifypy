@@ -229,33 +229,40 @@ function runSignifyIntegrationTests() {
     cd "${ORIG_CUR_DIR}" || exit
     integrationTestModule="integration.app.integration_clienting"
     echo "Available functions in ${integrationTestModule}"
-    python -c "import ${integrationTestModule}; print('\n'.join(x for x in dir(${integrationTestModule}) if x.startswith('test_')))"
+    testList=$(python -c "import ${integrationTestModule}; print('\n'.join(x for x in dir(${integrationTestModule}) if x.startswith('test_')))")
+    echo "${testList}"
+    # echo "all"
 
-    read -p "What signify test to run (n to skip)?, [${runSignify}]: " runSigInput
-    runSignify=${runSigInput:-$runSignify}
+    read -p "What signify test to run (n to skip integration tests)?, [${runSignify}]: " runSigInput
+    runSignify=${runSigInput:-"n"}
     if [ "${runSignify}" == "n" ]; then
         echo "Skipping signify test"
     else
-        echo "Launching Signifypy test ${runSignify}"
-        signifyPid=-1
-        updateFromGit ${SIGNIFY_DEV_BRANCH}
-        installPythonUpdates "signify"
-        iClient="./integration/app/integration_clienting.py"
-        if [ -f "${iClient}" ]; then
-            if [ "${runSignify}" == "test_delegation" ]; then
-                runDelegator "${keriDir}"
-            fi
-            if [ "${runSignify}" == "test_multisig" ]; then
-                runMultisig ${keriDir}
-            fi
-            python -c "from ${integrationTestModule} import ${runSignify}; ${runSignify}()" &
-            signifyPid=$!
-            sleep 10
-            echo "Completed signify ${runSignify}"
-        else
-            echo "${iClient} module missing"
-            exit 1
+        runIntegrationTest "${runSignify}"
+    fi
+}
+
+function runIntegrationTest() {
+    testName=$1
+    echo "Launching Signifypy integration test ${testName}"
+    signifyPid=-1
+    updateFromGit ${SIGNIFY_DEV_BRANCH}
+    installPythonUpdates "signify"
+    iClient="./integration/app/integration_clienting.py"
+    if [ -f "${iClient}" ]; then
+        if [ "${testName}" == "test_delegation" ]; then
+            runDelegator "${keriDir}"
         fi
+        if [ "${testName}" == "test_multisig" ]; then
+            runMultisig "${keriDir}"
+        fi
+        python -c "from ${integrationTestModule} import ${testName}; ${testName}()" &
+        signifyPid=$!
+        sleep 10
+        echo "Completed signify ${testName}"
+    else
+        echo "${iClient} module missing"
+        exit 1
     fi
 }
 
