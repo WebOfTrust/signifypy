@@ -304,12 +304,14 @@ def test_delegation(setup,teardown):
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     # Delegator OOBI:
-    # http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness
+    # http://127.0.0.1:5642/oobi/EAJebqSr39pgRfLdrYiSlFQCH2upN4J1b63Er1-3werj/witness
 
-    delpre = "EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7"
+    delpre = "EAJebqSr39pgRfLdrYiSlFQCH2upN4J1b63Er1-3werj"
     identifiers = client.identifiers()
     operations = client.operations()
     oobis = client.oobis()
+    
+    delpre = start_delegator()
 
     op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{delpre}/witness")
     print("OOBI op is: ", op)
@@ -330,3 +332,40 @@ def test_delegation(setup,teardown):
 
     print(icp1.pretty())
     assert icp1.pre == pre
+    
+def start_delegator():
+    delbran = '0ACDEyMzQ1Njc4OWdoaWpsaw'
+    client = SignifyClient(passcode=delbran, tier=Tiers.low)
+    print(client.controller)
+    assert client.controller == "EAJebqSr39pgRfLdrYiSlFQCH2upN4J1b63Er1-3werj"
+
+    evt, siger = client.ctrl.event()
+    res = requests.post(url="http://localhost:3903/boot",
+                        json=dict(
+                            icp=evt.ked,
+                            sig=siger.qb64,
+                            stem=client.ctrl.stem,
+                            pidx=1,
+                            tier=client.ctrl.tier))
+    
+    client.connect(url=url)
+    assert client.agent is not None
+    assert client.agent.delpre == "EAJebqSr39pgRfLdrYiSlFQCH2upN4J1b63Er1-3werj"
+    
+    identifiers = client.identifiers()
+    operations = client.operations()
+    oobis = client.oobis()
+    
+    # op = identifiers.create("delegator", toad="2", delpre=delpre, wits=[wit1, wit2, wit3])
+    
+    return client.controller
+    
+    # kli init --name delegator --nopasscode --config-dir "${KERIPY_SCRIPTS_DIR}" --config-file demo-witness-oobis --salt 0ACDEyMzQ1Njc4OWdoaWpsaw
+    #     KERIPY_DELEGATOR_CONF="${KERIPY_SCRIPTS_DIR}/demo/data/delegator.json"
+    #     if [ -f "${KERIPY_DELEGATOR_CONF}" ]; then
+    #         kli incept --name delegator --alias delegator --file "${KERIPY_DELEGATOR_CONF}"
+    #         # kli incept --name delegator --alias delegator --file /Users/meenyleeny/VSCode/keripy/scripts/demo/data/delegator.json
+    #         echo "Delegator created"
+    #         # delgator auto-accepts the delegation request
+    #         kli delegate confirm --name delegator --alias delegator -Y &
+
