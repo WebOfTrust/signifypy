@@ -32,6 +32,7 @@ httpport=3902
 bootport=3903
 agentPre = "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
 ctrlPre = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+delPre = "EAJebqSr39pgRfLdrYiSlFQCH2upN4J1b63Er1-3werj"
 base=""
 kname="keria"
 kbran=""
@@ -57,20 +58,21 @@ wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
 def setup():
     print("Before test", )
     Helpers.remove_test_dirs(ctrlPre)
+    Helpers.remove_test_dirs(delPre)
     
     # Start witness network
-    wThread=threading.Thread(target=wstart.runWitness,
-                             args=[wname,
-               wbase,
-               walias,
-               wbran,
-               wtcp,
-               whttp,
-               0.0,
-               wconfigDir,
-               wconfigFile])
-    wThread.daemon=True
-    wThread.start()
+    # wThread=threading.Thread(target=wstart.runWitness,
+    #                          args=[wname,
+    #            wbase,
+    #            walias,
+    #            wbran,
+    #            wtcp,
+    #            whttp,
+    #            0.0,
+    #            wconfigDir,
+    #            wconfigFile])
+    # wThread.daemon=True
+    # wThread.start()
     
     # Start keria cloud agent
     kThread=threading.Thread(target=kstart.runAgent,
@@ -306,14 +308,13 @@ def test_delegation(setup,teardown):
     # Delegator OOBI:
     # http://127.0.0.1:5642/oobi/EAJebqSr39pgRfLdrYiSlFQCH2upN4J1b63Er1-3werj/witness
 
-    delpre = "EAJebqSr39pgRfLdrYiSlFQCH2upN4J1b63Er1-3werj"
     identifiers = client.identifiers()
     operations = client.operations()
     oobis = client.oobis()
     
-    delpre = start_delegator()
+    delaid = start_delegator()
 
-    op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{delpre}/witness")
+    op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{delaid}/witness")
     print("OOBI op is: ", op)
 
     count = 0
@@ -321,8 +322,10 @@ def test_delegation(setup,teardown):
         op = operations.get(op["name"])
         sleep(1)
 
-    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=[wit1, wit2, wit3])
+    op = identifiers.create("aid1", toad="2", delpre=delaid, wits=[wit1, wit2, wit3])
     pre = op["metadata"]["pre"]
+
+# TODO needs confirmation from delegator
 
     while not op["done"]:
         op = operations.get(op["name"])
@@ -337,7 +340,7 @@ def start_delegator():
     delbran = '0ACDEyMzQ1Njc4OWdoaWpsaw'
     client = SignifyClient(passcode=delbran, tier=Tiers.low)
     print(client.controller)
-    assert client.controller == "EAJebqSr39pgRfLdrYiSlFQCH2upN4J1b63Er1-3werj"
+    assert client.controller == delPre
 
     evt, siger = client.ctrl.event()
     res = requests.post(url="http://localhost:3903/boot",
@@ -350,22 +353,20 @@ def start_delegator():
     
     client.connect(url=url)
     assert client.agent is not None
-    assert client.agent.delpre == "EAJebqSr39pgRfLdrYiSlFQCH2upN4J1b63Er1-3werj"
+    assert client.agent.delpre == delPre
     
     identifiers = client.identifiers()
     operations = client.operations()
     oobis = client.oobis()
     
-    # op = identifiers.create("delegator", toad="2", delpre=delpre, wits=[wit1, wit2, wit3])
+    op = identifiers.create("delegator", toad="2", wits=[wit1, wit2, wit3])
+
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
     
-    return client.controller
-    
-    # kli init --name delegator --nopasscode --config-dir "${KERIPY_SCRIPTS_DIR}" --config-file demo-witness-oobis --salt 0ACDEyMzQ1Njc4OWdoaWpsaw
-    #     KERIPY_DELEGATOR_CONF="${KERIPY_SCRIPTS_DIR}/demo/data/delegator.json"
-    #     if [ -f "${KERIPY_DELEGATOR_CONF}" ]; then
-    #         kli incept --name delegator --alias delegator --file "${KERIPY_DELEGATOR_CONF}"
-    #         # kli incept --name delegator --alias delegator --file /Users/meenyleeny/VSCode/keripy/scripts/demo/data/delegator.json
-    #         echo "Delegator created"
-    #         # delgator auto-accepts the delegation request
-    #         kli delegate confirm --name delegator --alias delegator -Y &
+    icp = Serder(ked=op["response"])
+    delaid = icp.pre
+    # assert delaid == "EATgMH1GV87E7Q68hWIhJZNPnm17l_8JIXJcav0MWdEF"
+    return delaid
 
