@@ -14,7 +14,8 @@ import pytest
 from keri import kering
 from keri.app.cli.commands.witness import start as wstart
 from keri.app.keeping import Algos
-from keri.core.coring import Tiers, Serder
+from keri.core.coring import Tiers, Serder, Seqner
+from keri.core.eventing import interact
 
 from keria.app.cli.commands import start as kstart
 from keria.testing.testing_helper import Helpers
@@ -311,8 +312,10 @@ def test_delegation(setup,teardown):
     identifiers = client.identifiers()
     operations = client.operations()
     oobis = client.oobis()
-    
-    delaid = start_delegator()
+        
+    delegator_name = "delegator"
+    delcli,delicp,delid = start_delegator(delegator_name)
+    delaid = delicp.pre
 
     op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{delaid}/witness")
     print("OOBI op is: ", op)
@@ -322,21 +325,18 @@ def test_delegation(setup,teardown):
         op = operations.get(op["name"])
         sleep(1)
 
-    op = identifiers.create("aid1", toad="2", delpre=delaid, wits=[wit1, wit2, wit3])
+    delegate_name = "delegate"
+    op = identifiers.create(delegate_name, toad="2", delpre=delaid, wits=[wit1, wit2, wit3])
     pre = op["metadata"]["pre"]
 
-# TODO needs confirmation from delegator
+    delop = approveDelegation(delegator_name,pre,delcli,delicp)
+    print(f"Approved delegation complete {delop}")
 
-    while not op["done"]:
-        op = operations.get(op["name"])
-        sleep(1)
-
-    icp1 = Serder(ked=op["response"])
-
-    print(icp1.pretty())
-    assert icp1.pre == pre
+    delegate_state = client.identifiers().get(delegate_name)
+    assert delegate_state['state']['di'] == delaid
+    print("Delegation approved for aid:", delegate_state['state'])
     
-def start_delegator():
+def start_delegator(delegator_name="delegator"):
     delbran = '0ACDEyMzQ1Njc4OWdoaWpsaw'
     client = SignifyClient(passcode=delbran, tier=Tiers.low)
     print(client.controller)
@@ -359,7 +359,7 @@ def start_delegator():
     operations = client.operations()
     oobis = client.oobis()
     
-    op = identifiers.create("delegator", toad="2", wits=[wit1, wit2, wit3])
+    op = identifiers.create(delegator_name, toad="2", wits=[wit1, wit2, wit3])
 
     while not op["done"]:
         op = operations.get(op["name"])
@@ -368,5 +368,50 @@ def start_delegator():
     icp = Serder(ked=op["response"])
     delaid = icp.pre
     # assert delaid == "EATgMH1GV87E7Q68hWIhJZNPnm17l_8JIXJcav0MWdEF"
-    return delaid
+    print("Delegator AID is: ", delaid)
+    delid = identifiers.get(delegator_name)
 
+    return client, icp, delid
+
+def approveDelegation(delegator_name, delegatePre,delcli: SignifyClient,delcip):
+    # delpre = 'EAdHxtdjCQUM-TVO8CgJAKb8ykXsFe4u9epTUQFCL7Yd'
+    # serderD = delcept(keys=keysD, delpre=delpre, ndigs=nxtD)
+    # pre = serderD.ked["i"]
+    # assert serderD.ked["i"] == 'EN3PglLbr4mJblS4dyqbqlpUa735hVmLOhYUbUztxaiH'
+    # assert serderD.ked["s"] == '0'
+    # assert serderD.ked["t"] == Ilks.dip
+    # assert serderD.ked["n"] == nxtD
+    # assert serderD.raw == (b'{"v":"KERI10JSON00015f_","t":"dip","d":"EN3PglLbr4mJblS4dyqbqlpUa735hVmLOhYU'
+    #                     b'bUztxaiH","i":"EN3PglLbr4mJblS4dyqbqlpUa735hVmLOhYUbUztxaiH","s":"0","kt":"1'
+    #                     b'","k":["DB4GWvru73jWZKpNgMQp8ayDRin0NG0Ymn_RXQP_v-PQ"],"nt":"1","n":["EIf-EN'
+    #                     b'w7PrM52w4H-S7NGU2qVIfraXVIlV9hEAaMHg7W"],"bt":"0","b":[],"c":[],"a":[],"di":'
+    #                     b'"EAdHxtdjCQUM-TVO8CgJAKb8ykXsFe4u9epTUQFCL7Yd"}')
+    # assert serderD.said == 'EN3PglLbr4mJblS4dyqbqlpUa735hVmLOhYUbUztxaiH'
+    
+    # sigs = delctrl.approveDelegation()
+
+    delctrl = delcli.ctrl
+
+    seqner = Seqner(sn=0)
+    anchor = dict(i=delegatePre, s=seqner.snh, d=delegatePre)
+    delcli.identifiers().interact(delegator_name, data=[anchor])
+    print("Delegator approved delegation")
+
+    # serder = interact(pre=delcip.pre, dig=delcip.said, sn=1, data=[anchor])
+    # sigs = delcli.manager.get(delcli.identifiers().get(delegator_name)).sign(ser=serder.raw)
+
+    # data = dict(ixn=serder.ked, sigs=sigs)
+    # return delcli.put(path=f"/identifiers/delegator?type=ixn", json=data)
+
+    # data = dict({
+    #     ixn: this.controller.serder.ked,
+    #     sigs: sigs
+    # })
+
+    # await fetch(this.url + "/agent/" + this.controller.pre + "?type=ixn", {
+    #     method: "PUT",
+    #     body: JSON.stringify(data),
+    #     headers: {
+    #         "Content-Type": "application/json"
+    #     }
+    # })
