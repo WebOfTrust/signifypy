@@ -4,12 +4,11 @@ KERI
 signify.app.clienting module
 
 """
-import importlib
-import json
 from dataclasses import dataclass
 from urllib.parse import urlparse, urljoin, urlsplit
 
 import requests
+import sseclient
 from keri import kering
 from keri.core.coring import Tiers
 from keri.help import helping
@@ -148,6 +147,23 @@ class SignifyClient:
 
         return res
 
+    def stream(self, path, params=None, headers=None, body=None):
+        url = urljoin(self.base, path)
+
+        kwargs = dict()
+        if params is not None:
+            kwargs["params"] = params
+
+        if headers is not None:
+            kwargs["headers"] = headers
+
+        if body is not None:
+            kwargs["json"] = body
+
+        client = sseclient.SSEClient(url, session=self.session, **kwargs)
+        for event in client:
+            yield event
+
     def delete(self, path, params=None, headers=None):
         url = urljoin(self.base, path)
 
@@ -212,10 +228,6 @@ class SignifyClient:
         from signify.app.credentialing import Credentials
         return Credentials(client=self)
 
-    def groups(self):
-        from signify.app.grouping import Groups
-        return Groups(client=self)
-
     def keyStates(self):
         from signify.app.coring import KeyStates
         return KeyStates(client=self)
@@ -223,6 +235,14 @@ class SignifyClient:
     def keyEvents(self):
         from signify.app.coring import KeyEvents
         return KeyEvents(client=self)
+
+    def escrows(self):
+        from signify.app.escrowing import Escrows
+        return Escrows(client=self)
+
+    def endroles(self):
+        from signify.app.ending import EndRoleAuthorizations
+        return EndRoleAuthorizations(client=self)
 
     @staticmethod
     def raiseForStatus(res):
