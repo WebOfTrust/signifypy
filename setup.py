@@ -77,6 +77,7 @@ setup(
         'http_sfv>=0.9.8',
         'msgpack>=1.0.4',
         'cbor2>=5.4.3',
+        'sseclient>=0.0.27'
     ],
     extras_require={
     },

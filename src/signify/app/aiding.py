@@ -8,6 +8,7 @@ from keri.kering import Roles
 from requests import exceptions
 
 from signify.app.clienting import SignifyClient
+from signify.core import httping
 
 
 class Identifiers:
@@ -16,9 +17,14 @@ class Identifiers:
     def __init__(self, client: SignifyClient):
         self.client = client
 
-    def list(self, last="", limit=25):
-        res = self.client.get(f"/identifiers?last={last}&limit={limit}")
-        return res.json()
+    def list(self, start=0, end=24):
+        headers = dict(Range=f"aids={start}-{end}")
+        res = self.client.get(f"/identifiers", headers=headers)
+
+        cr = res.headers["content-range"]
+        start, end, total = httping.parseRangeHeader(cr)
+
+        return dict(start=start, end=end, total=total, aids=res.json())
 
     def get(self, name):
         res = self.client.get(f"/identifiers/{name}")
@@ -172,11 +178,11 @@ class Identifiers:
         res = self.client.put(f"/identifiers/{name}", json=json)
         return res.json()
 
-    def addEndRole(self, name, *, role=Roles.agent, eid=None):
+    def addEndRole(self, name, *, role=Roles.agent, eid=None, stamp=None):
         hab = self.get(name)
         pre = hab["prefix"]
 
-        rpy = self.makeEndRole(pre, role, eid)
+        rpy = self.makeEndRole(pre, role, eid, stamp)
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=rpy.raw)
         json = dict(
@@ -194,11 +200,15 @@ class Identifiers:
 
         return sigs
 
+    def members(self, name):
+        res = self.client.get(f"/identifiers/{name}/members")
+        return res.json()
+
     @staticmethod
-    def makeEndRole(pre, role=Roles.agent, eid=None):
+    def makeEndRole(pre, role=Roles.agent, eid=None, stamp=None):
         data = dict(cid=pre, role=role)
         if eid is not None:
             data['eid'] = eid
 
         route = "/end/role/add"
-        return eventing.reply(route=route, data=data)
+        return eventing.reply(route=route, data=data, stamp=stamp)
