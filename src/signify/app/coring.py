@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 """
-KERI
+SIGNIFY
 signify.app.coring module
 
 """

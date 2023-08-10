@@ -1,3 +1,9 @@
+# -*- encoding: utf-8 -*-
+"""
+SIGNIFY
+signify.app.aiding module
+
+"""
 from math import ceil
 
 from keri import kering
