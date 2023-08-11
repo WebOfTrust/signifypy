@@ -6,22 +6,30 @@ signify.app.clienting module
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
 import os
-from time import sleep
+
+import multicommand
 import requests
 import responses
+from time import sleep
 
 import pytest
+
 from keri import kering
-from keri.app.cli.commands.witness import start as wstart
+from keri.app import directing, habbing
+from keri.app.cli import kli
+# from keri.app.cli.commands.witness import start
+# from keri.app.cli.commands.witness import demo
 from keri.app.keeping import Algos
 from keri.core.coring import Tiers, Serder, Seqner
 from keri.core.eventing import interact
+from keri.app.cli import commands
 
 from keria.app.cli.commands import start as kstart
 from keria.testing.testing_helper import Helpers
 
 from signify.app.clienting import SignifyClient
 
+import sys
 import threading
 
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -55,27 +63,30 @@ wit1 = "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
 wit2 = "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"
 wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
 
+def runDemoWitness():
+    parser = multicommand.create_parser(commands)
+    args = parser.parse_args(["witness", "demo"])
+                            #   os.path.join(TEST_DIR, "non-transferable-sample.json")])
+    assert args.handler is not None
+    doers = args.handler(args)
+
+    directing.runController(doers=doers)
+
 @pytest.fixture
 def setup():
     print("Before test", )
     Helpers.remove_test_dirs(ctrlPre)
     Helpers.remove_test_dirs(delPre)
     
-    # Start witness network
-    # wThread=threading.Thread(target=wstart.runWitness,
-    #                          args=[wname,
-    #            wbase,
-    #            walias,
-    #            wbran,
-    #            wtcp,
-    #            whttp,
-    #            0.0,
-    #            wconfigDir,
-    #            wconfigFile])
-    # wThread.daemon=True
-    # wThread.start()
+    # sleep(3)
     
-    # Start keria cloud agent
+    # Start witness network
+    wThread=threading.Thread(target=runDemoWitness,
+                             args=[])
+    wThread.daemon=True
+    wThread.start()
+    
+    #start keria cloud agent
     kThread=threading.Thread(target=kstart.runAgent,
                      args=[kname,
                     base,
