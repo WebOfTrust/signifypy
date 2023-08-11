@@ -73,6 +73,7 @@ def setup():
         process.terminate()
         print("Terminated processes {process}")
     
+@pytest.mark.dependency(depends=[])
 def test_init(setup):
     print(f"Running {setup}")
     
@@ -100,6 +101,7 @@ def test_init(setup):
     client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller != ctrlPre
 
+@pytest.mark.dependency(depends=['test_init'])
 def test_connect(setup):
     print(f"Running {setup}")
     
@@ -224,7 +226,12 @@ def test_connect(setup):
 
     print(identifiers.list())
 
+@pytest.mark.dependency(depends=['test_connect'])
 def test_witnesses(setup):
+    print(f"Running {setup}")
+    
+    print(f"Running test_witnesses")
+    
     client = SignifyClient(passcode=bran, tier=Tiers.low)
     assert client.controller == ctrlPre
     evt, siger = client.ctrl.event()
@@ -272,7 +279,12 @@ def test_witnesses(setup):
     assert aid['prefix'] == icp1.pre
 
 
+@pytest.mark.dependency(depends=['test_witnesses'])
 def test_delegation(setup):
+    print(f"Running {setup}")
+    
+    print(f"Running test_delegation")
+    
     client = SignifyClient(passcode=bran, tier=Tiers.low)
     print(client.controller)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
