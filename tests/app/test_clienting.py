@@ -7,30 +7,20 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 import os
 
-import multicommand
 import requests
-import responses
 from time import sleep
 
 import pytest
 
+from .ecosystem import resetTestDirs,runKeriaDaemon,runWitnessDaemon
+
 from keri import kering
-from keri.app import directing, habbing
-from keri.app.cli import kli
-# from keri.app.cli.commands.witness import start
-# from keri.app.cli.commands.witness import demo
+
 from keri.app.keeping import Algos
 from keri.core.coring import Tiers, Serder, Seqner
 from keri.core.eventing import interact
-from keri.app.cli import commands
-
-from keria.app.cli.commands import start as kstart
-from keria.testing.testing_helper import Helpers
 
 from signify.app.clienting import SignifyClient
-
-import sys
-import threading
 
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 cwd = os.getcwd()
@@ -63,48 +53,30 @@ wit1 = "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
 wit2 = "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"
 wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
 
-def runDemoWitness():
-    parser = multicommand.create_parser(commands)
-    args = parser.parse_args(["witness", "demo"])
-                            #   os.path.join(TEST_DIR, "non-transferable-sample.json")])
-    assert args.handler is not None
-    doers = args.handler(args)
-
-    directing.runController(doers=doers)
-
 @pytest.fixture
 def setup():
     print("Before test", )
-    Helpers.remove_test_dirs(ctrlPre)
-    Helpers.remove_test_dirs(delPre)
-    
-    # sleep(3)
+    resetTestDirs([ctrlPre,delPre])
     
     # Start witness network
-    wThread=threading.Thread(target=runDemoWitness,
-                             args=[])
-    wThread.daemon=True
-    wThread.start()
+    all_procs = runWitnessDaemon()
     
     #start keria cloud agent
-    kThread=threading.Thread(target=kstart.runAgent,
-                     args=[kname,
-                    base,
-                    kbran,
-                    adminport,
-                    httpport,
-                    bootport,
-                    configFile,
-                    configDir,
-                    0.0])
-    kThread.daemon=True
-    kThread.start()
-
-@pytest.fixture
-def teardown():
-    print("After test")
+    all_procs = runKeriaDaemon()
     
-def test_init(setup,teardown):
+    sleep(5)
+    yield "setup"
+    
+    print("After test")
+    for process in all_procs:
+        print("Terminating processes {process}")
+        process.terminate()
+        print("Terminated processes {process}")
+    
+def test_init(setup):
+    print(f"Running {setup}")
+    
+    print(f"Running test_init")
     # Try with bran that is too short
     with pytest.raises(kering.ConfigurationError):
         SignifyClient(passcode=bran[:16], tier=Tiers.low)
@@ -128,7 +100,11 @@ def test_init(setup,teardown):
     client = SignifyClient(passcode=bran, tier=tier)
     assert client.controller != ctrlPre
 
-def test_connect(setup,teardown):
+def test_connect(setup):
+    print(f"Running {setup}")
+    
+    print(f"Running test_connect")
+    
     client = SignifyClient(passcode=bran, tier=Tiers.low)
     assert client.controller == ctrlPre
 
@@ -248,7 +224,7 @@ def test_connect(setup,teardown):
 
     print(identifiers.list())
 
-def test_witnesses(setup,teardown):
+def test_witnesses(setup):
     client = SignifyClient(passcode=bran, tier=Tiers.low)
     assert client.controller == ctrlPre
     evt, siger = client.ctrl.event()
@@ -296,7 +272,7 @@ def test_witnesses(setup,teardown):
     assert aid['prefix'] == icp1.pre
 
 
-def test_delegation(setup,teardown):
+def test_delegation(setup):
     client = SignifyClient(passcode=bran, tier=Tiers.low)
     print(client.controller)
     assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
@@ -378,51 +354,15 @@ def start_delegator(delegator_name="delegator"):
     
     icp = Serder(ked=op["response"])
     delaid = icp.pre
-    # assert delaid == "EATgMH1GV87E7Q68hWIhJZNPnm17l_8JIXJcav0MWdEF"
     print("Delegator AID is: ", delaid)
     delid = identifiers.get(delegator_name)
 
     return client, icp, delid
 
 def approveDelegation(delegator_name, delegatePre,delcli: SignifyClient,delcip):
-    # delpre = 'EAdHxtdjCQUM-TVO8CgJAKb8ykXsFe4u9epTUQFCL7Yd'
-    # serderD = delcept(keys=keysD, delpre=delpre, ndigs=nxtD)
-    # pre = serderD.ked["i"]
-    # assert serderD.ked["i"] == 'EN3PglLbr4mJblS4dyqbqlpUa735hVmLOhYUbUztxaiH'
-    # assert serderD.ked["s"] == '0'
-    # assert serderD.ked["t"] == Ilks.dip
-    # assert serderD.ked["n"] == nxtD
-    # assert serderD.raw == (b'{"v":"KERI10JSON00015f_","t":"dip","d":"EN3PglLbr4mJblS4dyqbqlpUa735hVmLOhYU'
-    #                     b'bUztxaiH","i":"EN3PglLbr4mJblS4dyqbqlpUa735hVmLOhYUbUztxaiH","s":"0","kt":"1'
-    #                     b'","k":["DB4GWvru73jWZKpNgMQp8ayDRin0NG0Ymn_RXQP_v-PQ"],"nt":"1","n":["EIf-EN'
-    #                     b'w7PrM52w4H-S7NGU2qVIfraXVIlV9hEAaMHg7W"],"bt":"0","b":[],"c":[],"a":[],"di":'
-    #                     b'"EAdHxtdjCQUM-TVO8CgJAKb8ykXsFe4u9epTUQFCL7Yd"}')
-    # assert serderD.said == 'EN3PglLbr4mJblS4dyqbqlpUa735hVmLOhYUbUztxaiH'
-    
-    # sigs = delctrl.approveDelegation()
-
     delctrl = delcli.ctrl
 
     seqner = Seqner(sn=0)
     anchor = dict(i=delegatePre, s=seqner.snh, d=delegatePre)
     delcli.identifiers().interact(delegator_name, data=[anchor])
     print("Delegator approved delegation")
-
-    # serder = interact(pre=delcip.pre, dig=delcip.said, sn=1, data=[anchor])
-    # sigs = delcli.manager.get(delcli.identifiers().get(delegator_name)).sign(ser=serder.raw)
-
-    # data = dict(ixn=serder.ked, sigs=sigs)
-    # return delcli.put(path=f"/identifiers/delegator?type=ixn", json=data)
-
-    # data = dict({
-    #     ixn: this.controller.serder.ked,
-    #     sigs: sigs
-    # })
-
-    # await fetch(this.url + "/agent/" + this.controller.pre + "?type=ixn", {
-    #     method: "PUT",
-    #     body: JSON.stringify(data),
-    #     headers: {
-    #         "Content-Type": "application/json"
-    #     }
-    # })
