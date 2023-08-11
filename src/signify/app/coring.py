@@ -49,7 +49,7 @@ class Oobis:
 
 
 class KeyStates:
-    """ Domain class for accessing OOBIs"""
+    """ Domain class for accessing KeyStates"""
 
     def __init__(self, client: SignifyClient):
         self.client = client
@@ -79,7 +79,7 @@ class KeyStates:
 
 
 class KeyEvents:
-    """ Domain class for accessing OOBIs"""
+    """ Domain class for accessing KeyEvents"""
 
     def __init__(self, client: SignifyClient):
         self.client = client
