@@ -70,13 +70,14 @@ setup(
     ],
     python_requires='>=3.10.4',
     install_requires=[
-        'keri>=0.6.9',
+        'keri>=1.0.0',
         'keria>=0.0.1',
         'multicommand>=1.0.0',
         'requests>=2.28',
         'http_sfv>=0.9.8',
         'msgpack>=1.0.4',
         'cbor2>=5.4.3',
+        'sseclient>=0.0.27'
     ],
     extras_require={
     },

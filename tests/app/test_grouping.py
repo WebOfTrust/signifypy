@@ -97,6 +97,7 @@ def test_incept(setup):
 
     # Test Defaults with states and nstates the same
     icp = groups.incept(states, nstates)
+
     assert icp.pre == "EAVMqJDVOXwaO3rbca1UdHwkkzahZi8JYQDViw6fkdeE"
     assert icp.ked["t"] == "icp"
 
@@ -253,4 +254,3 @@ def test_group_recipe(setup):
         "ENyFbwVTyqa8prmA3KmmEvwl8KhSlcUhjWIgdXv_tcPj",
         "EJknp5MMpxG4s-IDjHKHYzc17loCUKtSsP6e1yDZrhx5"
     ]
-

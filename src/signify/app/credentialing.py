@@ -1,3 +1,9 @@
+# -*- encoding: utf-8 -*-
+"""
+SIGNIFY
+signify.app.credentialing module
+
+"""
 from collections import namedtuple
 
 from keri.core import coring
