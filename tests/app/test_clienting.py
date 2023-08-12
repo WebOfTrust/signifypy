@@ -131,7 +131,7 @@ def test_connect(setup):
     assert client.agent.delpre == ctrlPre
 
     identifiers = client.identifiers()
-    aids = identifiers.list()
+    aids = identifiers.list().pop('aids')
     assert aids == []
 
     op1 = identifiers.create("aid1", bran=f"{bran}_1")
@@ -150,9 +150,9 @@ def test_connect(setup):
     assert rpy.ked['a']['cid'] == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert rpy.ked['a']['eid'] == "EPGaq6inGxOx-VVVEcUb_KstzJZldHJvVsHqD4IPxTWf"
 
-    aids = identifiers.list()
+    aids = identifiers.list().pop('aids')
     assert len(aids) == 1
-    aid = aids.pop()
+    aid = aids[0]
 
     salt = aid[Algos.salty]
     assert aid['name'] == "aid1"
@@ -177,7 +177,7 @@ def test_connect(setup):
     assert icp2.tholder.num == 2
     assert icp2.ntholder.num == 2
 
-    aids = identifiers.list()
+    aids = identifiers.list().pop('aids')
     assert len(aids) == 2
     aid = aids[1]
     assert aid['name'] == "aid2"
@@ -273,9 +273,9 @@ def test_witnesses(setup):
     assert aid1["prefix"] == icp1.pre
     assert len(aid1["windexes"]) == 3
 
-    aids = identifiers.list()
+    aids = identifiers.list().pop('aids')
     assert len(aids) == 1
-    aid = aids.pop()
+    aid = aids[0]
     assert aid['prefix'] == icp1.pre
 
 
