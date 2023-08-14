@@ -3,7 +3,7 @@ import requests
 import responses
 from time import sleep
 
-from .ecosystem import resetTestDirs, runWitnessDaemon, runKeriaDaemon
+from .ecosystem import Ecosystem
 
 from keri import kering
 from keri.core.coring import Tiers
@@ -46,22 +46,13 @@ states = [
 @pytest.fixture
 def setup():
     print("Before test", )
-    resetTestDirs([ctrlPre,grpPre])
+    eco = Ecosystem([ctrlPre,grpPre])
     
-    # Start witness network
-    all_procs = runWitnessDaemon()
-    
-    #start keria cloud agent
-    all_procs = runKeriaDaemon()
-    
-    sleep(5)
+    # sleep(5)
     yield "setup"
     
     print("After test")
-    for process in all_procs:
-        print("Terminating processes {process}")
-        process.terminate()
-        print("Terminated processes {process}")
+    eco.teardown()
 
 @pytest.mark.dependency(depends=[])
 def test_incept(setup):

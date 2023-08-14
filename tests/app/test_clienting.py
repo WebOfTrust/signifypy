@@ -12,7 +12,7 @@ from time import sleep
 
 import pytest
 
-from .ecosystem import resetTestDirs,runKeriaDaemon,runWitnessDaemon
+from .ecosystem import Ecosystem
 
 from keri import kering
 
@@ -53,25 +53,16 @@ wit1 = "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
 wit2 = "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"
 wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def setup():
     print("Before test", )
-    resetTestDirs([ctrlPre,delPre])
+    eco = Ecosystem([ctrlPre,delPre])
     
-    # Start witness network
-    all_procs = runWitnessDaemon()
-    
-    #start keria cloud agent
-    all_procs = runKeriaDaemon()
-    
-    sleep(5)
+    # sleep(5)
     yield "setup"
     
     print("After test")
-    for process in all_procs:
-        print("Terminating processes {process}")
-        process.terminate()
-        print("Terminated processes {process}")
+    eco.teardown()
     
 @pytest.mark.dependency(depends=[])
 def test_init(setup):
