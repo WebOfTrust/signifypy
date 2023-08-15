@@ -215,7 +215,7 @@ def test_connect(setup):
     assert serder.pre == ixn.pre
     assert serder.said == ixn.said
 
-    print(identifiers.list())
+    print(identifiers.list().pop('aids'))
 
 @pytest.mark.dependency(depends=['test_connect'])
 def test_witnesses(setup):

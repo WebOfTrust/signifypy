@@ -165,7 +165,7 @@ def test_salty():
     assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     identifiers = client.identifiers()
-    aids = identifiers.list()
+    aids = identifiers.list().pop('aids')
     assert aids == []
 
     op = identifiers.create("aid1", bran="0123456789abcdefghijk")
@@ -184,9 +184,9 @@ def test_salty():
     assert rpy.ked['a']['cid'] == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
     assert rpy.ked['a']['eid'] == "EPGaq6inGxOx-VVVEcUb_KstzJZldHJvVsHqD4IPxTWf"
 
-    aids = identifiers.list()
+    aids = identifiers.list().pop("aids")
     assert len(aids) == 1
-    aid = aids.pop()
+    aid = aids[0]
 
     salt = aid[Algos.salty]
     assert aid['name'] == "aid1"
@@ -211,7 +211,7 @@ def test_salty():
     assert icp2.tholder.num == 2
     assert icp2.ntholder.num == 2
 
-    aids = identifiers.list()
+    aids = identifiers.list().pop("aids")
     assert len(aids) == 2
     aid = aids[1]
     assert aid['name'] == "aid2"
@@ -258,7 +258,7 @@ def test_salty():
     assert serder.pre == ixn.pre
     assert serder.said == ixn.said
 
-    print(identifiers.list())
+    print(identifiers.list().pop("aids"))
 
 
 @_recorder.record(file_path=WITNESS_FILE_PATH)
@@ -326,9 +326,9 @@ def test_witnesses():
     assert aid1["prefix"] == icp1.pre
     assert len(aid1["windexes"]) == 3
 
-    aids = identifiers.list()
+    aids = identifiers.list().pop("aids")
     assert len(aids) == 1
-    aid = aids.pop()
+    aid = identifiers.get("aid1")
     assert aid['prefix'] == icp1.pre
 
 
@@ -574,7 +574,7 @@ def test_randy():
     assert icp.tholder.num == 1
     assert icp.ntholder.num == 1
 
-    aids = identifiers.list()
+    aids = identifiers.list().pop("aids")
     assert len(aids) == 1
     aid = aids[0]
     assert aid["prefix"] == icp.pre
@@ -585,7 +585,7 @@ def test_randy():
     assert ixn.sn == 1
     assert ixn.ked["a"] == [icp.pre]
 
-    aids = identifiers.list()
+    aids = identifiers.list().pop("aids")
     assert len(aids) == 1
     aid = aids[0]
     events = client.keyEvents()
@@ -739,8 +739,8 @@ def test_multi_tenant():
     assert icp.ntholder.num == 1
 
     ridentifiers.addEndRole("randy1", eid=rclient.agent.pre)
-    print(identifiers.list())
-    print(ridentifiers.list())
+    print(identifiers.list().pop("aids"))
+    print(ridentifiers.list().pop("aids"))
 
 
 def test_passcode_rotation():
@@ -783,14 +783,14 @@ def test_passcode_rotation():
     assert aid["prefix"] == ricp.pre
 
     identifiers = client.identifiers()
-    pres = identifiers.list()
+    pres = identifiers.list().pop("aids")
     aids = []
     for pre in pres:
         aid = identifiers.get(name=pre["name"])
         aids.append(aid)
 
     client.rotate(nbran='0123456789abcdefghijk', aids=aids)
-    print(json.dumps(identifiers.list(), indent=1))
+    print(json.dumps(identifiers.list().pop("aids"), indent=1))
 
     op = identifiers.rotate("salty")
     ked = op["response"]
@@ -855,7 +855,7 @@ def test_passcode_rotation_x1000():
                 assert aid["prefix"] == ricp.pre
 
     identifiers = client.identifiers()
-    pres = identifiers.list()
+    pres = identifiers.list().pop("aids")
     print(len(pres))
     # aids = []
     # for pre in pres:
@@ -898,7 +898,7 @@ def test_recreate_client():
     client.connect(url=url)
 
     identifiers = client.identifiers()
-    pres = identifiers.list(limit=1000)
+    pres = identifiers.list(start=0,end=1000).pop("aids")
 
     print(f"loaded {len(pres)} identifiers")
     aids = []
@@ -911,7 +911,7 @@ def test_recreate_client():
     client.rotate(nbran='0123456789abcdefghijk', aids=aids)
 
     print("rotation done, now to list.")
-    print(json.dumps(identifiers.list(limit=1000), indent=1))
+    print(json.dumps(identifiers.list(start=0,end=1000).pop("aids"), indent=1))
 
 
 if __name__ == "__main__":
@@ -919,10 +919,10 @@ if __name__ == "__main__":
     #SHOULD WORK
     # test_delegation()
     # test_witnesses()
-    # test_salty()
+    test_salty()
     # test_randy()
     # test_multisig()
-    test_query()
+    # test_query()
     # test_recreate_client()
     # test_multi_tenant()
 
