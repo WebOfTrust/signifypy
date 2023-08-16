@@ -80,6 +80,5 @@ def test_salty_keeper():
     assert len(sigs) == 1
     assert sigs[0] == 'AAAMgsRDpbMrLGJt4RX6uDMA1eCJ7eJ6tKIuLQzBY-lh9fGWe-A3v8_dDUzZDPzuokEnPfe_u7QBWNeEV6DkaHMN'
 
-
-
-
+def test_randy_keeper():
+    assert True

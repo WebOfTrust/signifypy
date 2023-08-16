@@ -9,16 +9,6 @@ import pytest
 from keri.core import coring
 from keri.help import helping
 
-from keria.testing import testing_helper
-
-@pytest.fixture
-def helpers():
-    return testing_helper.Helpers
-
-@pytest.fixture
-def seeder():
-    return testing_helper.DbSeed
-
 @pytest.fixture()
 def mockHelpingNowUTC(monkeypatch):
     """

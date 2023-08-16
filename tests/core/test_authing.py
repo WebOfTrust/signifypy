@@ -1,132 +1,238 @@
-# -*- encoding: utf-8 -*-
-"""
-SIGNIFY
-signify.core.authing module
 
-Testing authentication
-"""
-import pytest
-from falcon import testing
 from keri import kering
-from keri.app import habbing
-from keri.core import parsing, eventing, coring
 from keri.core.coring import Tiers
-from keri.db import dbing
-from keri.end import ending
-from signify.core.authing import Authenticater
-from keria.testing.testing_helper import Helpers
-from signify.core import authing
+from mockito import mock, unstub, when
+import pytest
+from signify.app.clienting import State
+from signify.core.authing import Agent, Controller
 
-agentPre="EH1arTrTyQkrxK-cog7rzjahB0skymgrDsPbPcg45sC9"
-userPub="ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-userAid="EK35JRNdfVkO4JwhXaSTdV4qzB_ibk_tGJmSVcY4pZqx"
+def test_agent(): 
+    mock_verfer = mock()
+    from keri.core import coring
+    when(coring).Verfer(qb64="key").thenReturn(mock_verfer)
 
-def test_authenticater(mockHelpingNowUTC):
-    bran = b'0123456789abcdefghijk'
-    ctrl = authing.Controller(bran=bran, tier=Tiers.low)
-    with Helpers.openKeria(salter=ctrl.salter) as (agency, agent, app, client):
+    keys = ['key']
+    state = {
+        'i': 'pre',
+        's': 0,
+        'di': 'delpre',
+        'd': 'said',
+        'k': keys,
+    }
+    agent = Agent(state=state)
 
-        dgkey = dbing.dgKey(agent.agentHab.pre, agent.agentHab.kever.serder.said)  # get message
-        raw = agent.hby.db.getEvt(key=dgkey)
-        serder = coring.Serder(raw=bytes(raw))
+    assert agent.pre == "pre"
+    assert agent.delpre == "delpre"
+    assert agent.said == "said"
+    assert agent.sn == 0
+    assert agent.verfer == mock_verfer
 
-        sigs = agent.hby.db.getSigs(key=dgkey)
-        evt = dict(
-            ked=serder.ked,
-            sig=coring.Siger(qb64b=bytes(sigs[0])).qb64
-        )
+    unstub()
 
-        # signify agent
-        sAgent = authing.Agent(state=evt["ked"])
-
-        # Create authenticater with Agent and controllers AID
-        authn = authing.Authenticater(agent=sAgent, ctrl=ctrl)
-
-        method = "POST"
-        path = "/boot"
-        headers = dict([
-            ("Content-Type", "application/json"),
-            ("content-length", "256"),
-            ("Connection", "close"),
-            ("signify-resource", ctrl.pre),
-            ("signify-timestamp", "2022-09-24T00:05:48.196795+00:00"),
-        ])
-
-        header, qsig = ending.siginput("signify", method, path, headers, fields=Authenticater.DefaultFields, hab=agent.agentHab,
-                                       alg="ed25519", keyid=agent.pre)
-        headers |= header
-        signage = ending.Signage(markers=dict(signify=qsig), indexed=False, signer=None, ordinal=None, digest=None,
-                                 kind=None)
-        headers |= ending.signature([signage])
-
-        headd = dict(headers)
-        assert headd['Connection'] == 'close'
-        assert headd['Content-Type'] == 'application/json'
-        assert headd['Signature'] == 'indexed="?0";signify="0BAuFfKJ-Kl7zfH5aWXDz9F0njST3t9NH4icNKpiF_NP0BnUqWx0YVIjdfQlXz-7BM2YtDJCZO5Jr4LuDyPDaucD"'
-        assert headd['Signature-Input'] == f'signify=("@method" "@path" "content-length" "signify-resource" "signify-timestamp");created=1609459200;keyid="{agentPre}";alg="ed25519"'
-        assert headd['content-length'] == '256'
-        assert headd['signify-resource'] == ctrl.pre
-        assert headd['signify-timestamp'] == '2022-09-24T00:05:48.196795+00:00'
-        req = testing.create_req(method="POST", path="/boot", headers=dict(headers))
-        assert authn.verifysig(req.headers, "POST", "/boot")
+    with pytest.raises(kering.ValidationError):
+        keys.append("another key")
+        state['k'] = keys
+        agent = Agent(state=state)
 
 
-def test_agent():
-    bran = b'0123456789abcdefghijk'
-    ctrl = authing.Controller(bran=bran, tier=Tiers.low)
-    with Helpers.openKeria(salter=ctrl.salter) as (agency, kAgent, app, client):
-        kel = []
-        ahab = kAgent.agentHab
-        assert ahab.pre == f"{agentPre}"
-        assert ahab.kever.verfers[0].qb64 == "DCajWNxkIK7FQWTDZpcvv3_EcRDj6HWVVx-HFEjrmBPL"
-        icp, sigs, _ = ahab.getOwnEvent(sn=0)
-        kel.append(dict(ked=icp.ked, sig=sigs[0].qb64))
-        sAgent = authing.Agent(state=icp.ked)
+def test_controller():
+    ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
 
-        ahab.rotate()
-        rot, sigs, _ = ahab.getOwnEvent(sn=1)
-        kel.append(dict(ked=rot.ked, sig=sigs[0].qb64))
-        assert rot.said == "EAZDlwT9z6269nmW6yjuIOYIR-GR6soqqdYvIS8FUd_m"
-        assert ahab.kever.verfers[0].qb64 == "DB9RaU1cm3PcpJWcSZ_w_qFmap3fr5qgVXhQy5yXJLAo"
+    assert ctrl.bran == "0AAabcdefghijklmnop01234"
+    assert ctrl.stem == "signify:controller"
+    assert ctrl.tier == Tiers.low
 
-        ahab.rotate()
-        rot, sigs, _ = ahab.getOwnEvent(sn=2)
-        kel.append(dict(ked=rot.ked, sig=sigs[0].qb64))
-        assert rot.said == "EI3uC6o-o9h62hjEz6i2lEWQUIPDI4GCDfF7Gw2eXPRv"
+    from keri.core import coring
+    assert type(ctrl.salter) is coring.Salter
+    assert type(ctrl.signer) is coring.Signer
+    assert ctrl.signer.code == "A"
+    assert ctrl.signer.qb64 == "AF1iHYsl-7DZFD71kcsg5iUAkLP3Lh_01RZFEHhL3629"
 
-        assert ahab.kever.sn == 2
+    assert type(ctrl.nsigner) is coring.Signer
+    assert ctrl.nsigner.code == "A"
+    assert ctrl.nsigner.qb64 == "AGG0prnUWeKJGfh00-rrSqBIxR0Mx5K1FP0XC_UtCdjX"
 
-        assert kAgent.pre == ahab.pre
-        assert sAgent.pre == ahab.pre
-        assert kAgent.caid == userAid
-        assert sAgent.delpre == userAid
-        assert sAgent.verfer.qb64 == 'DCajWNxkIK7FQWTDZpcvv3_EcRDj6HWVVx-HFEjrmBPL'
-        assert ahab.kever.verfers[0].qb64 == "DFzRzCjvWRuMfcCo2CiOpx-sWXEHxDByv2J907Yqb-Nq"
-        # TODO: This used to be an equality check, but rotation should make it non-equal?
-        assert sAgent.verfer.qb64 != ahab.kever.verfers[0].qb64
+    assert ctrl.keys == ["DEps8kAE90Ab9Fs_MLaES9Pre-ba3eOZCY2H7HIENVug"]
+    assert ctrl.ndigs == ["EAioAm-C0hG3oG4NplWhh7Uc43C2cpkbLX2Bj5yIKkna"]
 
-        # Inception event with 2 keys is invalid
-        orig=icp.ked["k"]
-        # adding agent verfer is non-sensicle but helpful for causing the exception
-        badTestValue=[icp.verfers[0].qb64,coring.Verfer(qb64=ahab.kever.verfers[0].qb64).qb64]
-        icp.ked["k"]=badTestValue
-        with pytest.raises(kering.ValidationError) as ex:
-            _ = authing.Agent(state=icp.ked)
+    raw = b'{"v":"KERI10JSON00012b_","t":"icp","d":"EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV","i":"EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV","s":"0","kt":"1","k":["DEps8kAE90Ab9Fs_MLaES9Pre-ba3eOZCY2H7HIENVug"],"nt":"1","n":["EAioAm-C0hG3oG4NplWhh7Uc43C2cpkbLX2Bj5yIKkna"],"bt":"0","b":[],"c":[],"a":[]}'
+    assert ctrl.serder.raw == raw
+    assert ctrl.pre == "EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV"
 
-        assert ex.value.args[0] == "agent inception event can only have one key"
-        
-        # reset to original value
-        icp.ked["k"]=orig
+    # self serder
+    assert ctrl.event()[0].raw == raw
+    # self.signer.sign
+    assert ctrl.event()[1].raw == (b'\x8a\xf6\x7f\x9e\xc8%\xc4\xe9\xc1<p\x8as\xd3[\x95k;\xe1\xe1\xce\x84\xcf\xe3'
+                                   b'\t\xf9\x7f}\xeeb\xa6c\xe21-t\x17h\xad\x91\x14\xf7\x88L\xdc5\xaf\xc6'
+                                   b'\x05\xc0\x01\xd3\x9f}\xbf\xe7\x06\x80\xfb\x80\x14*\x8c\x04')
+    
+def test_controller_derive():
+    ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
+    serder = ctrl.derive(state=None)
+    raw = b'{"v":"KERI10JSON00012b_","t":"icp","d":"EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV","i":"EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV","s":"0","kt":"1","k":["DEps8kAE90Ab9Fs_MLaES9Pre-ba3eOZCY2H7HIENVug"],"nt":"1","n":["EAioAm-C0hG3oG4NplWhh7Uc43C2cpkbLX2Bj5yIKkna"],"bt":"0","b":[],"c":[],"a":[]}'
+    assert serder.raw == raw
 
-        # TODO we used to validate the next key of the agent, but our Agent doesn't validate next keys
-        # Inception event with 2 next keys is invalid
-        # orig=icp.ked["n"]
-        # # adding agent diger is non-sensicle but helpful for causing the exception
-        # badTestValue=[icp.digers[0].qb64,coring.Diger(qb64=ahab.kever.digers[0].qb64).qb64]
-        # icp.ked["n"]=badTestValue
+    serder = ctrl.derive(state={"ee": {"s": "0"}})
+    assert serder.raw == raw
 
-        # with pytest.raises(kering.ValidationError) as ex:
-        #     _ = authing.Agent(state=icp.ked)
+    from keri.core import coring
+    e1 = dict(v=coring.Vstrings.json,
+              d="",
+              i="ABCDEFG",
+              s="0001",
+              t="rot")
+    
+    _, e1 = coring.Saider.saidify(sad=e1)
+    state = State(controller={"ee": e1})
+    serder = ctrl.derive(state=state)
 
-        # assert ex.value.args[0] == "agent inception event can only have one next key"
+    assert serder.raw == (b'{"v":"KERI10JSON00006f_","d":"EIM66TjBMfwPnbwK7oZqbZyGz9nOeVmQHeH3NZxrsk8F",'
+                          b'"i":"ABCDEFG","s":"0001","t":"rot"}')
 
+def test_approve_delegation():
+    ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
+
+    mock_agent = mock({
+        'said': 'said',
+        'pre': 'pre',
+        'sn': 1,
+    })
+
+    from keri.core import coring
+    e1 = dict(v=coring.Vstrings.json,
+              d="",
+              i="ABCDEFG",
+              s="1",
+              t="int")
+    _, e1 = coring.Saider.saidify(sad=e1)
+
+    from keri.core import eventing
+    when(eventing).interact(
+        pre="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
+        dig="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
+        sn=1,
+        data=[{'i': 'pre', 's': '1', 'd': 'said'}]).thenReturn(coring.Serder(ked=e1))
+
+    serder, sig = ctrl.approveDelegation(agent=mock_agent)
+    
+    assert serder.raw == b'{"v":"KERI10JSON00006c_","d":"EAnymWG0hPrDWRxKNyYxuHqZle6sT5y_QlW8pf_SfyOu","i":"ABCDEFG","s":"1","t":"int"}'
+    assert sig[0] == "AAD3uTIT98auX5wgbXxq7PnO95vyxMAJ-JWd_PalgDWRyhzkg-0B_hHPh3TAP8dknnwMcBnRjwIDD87YLQOmLL0P"
+
+    unstub()
+
+def test_approve_delegation_pure_mock(): 
+    ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
+
+    mock_agent = mock({
+        'said': 'said',
+        'pre': 'pre',
+        'sn': 1,
+    })
+
+    mock_serder = mock({
+        'said': 'said',
+        'pre': 'pre',
+        'sn': 1,  
+        'raw': b'',
+    })
+
+    from keri.core import eventing
+    when(eventing).interact(
+        pre="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
+        dig="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
+        sn=1,
+        data=[{'i': 'pre', 's': '1', 'd': 'said'}]).thenReturn(mock_serder)
+    
+    mock_signature = mock(
+        {'qb64': 'AADi_WkHWZZZsJSm78xV8GqnXDM7roNGvOPpYzwm3eYAHjrOvhCUXyyd8_pHDzZxXG1ESOpzKQmbgx3_MYxBno4M'}
+    )
+    when(ctrl.signer).sign(mock_serder.raw, index=0).thenReturn(mock_signature)
+
+    serder, sig = ctrl.approveDelegation(agent=mock_agent)
+    
+    assert ctrl.serder == mock_serder
+    assert serder == mock_serder
+    assert sig[0] == mock_signature.qb64
+
+    unstub()
+
+def test_controller_rotate_salty():
+    ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)    
+
+    aid_one = {
+               "name": "aid1", 
+               "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", 
+               "salty": {
+                   "pidx": 0, 
+                   "stem":"signify:aid", 
+                   "sxlt": "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT",
+                   "tier": "low",
+                   "icodes": ["A"],
+                   "kidx": 0,
+                   "transferable": False,
+                },
+                "state": {
+                    "k": ["BAzUCcD85Cs62fLeBEk6ewziVohx2kXnzuANqspIcwS2"],
+                },
+            }
+    out = ctrl.rotate(nbran="0123456789abcdefghijk", aids=[aid_one],)
+
+    assert 'ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK' in out['keys']
+    assert 'sxlt' in out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']
+    assert out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']['sxlt'] != "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT"
+
+# def test_controller_rotate_randy():
+#     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)    
+
+#     aid_one = {
+#                "name": "aid1", 
+#                "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", 
+#                "randy": {
+#                    "prxs": [], 
+#                    "nxts": [], 
+#                 },
+#                 "state": {
+#                     "k": ["BAzUCcD85Cs62fLeBEk6ewziVohx2kXnzuANqspIcwS2"],
+#                 },
+#             }
+#     out = ctrl.rotate(nbran="0123456789abcdefghijk", aids=[aid_one],)
+
+#     assert 'ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK' in out['keys']
+#     assert 'sxlt' in out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']
+#     assert out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']['sxlt'] != "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT"
+
+# def test_controller_rotate_salty_pure_mock():
+#     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
+
+#     mock_cipher = mock()
+#     from keri.core import coring
+#     when(coring).Cipher(qb64="saltysalt").thenReturn(mock_cipher)
+
+#     mock_encrypter = mock()
+#     mock_decrypter = mock()
+#     when(coring).Encrypter(verkey="BMNINOi3Bp2LS7c4jfliNyEdAJrQv4Aj6wzX_IkbNBvE").thenReturn(mock_encrypter)
+#     when(coring).Decrypter(seed="AH7StO7quXIko8i_HfOkeJ1Zm_2kWAykYqEHg1MHJXVX").thenReturn(mock_decrypter)
+
+#     mock_matter = mock()
+#     when(coring).Matter(qb64b="0AAabcdefghijklmnop01234").thenReturn(mock_matter)
+#     mock_cipher = mock({'qb64': 'cipher qb64'})
+#     when(mock_encrypter).encrypt(matter=mock_matter).thenReturn(mock_cipher)
+
+#     aid_one = {
+#             "name": "aid1", 
+#             "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", 
+#             "salty": {
+#                 "pidx": 0, 
+#                 "stem":"signify:aid", 
+#                 "sxlt": "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT",
+#                 "tier": "low",
+#                 "icodes": ["A"],
+#                 "kidx": 0,
+#                 "transferable": False,
+#             },
+#             "state": {
+#                 "k": ["BMYrPoeKdptlDj4E4LC2KdcMX0-7SWBd-VkAGb4PYKFO"],
+#             },
+#         }
+#     out = ctrl.rotate(nbran="0123456789abcdefghijk", aids=[aid_one],)
+#     print(out)

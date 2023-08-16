@@ -11,6 +11,7 @@ from keri.app.keeping import SaltyCreator
 from keri.core import coring, eventing
 
 from keri.end import ending
+from signify.signifying import State
 
 
 class Agent:
@@ -63,12 +64,8 @@ class Controller:
         siger = self.signer.sign(ser=self.serder.raw, index=0)
         return self.serder, siger
 
-    @property
-    def verfers(self):
-        return self.signer.verfers
-
     def derive(self, state):
-        if state is None or state['ee']['s'] == "0":
+        if state is None or (type(state) is dict and state['ee']['s'] == "0"):
             return eventing.incept(keys=self.keys,
                                    isith="1",
                                    nsith="1",
@@ -76,7 +73,7 @@ class Controller:
                                    code=coring.MtrDex.Blake3_256,
                                    toad="0",
                                    wits=[])
-        else:
+        elif type(state) is State:
             return coring.Serder(ked=state.controller['ee'])
 
     def approveDelegation(self, agent):
@@ -193,6 +190,10 @@ class Controller:
                     nprxs.append(encrypter.encrypt(matter=coring.Matter(qb64=dsigner.qb64)).qb64)
 
                 pubs = aid["state"]["k"]
+                print(signers)
+                for signer in signers:
+                    print(signer.verfer.qb64)
+                
                 if pubs != [signer.verfer.qb64 for signer in signers]:
                     raise kering.ValidationError(f"unable to rotate, validation of encrypted public keys {pubs} failed")
 
