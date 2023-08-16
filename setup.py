@@ -70,7 +70,7 @@ setup(
     ],
     python_requires='>=3.10.4',
     install_requires=[
-        'keri>=1.0.0',
+        'keri @ git+https://git@github.com/weboftrust/keripy.git@development',
         'keria>=0.0.1',
         'multicommand>=1.0.0',
         'requests>=2.28',

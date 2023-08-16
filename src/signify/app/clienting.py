@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 """
-KERI
+Signify
 signify.app.clienting module
 
 """
@@ -17,14 +17,7 @@ from requests.auth import AuthBase
 
 from signify.core import keeping
 from signify.core.authing import Authenticater, Controller, Agent
-
-
-@dataclass
-class State:
-    controller: dict = None
-    agent : dict = None
-    ridx: int = None
-    pidx: int = None
+from signify.signifying import State
 
 
 class SignifyClient:
