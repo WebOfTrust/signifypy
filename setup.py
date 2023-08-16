@@ -11,14 +11,14 @@ Pypi Release
 $ pip3 install twine
 
 $ python3 setup.py sdist
-$ twine upload dist/keri-0.0.1.tar.gz
+$ twine upload dist/signifypy-0.0.1.tar.gz
 
 Create release git:
-$ git tag -a v0.4.2 -m "bump version"x
+$ git tag -a v0.4.2 -m "bump version"
 $ git push --tags
 $ git checkout -b release_0.4.2
 $ git push --set-upstream origin release_0.4.2
-$ git checkout master
+$ git checkout main
 
 Best practices for setup.py and requirements.txt
 https://caremad.io/posts/2013/07/setup-vs-requirement/
@@ -61,9 +61,9 @@ setup(
         'Topic :: Utilities',
     ],
     project_urls={
-        'Documentation': 'https://signify.readthedocs.io/',
-        'Changelog': 'https://signify.readthedocs.io/en/latest/changelog.html',
-        'Issue Tracker': 'https://github.com/WebOfTrust/signify/issues',
+        'Documentation': 'https://signifypy.readthedocs.io/',
+        'Changelog': 'https://signifypy.readthedocs.io/en/latest/changelog.html',
+        'Issue Tracker': 'https://github.com/WebOfTrust/signifypy/issues',
     },
     keywords=[
         # eg: 'keyword1', 'keyword2', 'keyword3',
