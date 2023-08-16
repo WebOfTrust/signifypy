@@ -1,0 +1,10 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 20
+        paths: ["src"]
+    patch:
+      default:
+        target: 75
+        paths: ["src"]
