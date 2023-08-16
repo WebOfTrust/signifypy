@@ -23,3 +23,11 @@ for inception and rotation events with only the public keys and blake3 hash of t
 
 The communication protocol between a Signify client and [KERI](https://github.com/WebOfTrust/keri) agent will encode all cryptographic primitives as CESR base64
 encoded strings for the initial implementation.  Support for binary CESR can be added in the future.
+
+### Development
+
+```
+pip install pytest mockito
+```
+
+`pytest` to run tests.
