@@ -70,14 +70,14 @@ setup(
     ],
     python_requires='>=3.10.4',
     install_requires=[
-        'keri>=1.0.0',
+        'keri @ git+https://git@github.com/weboftrust/keripy.git@development',
         'keria>=0.0.1',
         'multicommand>=1.0.0',
         'requests>=2.28',
         'http_sfv>=0.9.8',
         'msgpack>=1.0.4',
         'cbor2>=5.4.3',
-        'sseclient>=0.0.27'
+        'sseclient>=0.0.27',
     ],
     extras_require={
     },
@@ -85,6 +85,7 @@ setup(
         'responses>=0.22.0',
         'coverage>=6.5.0',
         'pytest>=7.2.0',
+        'mockito>=1.4.0',
     ],
     setup_requires=[
     ],
