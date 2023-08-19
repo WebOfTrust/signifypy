@@ -11,7 +11,6 @@ from keri.app.keeping import Algos
 from keri.core import eventing
 from keri.core.coring import MtrDex, Tholder
 from keri.kering import Roles
-from requests import exceptions
 
 from signify.app.clienting import SignifyClient
 from signify.core import httping
@@ -131,7 +130,7 @@ class Identifiers:
         dig = state["d"]
         ridx = int(state["s"], 16) + 1
         wits = state['b']
-        isith = state["kt"]
+        isith = state["kt"] if "kt" in state else None
 
         if nsith is None:
             nsith = isith  # use new current as default
@@ -202,7 +201,7 @@ class Identifiers:
     def sign(self, name, ser):
         hab = self.get(name)
         keeper = self.client.manager.get(aid=hab)
-        sigs = keeper.sign(ser=ser)
+        sigs = keeper.sign(ser=ser.raw)
 
         return sigs
 
