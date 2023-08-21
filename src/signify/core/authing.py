@@ -310,7 +310,7 @@ class Authenticater:
             fields (Optional[list]): Optional list of Signature Input fields to sign.
 
         Returns:
-            headers (Hict): Modified headers with new Signature and Signature Input fields
+            headers (dict): Modified headers with new Signature and Signature Input fields
 
         """
 
