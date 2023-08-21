@@ -25,7 +25,7 @@ def create_aid():
     oobis = client.oobis()
 
     aids = identifiers.list()
-    assert aids == []
+    assert aids['aids'] == []
 
     wits = [
         "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",

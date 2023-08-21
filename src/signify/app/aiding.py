@@ -27,7 +27,7 @@ class Identifiers:
         res = self.client.get(f"/identifiers", headers=headers)
 
         cr = res.headers["content-range"]
-        start, end, total = httping.parseRangeHeader(cr)
+        start, end, total = httping.parseRangeHeader(cr, "aids")
 
         return dict(start=start, end=end, total=total, aids=res.json())
 

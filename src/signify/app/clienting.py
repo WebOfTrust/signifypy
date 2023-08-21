@@ -237,6 +237,10 @@ class SignifyClient:
         from signify.app.ending import EndRoleAuthorizations
         return EndRoleAuthorizations(client=self)
 
+    def notifications(self):
+        from signify.app.notifying import Notifications
+        return Notifications(client=self)
+
     @staticmethod
     def raiseForStatus(res):
         try:
