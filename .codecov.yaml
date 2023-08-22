@@ -8,3 +8,8 @@ coverage:
       default:
         target: 75
         paths: ["src"]
+
+ignore:
+	- "integration"
+  - "tests"
+  - "scripts"
