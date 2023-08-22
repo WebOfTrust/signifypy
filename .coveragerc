@@ -1,0 +1,7 @@
+[run]
+omit =
+    scripts/*
+    integration/*
+    docs/*
+    tests/*
+    setup.py

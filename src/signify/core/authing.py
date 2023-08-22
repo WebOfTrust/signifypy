@@ -7,7 +7,7 @@ signify.core.authing module
 from urllib.parse import urlparse
 
 from keri import kering
-from keri.app.keeping import SaltyCreator
+from keri.app import keeping
 from keri.core import coring, eventing
 
 from keri.end import ending
@@ -46,7 +46,7 @@ class Controller:
         self.tier = tier
 
         self.salter = coring.Salter(qb64=self.bran)
-        creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=tier)
+        creator = keeping.SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=tier)
 
         self.signer = creator.create(ridx=0, tier=tier).pop()
         self.nsigner = creator.create(ridx=0 + 1, tier=tier).pop()
@@ -122,10 +122,11 @@ class Controller:
         nsigner = self.salter.signer(transferable=False)
 
         # This is the previous next signer so it will be used to sign the rotation and then have 0 signing authority
-        creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=self.tier)
+        #here
+        creator = keeping.SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=self.tier)
         signer = creator.create(ridx=0 + 1, tier=self.tier).pop()
 
-        ncreator = SaltyCreator(salt=nsalter.qb64, stem=self.stem, tier=self.tier)
+        ncreator = keeping.SaltyCreator(salt=nsalter.qb64, stem=self.stem, tier=self.tier)
         self.signer = ncreator.create(ridx=0, tier=self.tier).pop()
         self.nsigner = ncreator.create(ridx=0 + 1, tier=self.tier).pop()
 
@@ -164,7 +165,7 @@ class Controller:
                 dnxt = decrypter.decrypt(cipher=cipher).qb64
 
                 # Now we have the AID salt, use it to verify against the current public keys
-                acreator = SaltyCreator(dnxt, stem=salty["stem"], tier=salty["tier"])
+                acreator = keeping.SaltyCreator(dnxt, stem=salty["stem"], tier=salty["tier"])
                 signers = acreator.create(codes=salty["icodes"], pidx=salty["pidx"], kidx=salty["kidx"],
                                           transferable=salty["transferable"])
                 pubs = aid["state"]["k"]
@@ -190,7 +191,6 @@ class Controller:
                     nprxs.append(encrypter.encrypt(matter=coring.Matter(qb64=dsigner.qb64)).qb64)
 
                 pubs = aid["state"]["k"]
-                print(signers)
                 for signer in signers:
                     print(signer.verfer.qb64)
                 

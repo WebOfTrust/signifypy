@@ -1,15 +1,11 @@
 
-from keri import kering
-from keri.core.coring import Tiers
-from mockito import mock, unstub, when
+from mockito import mock, patch, unstub, expect, verifyNoUnwantedInteractions, when
 import pytest
-from signify.app.clienting import State
-from signify.core.authing import Agent, Controller
 
 def test_agent(): 
     mock_verfer = mock()
     from keri.core import coring
-    when(coring).Verfer(qb64="key").thenReturn(mock_verfer)
+    expect(coring, times=1).Verfer(qb64="key").thenReturn(mock_verfer)
 
     keys = ['key']
     state = {
@@ -19,6 +15,7 @@ def test_agent():
         'd': 'said',
         'k': keys,
     }
+    from signify.core.authing import Agent
     agent = Agent(state=state)
 
     assert agent.pre == "pre"
@@ -27,19 +24,28 @@ def test_agent():
     assert agent.sn == 0
     assert agent.verfer == mock_verfer
 
+    verifyNoUnwantedInteractions()
     unstub()
 
+    from keri import kering
     with pytest.raises(kering.ValidationError):
         keys.append("another key")
         state['k'] = keys
         agent = Agent(state=state)
 
 
-def test_controller():
-    ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
+@pytest.mark.parametrize('bran', [
+    ("abcdefghijklmnop01234"),
+    (b"abcdefghijklmnop01234"),
+])
+def test_controller(bran):
+    from signify.core.authing import Controller
+    from keri.core.coring import Tiers
+    ctrl = Controller(bran=bran, tier=Tiers.low)
 
     assert ctrl.bran == "0AAabcdefghijklmnop01234"
     assert ctrl.stem == "signify:controller"
+
     assert ctrl.tier == Tiers.low
 
     from keri.core import coring
@@ -67,6 +73,8 @@ def test_controller():
                                    b'\x05\xc0\x01\xd3\x9f}\xbf\xe7\x06\x80\xfb\x80\x14*\x8c\x04')
     
 def test_controller_derive():
+    from signify.core.authing import Controller
+    from keri.core.coring import Tiers
     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
     serder = ctrl.derive(state=None)
     raw = b'{"v":"KERI10JSON00012b_","t":"icp","d":"EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV","i":"EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV","s":"0","kt":"1","k":["DEps8kAE90Ab9Fs_MLaES9Pre-ba3eOZCY2H7HIENVug"],"nt":"1","n":["EAioAm-C0hG3oG4NplWhh7Uc43C2cpkbLX2Bj5yIKkna"],"bt":"0","b":[],"c":[],"a":[]}'
@@ -83,6 +91,8 @@ def test_controller_derive():
               t="rot")
     
     _, e1 = coring.Saider.saidify(sad=e1)
+
+    from signify.signifying import State
     state = State(controller={"ee": e1})
     serder = ctrl.derive(state=state)
 
@@ -90,6 +100,7 @@ def test_controller_derive():
                           b'"i":"ABCDEFG","s":"0001","t":"rot"}')
 
 def test_approve_delegation():
+    from signify.core.authing import Controller
     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
 
     mock_agent = mock({
@@ -107,7 +118,7 @@ def test_approve_delegation():
     _, e1 = coring.Saider.saidify(sad=e1)
 
     from keri.core import eventing
-    when(eventing).interact(
+    expect(eventing, times=1).interact(
         pre="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
         dig="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
         sn=1,
@@ -118,26 +129,31 @@ def test_approve_delegation():
     assert serder.raw == b'{"v":"KERI10JSON00006c_","d":"EAnymWG0hPrDWRxKNyYxuHqZle6sT5y_QlW8pf_SfyOu","i":"ABCDEFG","s":"1","t":"int"}'
     assert sig[0] == "AAD3uTIT98auX5wgbXxq7PnO95vyxMAJ-JWd_PalgDWRyhzkg-0B_hHPh3TAP8dknnwMcBnRjwIDD87YLQOmLL0P"
 
+    verifyNoUnwantedInteractions()
     unstub()
 
-def test_approve_delegation_pure_mock(): 
+def test_approve_delegation(): 
+    from signify.core.authing import Controller
+    from keri.core.coring import Tiers
     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
 
+    from signify.core.authing import Agent
     mock_agent = mock({
         'said': 'said',
         'pre': 'pre',
         'sn': 1,
-    })
+    }, spec=Agent, strict=True)
 
+    from keri.core.serdering import Serder
     mock_serder = mock({
         'said': 'said',
         'pre': 'pre',
         'sn': 1,  
         'raw': b'',
-    })
+    }, spec=Serder, strict=True)
 
     from keri.core import eventing
-    when(eventing).interact(
+    expect(eventing, times=1).interact(
         pre="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
         dig="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
         sn=1,
@@ -146,7 +162,7 @@ def test_approve_delegation_pure_mock():
     mock_signature = mock(
         {'qb64': 'AADi_WkHWZZZsJSm78xV8GqnXDM7roNGvOPpYzwm3eYAHjrOvhCUXyyd8_pHDzZxXG1ESOpzKQmbgx3_MYxBno4M'}
     )
-    when(ctrl.signer).sign(mock_serder.raw, index=0).thenReturn(mock_signature)
+    expect(ctrl.signer, times=1).sign(mock_serder.raw, index=0).thenReturn(mock_signature)
 
     serder, sig = ctrl.approveDelegation(agent=mock_agent)
     
@@ -154,9 +170,12 @@ def test_approve_delegation_pure_mock():
     assert serder == mock_serder
     assert sig[0] == mock_signature.qb64
 
+    verifyNoUnwantedInteractions()
     unstub()
 
 def test_controller_rotate_salty():
+    from signify.core.authing import Controller
+    from keri.core.coring import Tiers
     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)    
 
     aid_one = {
@@ -178,61 +197,50 @@ def test_controller_rotate_salty():
     out = ctrl.rotate(nbran="0123456789abcdefghijk", aids=[aid_one],)
 
     assert 'ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK' in out['keys']
-    assert 'sxlt' in out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']
-    assert out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']['sxlt'] != "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT"
+    assert 'sxlt' in out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK'] # type: ignore
+    assert out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']['sxlt'] != "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT" # type: ignore
 
 # def test_controller_rotate_randy():
-#     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)    
-
-#     aid_one = {
-#                "name": "aid1", 
-#                "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", 
-#                "randy": {
-#                    "prxs": [], 
-#                    "nxts": [], 
-#                 },
-#                 "state": {
-#                     "k": ["BAzUCcD85Cs62fLeBEk6ewziVohx2kXnzuANqspIcwS2"],
-#                 },
-#             }
-#     out = ctrl.rotate(nbran="0123456789abcdefghijk", aids=[aid_one],)
-
-#     assert 'ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK' in out['keys']
-#     assert 'sxlt' in out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']
-#     assert out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']['sxlt'] != "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT"
-
-# def test_controller_rotate_salty_pure_mock():
+#     from keri.core.coring import Tiers
+#     from signify.core.authing import Controller
 #     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
 
-#     mock_cipher = mock()
+#     from keri.core.coring import Salter
+#     mock_salter = mock({'qb64': 'salter qb64'}, spec=Salter, strict=True)
+#     ctrl.salter = mock_salter
+
+#     from signify.core.keeping import SaltyCreator
+#     mock_creator = mock({'create': lambda ridx, tier : None}, spec=SaltyCreator, strict=True)
+#     from signify.core import keeping
+#     when(keeping).SaltyCreator(salt='salter qb64', stem='signify:controller', tier=Tiers.low).thenReturn(mock_creator)
+
+#     from keri.core.coring import Signer
+#     mock_signer = mock(spec=Signer, strict=True)
+#     ctrl.signer = mock_signer
+#     mock_nsigner = mock(spec=Signer, strict=True)
+#     ctrl.nsigner = mock_nsigner
+#     ctrl.keys = ['a key']
+#     from keri.core.coring import Diger
+#     mock_diger = mock(spec=Diger, strict=True)
+#     ctrl.ndigs = [mock_diger]
+
+#     from keri.core.serdering import Serder
+#     mock_serder = mock(spec=Serder, strict=True)
+#     ctrl.serder = mock_serder
+
+#     # end controller mock setup
+#     assert ctrl.bran == '0AAabcdefghijklmnop01234'
+
+#     # mocks for rotate
+#     when(mock_salter).signer(transferable=False).thenReturn(mock_nsigner)
+#     mock_nsalter = mock(spec=Salter, strict=True)
 #     from keri.core import coring
-#     when(coring).Cipher(qb64="saltysalt").thenReturn(mock_cipher)
+#     when(coring).Salter(qb64='0AA0123456789abcdefghijk').thenReturn(mock_nsalter)
 
-#     mock_encrypter = mock()
-#     mock_decrypter = mock()
-#     when(coring).Encrypter(verkey="BMNINOi3Bp2LS7c4jfliNyEdAJrQv4Aj6wzX_IkbNBvE").thenReturn(mock_encrypter)
-#     when(coring).Decrypter(seed="AH7StO7quXIko8i_HfOkeJ1Zm_2kWAykYqEHg1MHJXVX").thenReturn(mock_decrypter)
+    # from signify.core.keeping import SaltyCreator
+    # mock_ncreator = mock(spec=SaltyCreator, strict=True)
 
-#     mock_matter = mock()
-#     when(coring).Matter(qb64b="0AAabcdefghijklmnop01234").thenReturn(mock_matter)
-#     mock_cipher = mock({'qb64': 'cipher qb64'})
-#     when(mock_encrypter).encrypt(matter=mock_matter).thenReturn(mock_cipher)
+    # from signify.core import keeping
+    # expect(keeping, times=1).SaltyCreator(salt='salter qb64', stem='signify:controller', tier=Tiers.low).thenReturn(mock_ncreator)
 
-#     aid_one = {
-#             "name": "aid1", 
-#             "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK", 
-#             "salty": {
-#                 "pidx": 0, 
-#                 "stem":"signify:aid", 
-#                 "sxlt": "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT",
-#                 "tier": "low",
-#                 "icodes": ["A"],
-#                 "kidx": 0,
-#                 "transferable": False,
-#             },
-#             "state": {
-#                 "k": ["BMYrPoeKdptlDj4E4LC2KdcMX0-7SWBd-VkAGb4PYKFO"],
-#             },
-#         }
-#     out = ctrl.rotate(nbran="0123456789abcdefghijk", aids=[aid_one],)
-#     print(out)
+    # ctrl.rotate(nbran="0123456789abcdefghijk", aids=["aid_one"],) 
