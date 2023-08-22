@@ -20,7 +20,3 @@ class Escrows:
 
         res = self.client.get(f"/escrows/rpy", params=params)
         return res.json()
-
-
-
-
