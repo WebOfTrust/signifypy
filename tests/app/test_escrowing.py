@@ -1,12 +1,12 @@
 # -*- encoding: utf-8 -*-
 """
 SIGNIFY
-signify.app.test_excrowing module
+signify.app.test_escrowing module
 
 Testing escrowing with unit tests
 """
 
-from mockito import mock, expect
+from mockito import mock, expect, unstub, verifyNoUnwantedInteractions
 
 def test_end_role_authorizations_name():
     from signify.app.clienting import SignifyClient
@@ -24,3 +24,6 @@ def test_end_role_authorizations_name():
     out = escrows.getEscrowReply(route='/my_route')
 
     assert out == {'some': 'output'}
+
+    verifyNoUnwantedInteractions()
+    unstub()

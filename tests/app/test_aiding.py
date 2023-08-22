@@ -7,8 +7,7 @@ Testing aiding with unit tests
 """
 
 import pytest
-from mockito import mock, verify, verifyNoUnwantedInteractions, when, unstub, expect
-
+from mockito import mock, verify, verifyNoUnwantedInteractions, unstub, expect
 
 def test_aiding_list():
     from signify.app.clienting import SignifyClient

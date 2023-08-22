@@ -6,9 +6,8 @@ signify.app.test_clienting module
 Testing clienting with unit tests
 """
 
-from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, expect, expect, when
+from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, expect
 import pytest
-
 
 def test_signify_client_defaults():
     from signify.app.clienting import SignifyClient
@@ -28,7 +27,6 @@ def test_signify_client_defaults():
     assert client.agent is None
     assert client.authn is None
     assert client.base is None
-
 
     verify(SignifyClient, times=1).connect('http://example.com')
 
@@ -148,42 +146,34 @@ def test_signify_client_connect_bad_scheme():
 def test_signify_client_connect_bad_delegation():
     from signify.core import authing
     from keri.core.coring import Tiers
-    mock_init_controller = mock(spec=authing.Controller)
-    when(authing).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
+    mock_init_controller = mock(spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
     
     from signify.app.clienting import SignifyClient
     client = SignifyClient(passcode='abcdefghijklmnop01234')
 
     import requests
-    mock_session = mock(spec=requests.Session)
-    when(requests).Session().thenReturn(mock_session)
+    mock_session = mock(spec=requests.Session, strict=True)
+    expect(requests, times=1).Session().thenReturn(mock_session)
 
     from signify.signifying import State
-    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=State)
-    when(client).states().thenReturn(mock_state)
+    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=State, strict=True)
+    expect(client, times=1).states().thenReturn(mock_state)
 
     from signify.core import authing
-    mock_agent = mock({'delpre': 'a prefix'}, spec=authing.Agent)
-    when(authing).Agent(state=mock_state.agent).thenReturn(mock_agent)
+    mock_agent = mock({'delpre': 'a prefix'}, spec=authing.Agent, strict=True)
+    expect(authing, times=1).Agent(state=mock_state.agent).thenReturn(mock_agent)
 
     from keri.core import serdering
-    mock_serder = mock({'sn': 1}, spec=serdering.Serder)
+    mock_serder = mock({'sn': 1}, spec=serdering.Serder, strict=True)
     from keri.core import coring
-    mock_salter = mock(spec=coring.Salter)
-    mock_controller = mock({'pre': 'a different prefix', 'salter': mock_salter, 'serder': mock_serder}, spec=authing.Controller)
-    when(authing).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low, state=mock_state.controller).thenReturn(mock_controller)
+    mock_salter = mock(spec=coring.Salter, strict=True)
+    mock_controller = mock({'pre': 'a different prefix', 'salter': mock_salter, 'serder': mock_serder}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low, state=mock_state.controller).thenReturn(mock_controller)
     
     from signify.core import keeping
     mock_manager = mock(spec=keeping.Manager, strict=True)
-    when(keeping).Manager(salter=mock_salter, extern_modules=None).thenReturn(mock_manager)
-
-    from signify.core import authing
-    mock_authenticator = mock({'verify': lambda: {'hook1': 'hook1 info', 'hook2': 'hook2 info'}}, spec=authing.Authenticater)
-    when(authing).Authenticater(agent=mock_agent, ctrl=mock_controller).thenReturn(mock_authenticator)
-
-    from signify.app import clienting
-    mock_signify_auth = mock(spec=clienting.SignifyAuth)
-    when(clienting).SignifyAuth(mock_authenticator).thenReturn(mock_signify_auth)
+    expect(keeping, times=1).Manager(salter=mock_salter, extern_modules=None).thenReturn(mock_manager)
 
     from keri.kering import ConfigurationError
     with pytest.raises(ConfigurationError, match='commitment to controller AID missing in agent inception event'):
@@ -264,6 +254,9 @@ def test_signify_client_properties():
     assert client.salter == mock_salter
     assert client.manager == mock_manager
 
+    verifyNoUnwantedInteractions()
+    unstub()
+
 @pytest.mark.parametrize("data,expected_pidx", [
     ({'controller': 'controller info', 'agent': 'agent info'}, 0),
     ({'controller': 'controller info', 'agent': 'agent info', 'pidx': 1}, 1),
@@ -311,7 +304,7 @@ def test_signify_client_states_agent_error():
     client.session = mock_session # type: ignore
 
     mock_response = mock({'status_code': 404}, spec=requests.Response, strict=True)
-    when(mock_session).get(url='http://example.com/agent/a_prefix').thenReturn(mock_response)
+    expect(mock_session, times=1).get(url='http://example.com/agent/a_prefix').thenReturn(mock_response)
 
     from keri import kering
     with pytest.raises(kering.ConfigurationError, match='agent does not exist for controller a_prefix'):
