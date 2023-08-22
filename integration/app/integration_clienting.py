@@ -12,13 +12,10 @@ from time import sleep
 import requests
 from keri.app.keeping import Algos
 from keri.core import coring
-from responses import _recorder
 
 import pytest
 from keri import kering
 from keri.core.coring import Tiers, Serder, MtrDex
-
-import keria.app.aiding as aiding
 
 from signify.app.clienting import SignifyClient
 
