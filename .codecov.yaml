@@ -2,7 +2,7 @@ coverage:
   status:
     project:
       default:
-        target: 20
+        target: 60
         paths: ["src"]
     patch:
       default:
