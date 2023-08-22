@@ -669,7 +669,6 @@ def test_signify_client_endroles():
     assert type(out) is EndRoleAuthorizations
     assert out.client == client
 
-
 @pytest.mark.parametrize("resp,err", [
     ({'json': lambda : {'description': {'raise a description'}}, 'status_code': 400, 'url': 'http://example.com'}, "400 Client Error: {'raise a description'} for url: http://example.com"),
     ({'json': lambda : {'title': {'raise a title'}}, 'status_code': 400, 'url': 'http://example.com'}, "400 Client Error: {'raise a title'} for url: http://example.com"),
@@ -690,6 +689,7 @@ def test_signify_client_raise_for_status(resp, err):
         SignifyClient.raiseForStatus(mock_response)
 
     unstub()
+    verifyNoUnwantedInteractions()
 
 def test_signify_auth():
     from signify.core import authing
@@ -718,3 +718,6 @@ def test_signify_auth():
 
     out = signify_auth.__call__(mock_request)
     assert out.headers == {'headers': 'modified'}
+
+    unstub()
+    verifyNoUnwantedInteractions()
