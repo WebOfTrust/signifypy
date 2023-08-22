@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 """
 SIGNIFY
-signify.app.test_clienting module
+signify.app.test_notifying module
 
 Testing notifying with unit tests
 """

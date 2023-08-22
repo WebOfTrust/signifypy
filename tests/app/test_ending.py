@@ -6,7 +6,7 @@ signify.app.test_ending module
 Testing ending with unit tests
 """
 
-from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, expect, expect, when
+from mockito import mock, unstub, verifyNoUnwantedInteractions, expect
 import pytest
 
 def test_end_role_authorizations_name():
@@ -26,6 +26,9 @@ def test_end_role_authorizations_name():
     out = ends.list(name='name', role='role')
 
     assert out == {'some': 'output'}
+    
+    verifyNoUnwantedInteractions()
+    unstub()
 
 def test_end_role_authorizations_aid():
     from signify.app.clienting import SignifyClient
@@ -45,6 +48,9 @@ def test_end_role_authorizations_aid():
 
     assert out == {'some': 'output'}
 
+    verifyNoUnwantedInteractions()
+    unstub()
+
 def test_end_role_authorizations_bad():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
@@ -54,3 +60,6 @@ def test_end_role_authorizations_bad():
 
     with pytest.raises(ValueError, match='either `aid` or `name` is required'):
         ends.list()
+
+    verifyNoUnwantedInteractions()
+    unstub()

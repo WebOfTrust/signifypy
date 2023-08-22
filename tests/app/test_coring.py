@@ -1,9 +1,9 @@
 # -*- encoding: utf-8 -*-
 """
 SIGNIFY
-signify.app.test_aiding module
+signify.app.test_coring module
 
-Testing aiding with unit tests
+Testing coring with unit tests
 """
 
 from mockito import mock, expect, unstub, verifyNoUnwantedInteractions
@@ -11,13 +11,13 @@ from mockito import mock, expect, unstub, verifyNoUnwantedInteractions
 
 def test_operations():
     from signify.app.clienting import SignifyClient
-    client = mock(spec=SignifyClient)
+    client = mock(spec=SignifyClient, strict=True)
     
     from signify.app import coring
     ops = coring.Operations(client=client) # type: ignore
 
     import requests
-    mock_response = mock(spec=requests.Response)
+    mock_response = mock(spec=requests.Response, strict=True)
     expect(client, times=1).get('/operations/a_name').thenReturn(mock_response)
 
     expect(mock_response, times=1).json().thenReturn({'some': 'json'})
@@ -29,7 +29,7 @@ def test_operations():
 
 def test_oobis_get():
     from signify.app.clienting import SignifyClient
-    client = mock(spec=SignifyClient)
+    client = mock(spec=SignifyClient, strict=True)
     
     from signify.app import coring
     oobis = coring.Oobis(client=client) # type: ignore
@@ -47,13 +47,13 @@ def test_oobis_get():
 
 def test_oobis_resolve():
     from signify.app.clienting import SignifyClient
-    client = mock(spec=SignifyClient)
+    client = mock(spec=SignifyClient, strict=True)
     
     from signify.app import coring
     oobis = coring.Oobis(client=client) # type: ignore
 
     import requests
-    mock_response = mock(spec=requests.Response)
+    mock_response = mock(spec=requests.Response, strict=True)
     expect(client, times=1).post('/oobis', json={'url': 'my oobi', 'oobialias': 'Harry'}).thenReturn(mock_response)
 
     expect(mock_response, times=1).json().thenReturn({'some': 'json'})
@@ -65,13 +65,13 @@ def test_oobis_resolve():
 
 def test_key_states_get():
     from signify.app.clienting import SignifyClient
-    client = mock(spec=SignifyClient)
+    client = mock(spec=SignifyClient, strict=True)
     
     from signify.app import coring
     ks = coring.KeyStates(client=client) # type: ignore
 
     import requests
-    mock_response = mock(spec=requests.Response)
+    mock_response = mock(spec=requests.Response, strict=True)
     expect(client, times=1).get('/states?pre=a_prefix').thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn({'some': 'json'})
 
@@ -82,13 +82,13 @@ def test_key_states_get():
 
 def test_key_states_list():
     from signify.app.clienting import SignifyClient
-    client = mock(spec=SignifyClient)
+    client = mock(spec=SignifyClient, strict=True)
     
     from signify.app import coring
     ks = coring.KeyStates(client=client) # type: ignore
 
     import requests
-    mock_response = mock(spec=requests.Response)
+    mock_response = mock(spec=requests.Response, strict=True)
     expect(client, times=1).get('/states?pre=pre1&pre=pre2').thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn({'some': 'json'})
 
@@ -99,13 +99,13 @@ def test_key_states_list():
 
 def test_key_states_query():
     from signify.app.clienting import SignifyClient
-    client = mock(spec=SignifyClient)
+    client = mock(spec=SignifyClient, strict=True)
     
     from signify.app import coring
     ks = coring.KeyStates(client=client) # type: ignore
 
     import requests
-    mock_response = mock(spec=requests.Response)
+    mock_response = mock(spec=requests.Response, strict=True)
      
     expect(client, times=1).post('/queries', json={'pre': 'a_prefix', 'sn': 0, 'anchor': {'my': 'anchor'}}).thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn({'some': 'json'})
@@ -117,13 +117,13 @@ def test_key_states_query():
 
 def test_key_events():
     from signify.app.clienting import SignifyClient
-    client = mock(spec=SignifyClient)
+    client = mock(spec=SignifyClient, strict=True)
     
     from signify.app import coring
     ke = coring.KeyEvents(client=client) # type: ignore
 
     import requests
-    mock_response = mock(spec=requests.Response)
+    mock_response = mock(spec=requests.Response, strict=True)
     expect(client, times=1).get('/events?pre=my_prefix').thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn({'some': 'json'})
 

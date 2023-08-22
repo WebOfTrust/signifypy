@@ -6,8 +6,7 @@ signify.app.test_credentialing module
 Testing credentialing with unit tests
 """
 
-from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, expect, expect, when
-import pytest
+from mockito import mock, unstub, verify, verifyNoUnwantedInteractions, expect
 
 def test_registries():
     from signify.app.credentialing import Registries
@@ -36,6 +35,9 @@ def test_credentials_list():
 
     verify(mock_response, times=1).json()
 
+    verifyNoUnwantedInteractions()
+    unstub()
+
 def test_credentials_query():  
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
@@ -48,3 +50,6 @@ def test_credentials_query():
     out = Credentials(client=mock_client).export('aid1', 'a_said') # type: ignore
 
     assert out == 'things I found'
+
+    verifyNoUnwantedInteractions()
+    unstub()
