@@ -2,7 +2,7 @@ coverage:
   status:
     project:
       default:
-        target: 65
+        target: 75
         paths: ["src"]
     patch:
       default:
@@ -10,6 +10,7 @@ coverage:
         paths: ["src"]
 
 ignore:
+  - "setup.py"
   - "integration"
   - "tests"
   - "scripts"
