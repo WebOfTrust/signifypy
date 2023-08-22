@@ -4,13 +4,6 @@ SIGNIFY
 signify.app.coring module
 
 """
-from math import ceil
-
-from keri import kering
-from keri.app.keeping import SaltyCreator
-from keri.core import eventing
-from keri.core.coring import Tiers, MtrDex, Diger, Tholder
-from keri.kering import Roles
 from signify.app.clienting import SignifyClient
 
 
