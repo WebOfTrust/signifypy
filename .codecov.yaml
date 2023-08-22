@@ -10,6 +10,6 @@ coverage:
         paths: ["src"]
 
 ignore:
-	- "integration"
+  - "integration"
   - "tests"
   - "scripts"
