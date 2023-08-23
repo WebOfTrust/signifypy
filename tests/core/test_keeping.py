@@ -372,3 +372,95 @@ def test_randy_keeper_sign():
 
     verifyNoUnwantedInteractions()
     unstub()
+
+def test_group_keeper():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from signify.core.keeping import GroupKeeper
+    gk = GroupKeeper(mgr=manager, mhab={'m': 'hab'}, states=[{'k': ['key 1']}], rstates=[{'n': ['n dig 1']}])
+
+    assert gk.gkeys == ['key 1']
+    assert gk.gdigs == ['n dig 1']
+    assert gk.mhab == {'m': 'hab'}
+
+def test_group_keeper_incept():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from signify.core.keeping import GroupKeeper
+    gk = GroupKeeper(mgr=manager, mhab={'m': 'hab'}, states=[{'k': ['key 1']}], rstates=[{'n': ['n dig 1']}])
+
+    gkeys, gdigs = gk.incept()
+
+    assert gkeys == ['key 1']
+    assert gdigs == ['n dig 1']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_group_keeper_rotate():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from signify.core.keeping import GroupKeeper
+    gk = GroupKeeper(mgr=manager, mhab={'m': 'hab'}, states=[{'k': ['key 1']}], rstates=[{'n': ['n dig 1']}])
+
+    gkeys, gdigs = gk.rotate(states=[{'k': ['key 2']}], rstates=[{'n': ['n dig 2']}])
+
+    assert gkeys == ['key 2']
+    assert gdigs == ['n dig 2']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_group_keeper_sign():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    mock_manager = Manager(salter=mock_salter)
+
+    from signify.core.keeping import GroupKeeper
+    gk = GroupKeeper(mgr=mock_manager, mhab={'state': {'k': ['key 1'], 'n': ['n dig 1']}}, keys=['key 1'], ndigs=['n dig 1'])
+
+    from signify.core.keeping import BaseKeeper
+    mock_keeper = mock(strict=True)
+    expect(mock_manager, times=1).get({'state': {'k': ['key 1'], 'n': ['n dig 1']}}).thenReturn(mock_keeper)
+
+    expect(mock_keeper, times=1).sign(b'ser', indexed=True, indices=[0], ondices=[0]).thenReturn(['signatures'])
+
+    actual = gk.sign(b'ser', indexed=True)
+
+    assert actual == ['signatures']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_group_keeper_params():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    mock_manager = Manager(salter=mock_salter)
+
+    from signify.core.keeping import GroupKeeper
+    gk = GroupKeeper(mgr=mock_manager, mhab={'state': {'k': ['key 1'], 'n': ['n dig 1']}}, keys=['key 1'], ndigs=['n dig 1'])
+
+    actual = gk.params()
+
+    assert actual['mhab'] == {'state': {'k': ['key 1'], 'n': ['n dig 1']}}
+    assert actual['keys'] == ['key 1']
+    assert actual['ndigs'] == ['n dig 1']
+
+    verifyNoUnwantedInteractions()
+    unstub()
