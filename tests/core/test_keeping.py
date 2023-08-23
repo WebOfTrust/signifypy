@@ -6,17 +6,83 @@ signify.core.keeping module
 Testing authentication
 """
 
-from keri.core import coring
+from mockito import mock, patch, verifyNoUnwantedInteractions, when, unstub, expect
 
-from signify.core import keeping
+def test_keeping_manager():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
 
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    assert manager.salter == mock_salter
+    assert manager.modules == {}
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_new_salty():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from signify.core import keeping
+    mock_keeper = mock(spec=keeping.SaltyKeeper, strict=True)
+    from mockito import kwargs
+    when(keeping).SaltyKeeper(salter=mock_salter, pidx=0, **kwargs).thenReturn(mock_keeper)
+    actual = manager.new('salty', 0)
+
+    assert actual is mock_keeper
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_new_randy():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from signify.core import keeping
+    mock_keeper = mock(spec=keeping.RandyKeeper, strict=True)
+    from mockito import kwargs
+    when(keeping).RandyKeeper(salter=mock_salter, **kwargs).thenReturn(mock_keeper)
+    actual = manager.new('randy', 0)
+
+    assert actual is mock_keeper
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_new_group():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from signify.core import keeping
+    mock_keeper = mock(spec=keeping.GroupKeeper, strict=True)
+    from mockito import kwargs
+    when(keeping).GroupKeeper(mgr=manager, **kwargs).thenReturn(mock_keeper)
+    actual = manager.new('group', 0)
+
+    assert actual is mock_keeper
+
+    verifyNoUnwantedInteractions()
+    unstub()
 
 def test_salty_keeper():
     bran = b'0123456789abcdefghijk'
+    from keri.core import coring
     bran = coring.MtrDex.Salt_128.encode("utf-8") + b'A' + bran
     salter = coring.Salter(qb64=bran)
 
-    # Create a Salter without specifying the AIDs salt, let it create one randomly
+    from signify.core import keeping
+    # Create a Salter withactual specifying the AIDs salt, let it create one randomly
     keeper = keeping.SaltyKeeper(salter=salter, pidx=0, kidx=0)
     verfers, ndigs = keeper.incept(transferable=True)
     assert len(verfers) == 1
@@ -80,5 +146,229 @@ def test_salty_keeper():
     assert len(sigs) == 1
     assert sigs[0] == 'AAAMgsRDpbMrLGJt4RX6uDMA1eCJ7eJ6tKIuLQzBY-lh9fGWe-A3v8_dDUzZDPzuokEnPfe_u7QBWNeEV6DkaHMN'
 
+    verifyNoUnwantedInteractions()
+    unstub()
+
 def test_randy_keeper():
-    assert True
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    from signify.core.keeping import RandyKeeper
+    rk = RandyKeeper(mock_salter)
+
+    assert rk.icodes == ["A"]
+    assert rk.ncodes == ["A"]
+
+    from keri.app.keeping import RandyCreator
+    assert type(rk.creator) is RandyCreator
+
+    verifyNoUnwantedInteractions()
+    unstub()
+    
+def test_randy_keeper_params():
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    from signify.core.keeping import RandyKeeper
+    rk = RandyKeeper(mock_salter, transferable=True, nxts=['nxt1', 'nxt2'], prxs=['prx1', 'prx2'])
+
+    actual = rk.params()
+
+    assert actual == {'nxts': ['nxt1', 'nxt2',], 'prxs': ['prx1', 'prx2'], 'transferable': True}
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_randy_keeper_incept():
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    # start incept mocks
+    from keri.app.keeping import RandyCreator
+    mock_creator = mock(spec=RandyCreator, strict=True)
+
+    # verfers mocks
+    from keri.core.coring import Signer, Verfer
+    mock_verfer = mock({'qb64': 'signer verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
+    expect(mock_creator, times=1).create(codes=['A'], transferable=True).thenReturn([mock_signer])
+
+    from keri.core.coring import Cipher
+    mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
+    expect(mock_encrypter, times=1).encrypt(matter=mock_signer).thenReturn(mock_cipher)
+
+    # digers mocks
+    mock_verfer = mock({'qb64b': b'signer verfer qb64b'}, spec=Verfer, strict=True)
+    mock_nsigner = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
+    expect(mock_creator, times=1).create(codes=['B'], transferable=True).thenReturn([mock_nsigner])
+    expect(mock_encrypter, times=1).encrypt(matter=mock_nsigner).thenReturn(mock_cipher)
+
+    from keri.core.coring import Diger
+    mock_diger = mock({'qb64': 'diger qb64'}, spec=Diger, strict=True)
+    expect(coring, times=1).Diger(ser=b'signer verfer qb64b', code='E').thenReturn(mock_diger)
+    
+    # test
+    from signify.core.keeping import RandyKeeper
+    rk = RandyKeeper(mock_salter, icodes=['A'], ncodes=['B'])    
+    rk.creator = mock_creator # type: ignore
+
+    verfers, digers = rk.incept(transferable=True)
+
+    assert verfers == ['signer verfer qb64']
+    assert digers == ['diger qb64']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_randy_keeper_rotate():
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    # start rotate mocks
+    from keri.app.keeping import RandyCreator
+    mock_creator = mock(spec=RandyCreator, strict=True)
+
+    from keri.core import coring
+    from keri.core.coring import Cipher
+    mock_nxt_cipher = mock(spec=Cipher, strict=True)
+    expect(coring, times=1).Cipher(qb64='nxt qb64').thenReturn(mock_nxt_cipher)
+
+    # verfers mocks
+    from keri.core.coring import Signer, Verfer
+    mock_verfer = mock({'qb64': 'signer verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
+    expect(mock_decrypter, times=1).decrypt(cipher=mock_nxt_cipher, transferable=True).thenReturn(mock_signer)
+
+    # digers mocks
+    mock_verfer = mock({'qb64b': b'signer verfer qb64b'}, spec=Verfer, strict=True)
+    mock_nsigner = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
+    expect(mock_creator, times=1).create(codes=['A'], transferable=True).thenReturn([mock_nsigner])
+
+    from keri.core.coring import Cipher
+    mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
+    expect(mock_encrypter, times=1).encrypt(matter=mock_nsigner).thenReturn(mock_cipher)
+
+    from keri.core.coring import Diger
+    mock_diger = mock({'qb64': 'diger qb64'}, spec=Diger, strict=True)
+    expect(coring, times=1).Diger(ser=b'signer verfer qb64b', code='E').thenReturn(mock_diger)
+
+    # test
+    from signify.core.keeping import RandyKeeper
+    rk = RandyKeeper(mock_salter, ncodes=['A'], nxts=['nxt qb64'])    
+    rk.creator = mock_creator # type: ignore
+
+    verfers, digers = rk.rotate(['A'], transferable=True)
+
+    assert verfers == ['signer verfer qb64']
+    assert digers == ['diger qb64']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_randy_keeper_sign():
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    from keri.core import coring
+    from keri.core.coring import Cipher
+    mock_prx_cipher = mock({'qb64b': b'cipher qb64b'}, spec=Cipher, strict=True)
+    expect(coring, times=1).Cipher(qb64='prx qb64').thenReturn(mock_prx_cipher)
+
+    from keri.core.coring import Signer, Verfer
+    mock_verfer = mock({'qb64': 'signer verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
+    expect(mock_decrypter, times=1).decrypt(ser=b'cipher qb64b', transferable=False).thenReturn(mock_signer)
+
+    # test
+    from signify.core.keeping import RandyKeeper
+    rk = RandyKeeper(mock_salter, ncodes=['A'], prxs=['prx qb64'])   
+
+    expect(rk).__sign__( b'my ser', signers=[mock_signer], indexed=True, indices=None, ondices=None).thenReturn(['a signature'])
+
+    ser = b'my ser'
+    sigs = rk.sign(ser)
+
+    assert sigs == ['a signature']
+
+    verifyNoUnwantedInteractions()
+    unstub()
