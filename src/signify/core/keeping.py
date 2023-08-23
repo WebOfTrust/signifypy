@@ -310,7 +310,6 @@ class RandyKeeper(BaseKeeper):
         self.nxts = [self.encrypter.encrypt(matter=signer).qb64 for signer in nsigners]
         digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
         return verfers, digers
-        return verfers, digers
 
     def rotate(self, ncodes, transferable, **_):
         self.transferable = transferable
@@ -356,7 +355,7 @@ class GroupKeeper(BaseKeeper):
 
         return self.gkeys, self.gdigs
 
-    def sign(self, ser, indexed=True, rotate=False, **_):
+    def sign(self, ser, indexed=True, **_):
         key = self.mhab['state']['k'][0]
         ndig = self.mhab['state']['n'][0]
 
