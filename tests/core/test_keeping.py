@@ -6,7 +6,8 @@ signify.core.keeping module
 Testing authentication
 """
 
-from mockito import mock, patch, verifyNoUnwantedInteractions, when, unstub, expect
+from mockito import mock, verifyNoUnwantedInteractions, unstub, expect
+import pytest
 
 def test_keeping_manager():
     from keri.core.coring import Salter
@@ -31,7 +32,7 @@ def test_keeping_manager_new_salty():
     from signify.core import keeping
     mock_keeper = mock(spec=keeping.SaltyKeeper, strict=True)
     from mockito import kwargs
-    when(keeping).SaltyKeeper(salter=mock_salter, pidx=0, **kwargs).thenReturn(mock_keeper)
+    expect(keeping, times=1).SaltyKeeper(salter=mock_salter, pidx=0, **kwargs).thenReturn(mock_keeper)
     actual = manager.new('salty', 0)
 
     assert actual is mock_keeper
@@ -49,7 +50,7 @@ def test_keeping_manager_new_randy():
     from signify.core import keeping
     mock_keeper = mock(spec=keeping.RandyKeeper, strict=True)
     from mockito import kwargs
-    when(keeping).RandyKeeper(salter=mock_salter, **kwargs).thenReturn(mock_keeper)
+    expect(keeping, times=1).RandyKeeper(salter=mock_salter, **kwargs).thenReturn(mock_keeper)
     actual = manager.new('randy', 0)
 
     assert actual is mock_keeper
@@ -67,8 +68,137 @@ def test_keeping_manager_new_group():
     from signify.core import keeping
     mock_keeper = mock(spec=keeping.GroupKeeper, strict=True)
     from mockito import kwargs
-    when(keeping).GroupKeeper(mgr=manager, **kwargs).thenReturn(mock_keeper)
+    expect(keeping, times=1).GroupKeeper(mgr=manager, **kwargs).thenReturn(mock_keeper)
     actual = manager.new('group', 0)
+
+    assert actual is mock_keeper
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_new_extern():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+    mock_mod = mock({'shim': lambda pidx, **eargs: 'foo'}, strict=True)
+    mock_modules = {'et': mock_mod}
+    manager.modules = mock_modules # type: ignore
+
+    mock_shim = mock(strict=True)
+    expect(mock_mod, times=1).shim(pidx=0, **{'ex': 'tern'}).thenReturn(mock_shim)
+
+    actual = manager.new('extern', 0, extern_type='et', extern={'ex': 'tern'})
+
+    assert actual == mock_shim
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_new_extern_unknown():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+    mock_modules = {'et': {}}
+    manager.modules = mock_modules # type: ignore
+
+    from keri.kering import ConfigurationError
+    with pytest.raises(ConfigurationError, match='unsupported external module type unknown'):
+        manager.new('extern', 0, extern_type='unknown', extern={'ex': 'tern'})
+
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_get_salty():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from keri.core.coring import Prefixer
+    mock_prefixer = mock(spec=Prefixer, strict=True)
+
+    from keri.core import coring
+    expect(coring, times=1).Prefixer(qb64='aid1 prefix').thenReturn(mock_prefixer)
+
+    from signify.core import keeping
+    mock_keeper = mock(spec=keeping.SaltyKeeper, strict=True)
+    expect(keeping, times=1).SaltyKeeper(salter=mock_salter, pidx=0, dcode='E').thenReturn(mock_keeper)
+
+    actual = manager.get({'prefix': 'aid1 prefix', 'pidx': 0, 'salty': {'dcode': 'E'}})
+
+    assert actual is mock_keeper
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_get_salty_pidx():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from keri.core.coring import Prefixer
+    mock_prefixer = mock(spec=Prefixer, strict=True)
+
+    from keri.core import coring
+    expect(coring, times=1).Prefixer(qb64='aid1 prefix').thenReturn(mock_prefixer)
+
+    from keri.kering import ConfigurationError
+    with pytest.raises(ConfigurationError, match="missing pidx in {'prefix': 'aid1 prefix', 'salty': {'dcode': 'E'}}"):
+        manager.get({'prefix': 'aid1 prefix', 'salty': {'dcode': 'E'}})
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_get_randy():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from signify.core import keeping
+    mock_keeper = mock(spec=keeping.RandyKeeper, strict=True)
+
+    from keri.core.coring import Prefixer
+    mock_prefixer = mock({'transferable': True}, spec=Prefixer, strict=True)
+
+    from keri.core import coring
+    expect(coring, times=1).Prefixer(qb64='aid1 prefix').thenReturn(mock_prefixer)
+
+    expect(keeping, times=1).RandyKeeper(salter=mock_salter, transferable=True, dcode='E').thenReturn(mock_keeper)
+    actual = manager.get({'prefix': 'aid1 prefix', 'randy': {'dcode': 'E'}})
+
+    assert actual is mock_keeper
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_get_group():
+    from keri.core.coring import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from signify.core import keeping
+    mock_keeper = mock(spec=keeping.GroupKeeper, strict=True)
+
+    from keri.core.coring import Prefixer
+    mock_prefixer = mock(spec=Prefixer, strict=True)
+
+    from keri.core import coring
+    expect(coring, times=1).Prefixer(qb64='aid1 prefix').thenReturn(mock_prefixer)
+
+    expect(keeping, times=1).GroupKeeper(mgr=manager, keys=['key1'], ndigs=['dig1']).thenReturn(mock_keeper)
+    actual = manager.get({'prefix': 'aid1 prefix', 'group': {'keys': ['key1'], 'ndigs': ['dig1']}})
 
     assert actual is mock_keeper
 
