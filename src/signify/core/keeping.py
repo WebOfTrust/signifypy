@@ -178,11 +178,9 @@ class SaltyKeeper(BaseKeeper):
             bran = coring.MtrDex.Salt_128 + 'A' + bran[:21]
             self.creator = keeping.SaltyCreator(salt=bran, stem=stem, tier=tier)
             self.sxlt = self.encrypter.encrypt(self.creator.salt).qb64
-
         elif sxlt is None:
             self.creator = keeping.SaltyCreator(stem=stem, tier=tier)
             self.sxlt = self.encrypter.encrypt(self.creator.salt).qb64
-
         else:
             self.sxlt = sxlt
             ciph = coring.Cipher(qb64=self.sxlt)
