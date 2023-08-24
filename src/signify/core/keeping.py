@@ -53,8 +53,10 @@ class Manager:
     def get(self, aid):
         pre = coring.Prefixer(qb64=aid["prefix"])
         if keeping.Algos.salty in aid:
+            if "pidx" not in aid:
+                raise kering.ConfigurationError(f"missing pidx in {aid}")
             kwargs = aid[keeping.Algos.salty]
-            return SaltyKeeper(salter=self.salter, **kwargs)
+            return SaltyKeeper(salter=self.salter, pidx=aid["pidx"], **kwargs)
 
         elif keeping.Algos.randy in aid:
             kwargs = aid[keeping.Algos.randy]
