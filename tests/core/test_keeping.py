@@ -206,75 +206,287 @@ def test_keeping_manager_get_group():
     unstub()
 
 def test_salty_keeper():
-    bran = b'0123456789abcdefghijk'
+    # salty keep init mocks
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
     from keri.core import coring
-    bran = coring.MtrDex.Salt_128.encode("utf-8") + b'A' + bran
-    salter = coring.Salter(qb64=bran)
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from signify.core import keeping
-    # Create a Salter withactual specifying the AIDs salt, let it create one randomly
-    keeper = keeping.SaltyKeeper(salter=salter, pidx=0, kidx=0)
-    verfers, ndigs = keeper.incept(transferable=True)
-    assert len(verfers) == 1
-    assert coring.Matter(qb64=verfers[0]).code == coring.MtrDex.Ed25519
-    assert verfers[0] != "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"  # this seems dumb
-    assert len(ndigs) == 1
-    assert coring.Matter(qb64=ndigs[0]).code == coring.MtrDex.Blake3_256
-    assert ndigs[0] != "EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"  # this seems dumb
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
-    # Now lets use the same salt as the passcode (not advisable) so we have some determinism
-    signer = salter.signer(transferable=False)
-    encrypter = coring.Encrypter(verkey=signer.verfer.qb64)
-    sxlt = encrypter.encrypt(matter=coring.Matter(qb64b=bran)).qb64
+    from keri.app.keeping import SaltyCreator
+    mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
+    from keri.app import keeping
+    expect(keeping, times=1).SaltyCreator(stem='signify:aid', tier='low').thenReturn(mock_creator)
 
-    keeper = keeping.SaltyKeeper(salter=salter, pidx=0, kidx=0, sxlt=sxlt)
-    verfers, ndigs = keeper.incept(transferable=True)
-    assert len(verfers) == 1
-    assert verfers[0] == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
-    assert len(ndigs) == 1
-    assert ndigs[0] == "EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"
+    from keri.core.coring import Cipher
+    mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
+    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
 
-    params = keeper.params()
-    assert params['pidx'] == 0
-    assert params['kidx'] == 0
-    assert params['dcode'] == 'E'
-    assert params['icodes'] == ['A']
-    assert params['ncodes'] == ['A']
-    assert params['stem'] == 'signify:aid'
-    assert params['transferable'] is True
+    # test
+    from signify.core.keeping import SaltyKeeper
+    sk = SaltyKeeper(mock_salter, pidx=0)
 
-    ser = b'I like salty keys that have a salt per AID not tied to the passcode'
-    sigs = keeper.sign(ser=ser, indexed=True)
-    assert len(sigs) == 1
-    assert sigs[0] == 'AAA7tNQo83P-4wvFcnROAn_YPmcVo1ywESOwhXs0FBwQroeeSrRFjr0gK20lu8ZOsg3fKxbJzXlzZbYKfryFv4kC'
+    assert sk.params() == {'sxlt': 'cipher qb64', 'pidx': 0, 'kidx': 0, 'stem': 'signify:aid', 'tier': 'low', 'icodes': ['A'], 'ncodes': ['A'], 'dcode': 'E', 'transferable': False}
 
-    verfers, ndigs = keeper.rotate(ncodes=[coring.MtrDex.Ed25519_Seed], transferable=True)
-    assert len(verfers) == 1
-    assert verfers[0] == "DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"
-    assert len(ndigs) == 1
-    assert ndigs[0] == "EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"
-    assert keeper.pidx == 0
-    assert keeper.kidx == 1
+    from keri.app.keeping import Algos
+    assert sk.algo == Algos.salty
 
-    params = keeper.params()
-    assert params['pidx'] == 0
-    assert params['kidx'] == 1
-    assert params['dcode'] == 'E'
-    assert params['icodes'] == ['A']
-    assert params['ncodes'] == ['A']
-    assert params['stem'] == 'signify:aid'
-    assert params['transferable'] is True
+    verifyNoUnwantedInteractions()
+    unstub()
 
-    # Sign something after the rotation, get a different signature
-    sigs = keeper.sign(ser=ser, indexed=True)
-    assert len(sigs) == 1
-    assert sigs[0] == 'AAAMgsRDpbMrLGJt4RX6uDMA1eCJ7eJ6tKIuLQzBY-lh9fGWe-A3v8_dDUzZDPzuokEnPfe_u7QBWNeEV6DkaHMN'
+def test_salty_keeper_bran():
+    # salty keep init mocks
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    # Recreate the Salter at this kidx and get the same signature
-    keeper = keeping.SaltyKeeper(salter=salter, pidx=0, kidx=1, sxlt=sxlt)
-    sigs = keeper.sign(ser=ser, indexed=True)
-    assert len(sigs) == 1
-    assert sigs[0] == 'AAAMgsRDpbMrLGJt4RX6uDMA1eCJ7eJ6tKIuLQzBY-lh9fGWe-A3v8_dDUzZDPzuokEnPfe_u7QBWNeEV6DkaHMN'
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    from keri.app.keeping import SaltyCreator
+    mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
+
+    from keri.app import keeping
+    expect(keeping, times=1).SaltyCreator(salt='0AA0123456789abcdefghijk', stem='signify:aid', tier='low').thenReturn(mock_creator)
+
+    from keri.core.coring import Cipher
+    mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
+    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
+
+    # test
+    from signify.core.keeping import SaltyKeeper
+    sk = SaltyKeeper(mock_salter, pidx=0, bran='0123456789abcdefghijk')
+
+    assert sk.params() == {'sxlt': 'cipher qb64', 'pidx': 0, 'kidx': 0, 'stem': 'signify:aid', 'tier': 'low', 'icodes': ['A'], 'ncodes': ['A'], 'dcode': 'E', 'transferable': False}
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_salty_keeper_sxlt():
+    # salty keep init mocks
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock({'qb64': 'salter qb64'}, spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    from keri.core.coring import Cipher
+    mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
+
+    from keri.core import coring
+    expect(coring, times=1).Cipher(qb64='0123456789abcdefghijk').thenReturn(mock_cipher)
+
+    expect(mock_decrypter, times=1).decrypt(cipher=mock_cipher).thenReturn(mock_salter)
+
+    from keri.app.keeping import SaltyCreator
+    mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
+
+    from keri.app import keeping
+    expect(keeping, times=1).SaltyCreator('salter qb64', stem='signify:aid', tier='low').thenReturn(mock_creator)
+
+    # test
+    from signify.core.keeping import SaltyKeeper
+    sk = SaltyKeeper(mock_salter, pidx=0, sxlt='0123456789abcdefghijk')
+
+    assert sk.params() == {'sxlt': '0123456789abcdefghijk', 'pidx': 0, 'kidx': 0, 'stem': 'signify:aid', 'tier': 'low', 'icodes': ['A'], 'ncodes': ['A'], 'dcode': 'E', 'transferable': False}
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_salty_keeper_incept():
+    # salty keep init mocks
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    from keri.app.keeping import SaltyCreator
+    mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
+
+    from keri.app import keeping
+    expect(keeping, times=1).SaltyCreator(stem='signify:aid', tier='low').thenReturn(mock_creator)
+
+    from keri.core.coring import Cipher
+    mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
+    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
+
+    # incept mocks
+    mock_incept_verfer = mock({'qb64': 'incept verfer qb64'}, spec=Verfer, strict=True)
+    mock_incept_signer = mock({'verfer': mock_incept_verfer ,'qb64': 'incept signer qb64'}, spec=Signer, strict=True)
+    expect(mock_creator, times=1).create(codes=['A'], pidx=0, kidx=0, transferable=True).thenReturn([mock_incept_signer])
+
+    mock_incept_nverfer = mock({'qb64b': b'incept nverfer qb64b'}, spec=Verfer, strict=True)
+    mock_incept_nsigner = mock({'verfer': mock_incept_nverfer ,'qb64': 'incept signer qb64'}, spec=Signer, strict=True)
+    expect(mock_creator, times=1).create(codes=['A'], pidx=0, kidx=1, transferable=True).thenReturn([mock_incept_nsigner])
+
+    from keri.core.coring import Diger
+    mock_diger = mock({'qb64': 'diger qb64'}, spec=Diger, strict=True)
+    expect(coring, times=1).Diger(ser=b'incept nverfer qb64b', code='E').thenReturn(mock_diger)
+
+    # test
+    from signify.core.keeping import SaltyKeeper
+    sk = SaltyKeeper(mock_salter, pidx=0)
+    verfers, digers = sk.incept(transferable=True)
+
+    assert verfers == ['incept verfer qb64']
+    assert digers == ['diger qb64']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_salty_keeper_rotate():
+    # salty keep init mocks
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    from keri.app.keeping import SaltyCreator
+    mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
+
+    from keri.app import keeping
+    expect(keeping, times=1).SaltyCreator(stem='signify:aid', tier='low').thenReturn(mock_creator)
+
+    from keri.core.coring import Cipher
+    mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
+    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
+
+    # rotate mocks
+    mock_rotate_verfer = mock({'qb64': 'rotate verfer qb64'}, spec=Verfer, strict=True)
+    mock_rotate_signer = mock({'verfer': mock_rotate_verfer ,'qb64': 'rotate signer qb64'}, spec=Signer, strict=True)
+    expect(mock_creator, times=1).create(codes=['A'], pidx=0, kidx=1, transferable=False).thenReturn([mock_rotate_signer])
+
+    mock_rotate_nverfer = mock({'qb64b': b'rotate nverfer qb64b'}, spec=Verfer, strict=True)
+    mock_rotate_nsigner = mock({'verfer': mock_rotate_nverfer ,'qb64': 'rotate signer qb64'}, spec=Signer, strict=True)
+    expect(mock_creator, times=1).create(codes=['A'], pidx=0, kidx=2, transferable=True).thenReturn([mock_rotate_nsigner])
+
+    from keri.core.coring import Diger
+    mock_diger = mock({'qb64': 'rotate diger qb64'}, spec=Diger, strict=True)
+    expect(coring, times=1).Diger(ser=b'rotate nverfer qb64b', code='E').thenReturn(mock_diger)
+
+    # test
+    from signify.core.keeping import SaltyKeeper
+    sk = SaltyKeeper(mock_salter, pidx=0)
+    assert sk.kidx == 0
+    verfers, digers = sk.rotate(ncodes=['A'], transferable=True)
+
+    assert sk.kidx == 1
+    assert verfers == ['rotate verfer qb64']
+    assert digers == ['rotate diger qb64']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_salty_keeper_sign():
+    # salty keep init mocks
+    from keri.core.coring import Salter, Signer
+    mock_salter = mock(spec=Salter, strict=True)
+    from keri.core.coring import Verfer
+    mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
+    expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
+
+    from keri.core.coring import Encrypter
+    mock_encrypter = mock(spec=Encrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.coring import Decrypter
+    mock_decrypter= mock(spec=Decrypter, strict=True)
+    
+    from keri.core import coring
+    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    from keri.app.keeping import SaltyCreator
+    mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
+
+    from keri.app import keeping
+    expect(keeping, times=1).SaltyCreator(stem='signify:aid', tier='low').thenReturn(mock_creator)
+
+    from keri.core.coring import Cipher
+    mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
+    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
+
+    # sign mock
+    expect(mock_creator, times=1).create(codes=['A'], pidx=0, kidx=0, transferable=False).thenReturn([mock_signer])
+
+    # test
+    from signify.core.keeping import SaltyKeeper
+    sk = SaltyKeeper(mock_salter, pidx=0)
+    
+    expect(sk).__sign__( b'my ser', signers=[mock_signer], indexed=True, indices=None, ondices=None).thenReturn(['a signature'])
+
+    ser = b'my ser'
+    sigs = sk.sign(ser)
+
+    assert sigs == ['a signature']
 
     verifyNoUnwantedInteractions()
     unstub()
@@ -307,6 +519,9 @@ def test_randy_keeper():
 
     from keri.app.keeping import RandyCreator
     assert type(rk.creator) is RandyCreator
+    
+    from keri.app.keeping import Algos
+    assert rk.algo == Algos.randy
 
     verifyNoUnwantedInteractions()
     unstub()
@@ -517,6 +732,9 @@ def test_group_keeper():
     assert gk.gdigs == ['n dig 1']
     assert gk.mhab == {'m': 'hab'}
 
+    from keri.app.keeping import Algos
+    assert gk.algo == Algos.group
+
 def test_group_keeper_incept():
     from keri.core.coring import Salter
     mock_salter = mock(spec=Salter, strict=True)
@@ -594,3 +812,56 @@ def test_group_keeper_params():
 
     verifyNoUnwantedInteractions()
     unstub()
+
+# really there is no such thing as a ExternKeeper yet, but it provides a default for BaseKeeper
+def test_extern_keeper():
+    from signify.core.keeping import BaseKeeper
+    bk = BaseKeeper()
+
+    from keri.app.keeping import Algos
+    assert bk.algo == Algos.extern
+
+def test_base_keeper_sign():
+    from signify.core.keeping import BaseKeeper
+    
+    from keri.core.coring import Signer
+    mock_signer = mock(spec=Signer, strict=True)
+
+    from keri.core.coring import Cigar
+    mock_cigar = mock({'qb64': 'an unindexed signature'}, spec=Cigar, strict=True)
+    expect(mock_signer, times=1).sign(b'ser bytes').thenReturn(mock_cigar)
+
+    actual = BaseKeeper.__sign__(b'ser bytes', [mock_signer])
+
+    assert actual[0] == 'an unindexed signature'
+
+@pytest.mark.parametrize('indexed,indices,ondices', [
+    (True, None, None),
+    (True, [0], [0]),
+])
+def test_base_keeper_sign_indexed(indexed, indices, ondices):
+    from signify.core.keeping import BaseKeeper
+    
+    from keri.core.coring import Signer
+    mock_signer_one = mock(spec=Signer, strict=True)
+
+    from keri.core.coring import Siger
+    mock_cigar = mock({'qb64': 'an indexed signature'}, spec=Siger, strict=True)
+    expect(mock_signer_one, times=1).sign(b'ser bytes', index=0, only=False, ondex=0).thenReturn(mock_cigar)
+
+    actual = BaseKeeper.__sign__(b'ser bytes', [mock_signer_one], indexed=indexed, indices=indices, ondices=ondices)
+
+    assert actual[0] == 'an indexed signature'
+
+@pytest.mark.parametrize('indexed,indices,ondices,expected', [
+    (True, [-1], [0], 'Invalid signing index = -1, not whole number.'),
+    (True, [0], [-1], 'Invalid other signing index = -1, not None or not whole number.'),
+])
+def test_base_keeper_sign_indexed_boom(indexed, indices, ondices, expected):
+    from signify.core.keeping import BaseKeeper
+    
+    from keri.core.coring import Signer
+    mock_signer_one = mock(spec=Signer, strict=True)
+
+    with pytest.raises(ValueError, match=expected):
+        BaseKeeper.__sign__(b'ser bytes', [mock_signer_one], indexed=indexed, indices=indices, ondices=ondices)
