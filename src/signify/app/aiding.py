@@ -83,7 +83,7 @@ class Identifiers:
         self.client.pidx = self.client.pidx + 1
 
         res = self.client.post("/identifiers", json=json)
-        return res.json()
+        return serder, sigs, res.json()
 
     def update(self, name, typ, **kwas):
         if typ == "interact":

@@ -19,21 +19,59 @@ CredentialTypes = CredentialTypeage(issued='issued', received='received')
 
 class Registries:
 
-    def registryIncept(self, hab, body):
-        cnfg = []
-        if "noBackers" in body and body["noBackers"]:
-            cnfg.append(TraitDex.NoBackers)
-        baks = body["baks"] if "baks" in body else None
-        toad = body["toad"] if "toad" in body else None
-        estOnly = body["estOnly"] if "estOnly" in body else False
-        nonce = body["nonce"] if "nonce" in body else None
+    def __init__(self, client: SignifyClient):
+        """ Create domain class for working with credentials for a single AID
 
-        regser = eventing.incept(hab.pre,
+            Parameters:
+                client (SignifyClient): Signify client class for access resources on a KERIA service instance
+
+        """
+        self.client = client
+
+    def create(self, name, registryName, noBackers=True, estOnly=False, baks=[], toad=0, nonce=None):
+        identifiers = self.client.identifiers()
+        hab = identifiers.get(name)
+        pre = hab["prefix"]
+
+        cnfg = []
+        if noBackers:
+            cnfg.append(TraitDex.NoBackers)
+        if estOnly:
+            cnfg.append(TraitDex.EstOnly)
+
+        regser = eventing.incept(pre,
                                  baks=baks,
                                  toad=toad,
                                  nonce=nonce,
                                  cnfg=cnfg,
                                  code=coring.MtrDex.Blake3_256)
+
+        state = hab["state"]
+        sn = int(state["s"], 16)
+        dig = state["d"]
+
+        rseal = dict(i=regser.pre, s="0", d=regser.pre)
+        data = [rseal]
+
+        serder = eventing.interact(pre, sn=sn + 1, data=data, dig=dig)
+
+        keeper = self.client.manager.get(aid=hab)
+        sigs = keeper.sign(ser=serder.raw)
+
+        return self.create_from_events(name=name, hab=hab, registryName=registryName, vcp=regser.ked, ixn=serder.ked,
+                                       sigs=sigs)
+
+    def create_from_events(self, name, hab, registryName, vcp, ixn, sigs):
+        body = dict(
+            name=registryName,
+            vcp=vcp,
+            ixn=ixn,
+            sigs=sigs
+        )
+        keeper = self.client.manager.get(aid=hab)
+        body[keeper.algo] = keeper.params()
+
+        return self.client.post(path=f"/identifiers/{name}/registries", json=body)
 
 
 class Credentials:

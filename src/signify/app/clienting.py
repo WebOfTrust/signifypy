@@ -239,6 +239,18 @@ class SignifyClient:
         from signify.app.notifying import Notifications
         return Notifications(client=self)
 
+    def groups(self):
+        from signify.app.grouping import Groups
+        return Groups(client=self)
+
+    def registries(self):
+        from signify.app.credentialing import Registries
+        return Registries(client=self)
+
+    def exchanges(self):
+        from signify.peer.exchanging import Exchanges
+        return Exchanges(client=self)
+
     @staticmethod
     def raiseForStatus(res):
         try:
