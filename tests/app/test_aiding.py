@@ -15,10 +15,10 @@ def test_aiding_list():
 
     from signify.core import keeping
     mock_manager = mock(spec=keeping.Manager, strict=True)
-    mock_client.manager = mock_manager # type: ignore
+    mock_client.manager = mock_manager  # type: ignore
 
     from signify.app.aiding import Identifiers
-    ids = Identifiers(client=mock_client) # type: ignore
+    ids = Identifiers(client=mock_client)  # type: ignore
 
     from requests import Response
     mock_response = mock({'headers': {'content-range': 'aids 0-10/2'}}, spec=Response, strict=True)

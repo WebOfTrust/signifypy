@@ -7,7 +7,7 @@ signify.app.credentialing module
 from collections import namedtuple
 
 from keri.core import coring
-from keri.core.eventing import TraitDex
+from keri.core.eventing import TraitDex, interact
 from keri.vdr import eventing
 
 from signify.app.clienting import SignifyClient
@@ -28,7 +28,9 @@ class Registries:
         """
         self.client = client
 
-    def create(self, name, registryName, noBackers=True, estOnly=False, baks=[], toad=0, nonce=None):
+    def create(self, name, registryName, noBackers=True, estOnly=False, baks=None, toad=0, nonce=None):
+        baks = baks if baks is not None else []
+
         identifiers = self.client.identifiers()
         hab = identifiers.get(name)
         pre = hab["prefix"]
@@ -53,7 +55,7 @@ class Registries:
         rseal = dict(i=regser.pre, s="0", d=regser.pre)
         data = [rseal]
 
-        serder = eventing.interact(pre, sn=sn + 1, data=data, dig=dig)
+        serder = interact(pre, sn=sn + 1, data=data, dig=dig)
 
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=serder.raw)
