@@ -472,7 +472,7 @@ def test_signify_client_delete_not_ok():
 
     import requests
     mock_session = mock(spec=requests.Session, strict=True)
-    client.session = mock_session # type: ignore
+    client.session = mock_session  # type: ignore
 
     mock_response = mock({'ok': False}, spec=requests.Response, strict=True)
     from mockito import kwargs
@@ -642,6 +642,7 @@ def test_signify_client_key_events():
     assert type(out) is KeyEvents
     assert out.client == client
 
+
 def test_signify_client_escrows():
     from signify.app.clienting import SignifyClient
     client = SignifyClient(passcode='abcdefghijklmnop01234')
@@ -652,6 +653,7 @@ def test_signify_client_escrows():
     assert type(out) is Escrows
     assert out.client == client
 
+
 def test_signify_client_endroles():
     from signify.app.clienting import SignifyClient
     client = SignifyClient(passcode='abcdefghijklmnop01234')
@@ -661,6 +663,51 @@ def test_signify_client_endroles():
     from signify.app.ending import EndRoleAuthorizations
     assert type(out) is EndRoleAuthorizations
     assert out.client == client
+
+
+def test_signify_client_notifications():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.notifications()
+
+    from signify.app.notifying import Notifications
+    assert type(out) is Notifications
+    assert out.client == client
+
+
+def test_signify_client_groups():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.groups()
+
+    from signify.app.grouping import Groups
+    assert type(out) is Groups
+    assert out.client == client
+
+
+def test_signify_client_registries():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.registries()
+
+    from signify.app.credentialing import Registries
+    assert type(out) is Registries
+    assert out.client == client
+
+
+def test_signify_client_exchanges():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.exchanges()
+
+    from signify.peer.exchanging import Exchanges
+    assert type(out) is Exchanges
+    assert out.client == client
+
 
 @pytest.mark.parametrize("resp,err", [
     ({'json': lambda : {'description': {'raise a description'}}, 'status_code': 400, 'url': 'http://example.com'}, "400 Client Error: {'raise a description'} for url: http://example.com"),
