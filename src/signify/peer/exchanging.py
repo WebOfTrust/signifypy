@@ -50,7 +50,7 @@ class Exchanges:
             rec=recipients
         )
 
-        self.client.post(f"/identifiers/{name}/exchanges", json=body)
+        return exn, sigs, self.client.post(f"/identifiers/{name}/exchanges", json=body)
 
     def createExchangeMessage(self, sender, route, payload, embeds):
         """  Create exn message from parameters and return Serder with signatures and additional attachments.
