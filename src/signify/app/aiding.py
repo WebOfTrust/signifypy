@@ -118,7 +118,7 @@ class Identifiers:
         json[keeper.algo] = keeper.params()
 
         res = self.client.put(f"/identifiers/{name}?type=ixn", json=json)
-        return res.json()
+        return serder, sigs, res.json()
 
     def rotate(self, name, *, transferable=True, nsith=None, toad=None, cuts=None, adds=None,
                data=None, ncode=MtrDex.Ed25519_Seed, ncount=1, ncodes=None, states=None, rstates=None):
@@ -181,7 +181,7 @@ class Identifiers:
             json['rmids'] = [state['i'] for state in rstates]
 
         res = self.client.put(f"/identifiers/{name}", json=json)
-        return res.json()
+        return serder, sigs, res.json()
 
     def addEndRole(self, name, *, role=Roles.agent, eid=None, stamp=None):
         hab = self.get(name)

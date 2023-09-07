@@ -339,7 +339,7 @@ def test_aiding_rotate():
     expect(mock_client, times=1).put('/identifiers/aid1', json=expected_data).thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn({'success': 'yay'})
 
-    out = ids.rotate(name='aid1', states=[{'i': 'state 1'}, {'i': 'state 2'}],
+    _, _, out = ids.rotate(name='aid1', states=[{'i': 'state 1'}, {'i': 'state 2'}],
                      rstates=[{'i': 'rstate 1'}, {'i': 'rstate 2'}])
     assert out['success'] == 'yay'
 

@@ -130,7 +130,7 @@ def test_keeping_manager_get_salty():
     mock_keeper = mock(spec=keeping.SaltyKeeper, strict=True)
     expect(keeping, times=1).SaltyKeeper(salter=mock_salter, pidx=0, dcode='E').thenReturn(mock_keeper)
 
-    actual = manager.get({'prefix': 'aid1 prefix', 'pidx': 0, 'salty': {'dcode': 'E'}})
+    actual = manager.get({'prefix': 'aid1 prefix', 'salty': {'dcode': 'E', 'pidx': 0}})
 
     assert actual is mock_keeper
 
@@ -151,7 +151,7 @@ def test_keeping_manager_get_salty_pidx():
     expect(coring, times=1).Prefixer(qb64='aid1 prefix').thenReturn(mock_prefixer)
 
     from keri.kering import ConfigurationError
-    with pytest.raises(ConfigurationError, match="missing pidx in {'prefix': 'aid1 prefix', 'salty': {'dcode': 'E'}}"):
+    with pytest.raises(ConfigurationError, match="missing pidx in {'dcode': 'E'}"):
         manager.get({'prefix': 'aid1 prefix', 'salty': {'dcode': 'E'}})
 
     verifyNoUnwantedInteractions()
