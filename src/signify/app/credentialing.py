@@ -8,6 +8,8 @@ from collections import namedtuple
 
 from keri.core import coring
 from keri.core.eventing import TraitDex, interact
+from keri.help import helping
+from keri.vc import proving
 from keri.vdr import eventing
 
 from signify.app.clienting import SignifyClient
@@ -28,11 +30,13 @@ class Registries:
         """
         self.client = client
 
-    def create(self, name, registryName, noBackers=True, estOnly=False, baks=None, toad=0, nonce=None):
+    def get(self, name, registryName):
+        res = self.client.get(f"/identifiers/{name}/registries/{registryName}")
+        return res.json()
+
+    def create(self, hab, registryName, noBackers=True, estOnly=False, baks=None, toad=0, nonce=None):
         baks = baks if baks is not None else []
 
-        identifiers = self.client.identifiers()
-        hab = identifiers.get(name)
         pre = hab["prefix"]
 
         cnfg = []
@@ -60,12 +64,11 @@ class Registries:
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=serder.raw)
 
-        res = self.create_from_events(name=name, hab=hab, registryName=registryName, vcp=regser.ked, ixn=serder.ked,
-                                      sigs=sigs)
+        res = self.create_from_events(hab=hab, registryName=registryName, vcp=regser.ked, ixn=serder.ked, sigs=sigs)
 
         return regser, serder, sigs, res.json()
 
-    def create_from_events(self, name, hab, registryName, vcp, ixn, sigs):
+    def create_from_events(self, hab, registryName, vcp, ixn, sigs):
         body = dict(
             name=registryName,
             vcp=vcp,
@@ -74,6 +77,7 @@ class Registries:
         )
         keeper = self.client.manager.get(aid=hab)
         body[keeper.algo] = keeper.params()
+        name = hab["name"]
 
         return self.client.post(path=f"/identifiers/{name}/registries", json=body)
 
@@ -133,3 +137,83 @@ class Credentials:
 
         res = self.client.get(f"/identifiers/{name}/credentials/{said}", headers=headers)
         return res.content
+
+    def create(self, hab, registry, data, schema, recipient=None, edges=None, rules=None, private=False,
+               timestamp=None):
+        """ Create and submit a credential
+
+        Parameters:
+            hab:
+            registry:
+            data:
+            schema:
+            recipient:
+            edges:
+            rules:
+            private:
+            timestamp:
+
+        Returns:
+
+        """
+        pre = hab["prefix"]
+
+        if recipient is None:
+            recp = None
+        else:
+            recp = recipient
+
+        if timestamp is not None:
+            data["dt"] = timestamp
+
+        regk = registry['regk']
+        creder = proving.credential(issuer=registry['pre'],
+                                    schema=schema,
+                                    recipient=recp,
+                                    data=data,
+                                    source=edges,
+                                    private=private,
+                                    rules=rules,
+                                    status=regk)
+
+        dt = creder.subject["dt"] if "dt" in creder.subject else helping.nowIso8601()
+        noBackers = 'NB' in registry['state']['c']
+        if noBackers:
+            iserder = eventing.issue(vcdig=creder.said, regk=regk, dt=dt)
+        else:
+            regi = registry['state']['s']
+            regd = registry['state']['d']
+            iserder = eventing.backerIssue(vcdig=creder.said, regk=regk, regsn=regi, regd=regd, dt=dt)
+
+        vcid = iserder.ked["i"]
+        rseq = coring.Seqner(snh=iserder.ked["s"])
+        rseal = eventing.SealEvent(vcid, rseq.snh, iserder.said)
+        rseal = dict(i=rseal.i, s=rseal.s, d=rseal.d)
+
+        data = [rseal]
+
+        state = hab["state"]
+        sn = int(state["s"], 16)
+        dig = state["d"]
+        anc = interact(pre, sn=sn + 1, data=data, dig=dig)
+
+        keeper = self.client.manager.get(aid=hab)
+        sigs = keeper.sign(ser=anc.raw)
+
+        res = self.create_from_events(hab=hab, creder=creder.ked, iss=iserder.ked, anc=anc.ked,
+                                      sigs=sigs)
+
+        return creder, iserder, anc, sigs, res.json()
+
+    def create_from_events(self, hab, creder, iss, anc, sigs):
+        body = dict(
+            acdc=creder,
+            iss=iss,
+            ixn=anc,
+            sigs=sigs
+        )
+        keeper = self.client.manager.get(aid=hab)
+        body[keeper.algo] = keeper.params()
+        name = hab["name"]
+
+        return self.client.post(f"/identifiers/{name}/credentials", json=body)

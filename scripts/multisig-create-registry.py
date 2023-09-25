@@ -21,13 +21,14 @@ def create_registry():
     client = SignifyClient(passcode=bran, tier=tier, url=url)
     identifiers = client.identifiers()
     registries = client.registries()
+    credentials = client.credentials()
     exchanges = client.exchanges()
     operations = client.operations()
 
     m = identifiers.get("multisig")
     m3 = identifiers.get("multisig3")
 
-    vcp, anc, rsigs, op = registries.create(name="multisig", registryName="vLEI",
+    vcp, anc, rsigs, op = registries.create(hab=m, registryName="vLEI",
                                             nonce="AHSNDV3ABI6U8OIgKaj3aky91ZpNL54I5_7-qwtC6q2s")
 
     embeds = dict(
@@ -41,6 +42,34 @@ def create_registry():
                    embeds=embeds, recipients=recp)
 
     print("waiting on credential registry creation...")
+    while not op["done"]:
+        op = operations.get(op["name"])
+        sleep(1)
+
+    print("registry created")
+
+    registry = registries.get(name="multisig", registryName="vLEI")
+
+    m = identifiers.get("multisig")
+    data = {
+        "LEI": "5493001KJTIIGC8Y1R17"
+    }
+    creder, iserder, anc, sigs, op = credentials.create(m, registry, data=data,
+                                                        schema="EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
+                                                        recipient="ELjSFdrTdCebJlmvbFNX9-TLhR2PO0_60al1kQp5_e6k",
+                                                        timestamp="2023-09-25T16:01:37.000000+00:00")
+    print(creder.pretty())
+
+    embeds = dict(
+        acdc=creder.raw,
+        iss=iserder.raw,
+        anc=eventing.messagize(serder=anc, sigers=[coring.Siger(qb64=sig) for sig in sigs])
+    )
+    exchanges.send("multisig3", "multisig", sender=m3, route="/multisig/iss",
+                   payload=dict(gid=m["prefix"]),
+                   embeds=embeds, recipients=recp)
+
+    print("waiting on credential creation...")
     while not op["done"]:
         op = operations.get(op["name"])
         sleep(1)
