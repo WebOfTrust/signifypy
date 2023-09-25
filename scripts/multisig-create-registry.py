@@ -7,6 +7,7 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 from time import sleep
 
+from keri.app import signing
 from keri.core import eventing, coring
 from keri.core.coring import Tiers
 from signify.app.clienting import SignifyClient
@@ -59,11 +60,15 @@ def create_registry():
                                                         schema="EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
                                                         recipient="ELjSFdrTdCebJlmvbFNX9-TLhR2PO0_60al1kQp5_e6k",
                                                         timestamp=TIME)
-    print(creder.pretty())
+
+    prefixer = coring.Prefixer(qb64=iserder.pre)
+    seqner = coring.Seqner(sn=iserder.sn)
+    acdc = signing.serialize(creder, prefixer, seqner, iserder.saider)
+    iss = registries.serialize(iserder, anc)
 
     embeds = dict(
-        acdc=creder.raw,
-        iss=iserder.raw,
+        acdc=acdc,
+        iss=iss,
         anc=eventing.messagize(serder=anc, sigers=[coring.Siger(qb64=sig) for sig in sigs])
     )
     exchanges.send("multisig3", "multisig", sender=m3, route="/multisig/iss",
@@ -75,18 +80,16 @@ def create_registry():
         op = operations.get(op["name"])
         sleep(1)
 
-    print(op["response"])
-
     m = identifiers.get("multisig")
-    grant, sigs, end = ipex.grant(m, recp="ELjSFdrTdCebJlmvbFNX9-TLhR2PO0_60al1kQp5_e6k", acdc=creder.raw,
-                                  iss=iserder.raw, message="",
+    grant, sigs, end = ipex.grant(m, recp="ELjSFdrTdCebJlmvbFNX9-TLhR2PO0_60al1kQp5_e6k", acdc=acdc,
+                                  iss=iss, message="",
                                   anc=eventing.messagize(serder=anc, sigers=[coring.Siger(qb64=sig) for sig in sigs]),
                                   dt=TIME)
 
     mstate = m["state"]
     seal = eventing.SealEvent(i=m["prefix"], s=mstate["ee"]["s"], d=mstate["ee"]["d"])
     ims = eventing.messagize(serder=grant, sigers=[coring.Siger(qb64=sig) for sig in sigs], seal=seal)
-
+    ims.extend(end)
     embeds = dict(
         exn=ims
     )

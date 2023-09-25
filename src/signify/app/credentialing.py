@@ -81,6 +81,27 @@ class Registries:
 
         return self.client.post(path=f"/identifiers/{name}/registries", json=body)
 
+    @staticmethod
+    def serialize(serder, anc):
+        seqner = coring.Seqner(sn=anc.sn)
+        couple = seqner.qb64b + anc.saider.qb64b
+        atc = bytearray()
+        atc.extend(coring.Counter(code=coring.CtrDex.SealSourceCouples,
+                                  count=1).qb64b)
+        atc.extend(couple)
+
+        # prepend pipelining counter to attachments
+        if len(atc) % 4:
+            raise ValueError("Invalid attachments size={}, nonintegral"
+                             " quadlets.".format(len(atc)))
+        pcnt = coring.Counter(code=coring.CtrDex.AttachedMaterialQuadlets,
+                              count=(len(atc) // 4)).qb64b
+        msg = bytearray(serder.raw)
+        msg.extend(pcnt)
+        msg.extend(atc)
+
+        return msg
+
 
 class Credentials:
     """ Domain class for accessing, presenting, issuing and revoking credentials """

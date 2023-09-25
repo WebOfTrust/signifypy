@@ -41,7 +41,6 @@ class Exchanges:
         """
 
         exn, sigs, atc = self.createExchangeMessage(sender, route, payload, embeds)
-        print(exn.pretty(size=5000))
 
         body = dict(
             tpc=topic,
