@@ -60,8 +60,10 @@ class Registries:
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=serder.raw)
 
-        return self.create_from_events(name=name, hab=hab, registryName=registryName, vcp=regser.ked, ixn=serder.ked,
-                                       sigs=sigs)
+        res = self.create_from_events(name=name, hab=hab, registryName=registryName, vcp=regser.ked, ixn=serder.ked,
+                                      sigs=sigs)
+
+        return regser, serder, sigs, res.json()
 
     def create_from_events(self, name, hab, registryName, vcp, ixn, sigs):
         body = dict(
