@@ -41,6 +41,7 @@ class Exchanges:
         """
 
         exn, sigs, atc = self.createExchangeMessage(sender, route, payload, embeds)
+        print(exn.pretty(size=5000))
 
         body = dict(
             tpc=topic,
@@ -52,7 +53,7 @@ class Exchanges:
 
         return exn, sigs, self.client.post(f"/identifiers/{name}/exchanges", json=body)
 
-    def createExchangeMessage(self, sender, route, payload, embeds):
+    def createExchangeMessage(self, sender, route, payload, embeds, dt=None):
         """  Create exn message from parameters and return Serder with signatures and additional attachments.
 
         Parameters:
@@ -60,6 +61,7 @@ class Exchanges:
             route (str):  exn route field
             payload (dict): payload of the exn message
             embeds (dict): map of label to bytes of encoded KERI event to embed in exn
+            dt (str): Iso formatted date string
 
         Returns:
             (exn, sigs, end): tuple of Serder, list, bytes of event, signatures over the event and any transposed
@@ -72,7 +74,8 @@ class Exchanges:
         exn, end = exchanging.exchange(route=route,
                                        payload=payload,
                                        sender=sender["prefix"],
-                                       embeds=embeds)
+                                       embeds=embeds,
+                                       date=dt)
 
         sigs = keeper.sign(ser=exn.raw)
 

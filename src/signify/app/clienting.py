@@ -251,6 +251,10 @@ class SignifyClient:
         from signify.peer.exchanging import Exchanges
         return Exchanges(client=self)
 
+    def ipex(self):
+        from signify.app.credentialing import Ipex
+        return Ipex(client=self)
+
     @staticmethod
     def raiseForStatus(res):
         try:

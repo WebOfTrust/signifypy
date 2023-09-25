@@ -47,6 +47,15 @@ class NotifcationsApp:
                         ],
                     )
                     self.table.rows.append(row)
+                case "/multisig/iss":
+                    row = ft.DataRow(
+                        cells=[
+                            ft.DataCell(ft.Text("Multisig Credential Creation Request")),
+                            ft.DataCell(ft.Text("")),
+                            ft.DataCell(ft.Text("")),
+                        ],
+                    )
+                    self.table.rows.append(row)
 
         self.table.update()
 

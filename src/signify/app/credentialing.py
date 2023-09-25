@@ -217,3 +217,36 @@ class Credentials:
         name = hab["name"]
 
         return self.client.post(f"/identifiers/{name}/credentials", json=body)
+
+
+class Ipex:
+    def __init__(self, client: SignifyClient):
+        """ Create domain class for working with credentials for a single AID
+
+            Parameters:
+                client (SignifyClient): Signify client class for access resources on a KERIA service instance
+
+        """
+        self.client = client
+
+    def grant(self, hab, recp, message, acdc, iss, anc, agree=None, dt=None):
+        exchanges = self.client.exchanges()
+        data = dict(
+            m=message,
+            i=recp,
+        )
+
+        embeds = dict(
+            acdc=acdc,
+            iss=iss,
+            anc=anc
+        )
+
+        kwa = dict()
+        if agree is not None:
+            kwa['dig'] = agree.said
+
+        grant, gsigs, end = exchanges.createExchangeMessage(sender=hab, route="/ipex/grant",
+                                                            payload=data, embeds=embeds, dt=dt)
+
+        return grant, gsigs, end

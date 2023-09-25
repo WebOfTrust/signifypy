@@ -5,13 +5,13 @@ signify.app.clienting module
 
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
-import json
 from time import sleep
 
 from keri.core import eventing, coring
 from keri.core.coring import Tiers
 from signify.app.clienting import SignifyClient
 
+TIME = "2023-09-25T16:01:37.000000+00:00"
 
 def create_registry():
     url = "http://localhost:3901"
@@ -24,6 +24,7 @@ def create_registry():
     credentials = client.credentials()
     exchanges = client.exchanges()
     operations = client.operations()
+    ipex = client.ipex()
 
     m = identifiers.get("multisig")
     m3 = identifiers.get("multisig3")
@@ -57,7 +58,7 @@ def create_registry():
     creder, iserder, anc, sigs, op = credentials.create(m, registry, data=data,
                                                         schema="EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao",
                                                         recipient="ELjSFdrTdCebJlmvbFNX9-TLhR2PO0_60al1kQp5_e6k",
-                                                        timestamp="2023-09-25T16:01:37.000000+00:00")
+                                                        timestamp=TIME)
     print(creder.pretty())
 
     embeds = dict(
@@ -75,6 +76,24 @@ def create_registry():
         sleep(1)
 
     print(op["response"])
+
+    m = identifiers.get("multisig")
+    grant, sigs, end = ipex.grant(m, recp="ELjSFdrTdCebJlmvbFNX9-TLhR2PO0_60al1kQp5_e6k", acdc=creder.raw,
+                                  iss=iserder.raw, message="",
+                                  anc=eventing.messagize(serder=anc, sigers=[coring.Siger(qb64=sig) for sig in sigs]),
+                                  dt=TIME)
+
+    mstate = m["state"]
+    seal = eventing.SealEvent(i=m["prefix"], s=mstate["ee"]["s"], d=mstate["ee"]["d"])
+    ims = eventing.messagize(serder=grant, sigers=[coring.Siger(qb64=sig) for sig in sigs], seal=seal)
+
+    embeds = dict(
+        exn=ims
+    )
+
+    exchanges.send("multisig3", "multisig", sender=m3, route="/multisig/exn",
+                   payload=dict(gid=m["prefix"]),
+                   embeds=embeds, recipients=recp)
 
 
 if __name__ == "__main__":
