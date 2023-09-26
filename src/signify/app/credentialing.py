@@ -64,9 +64,9 @@ class Registries:
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=serder.raw)
 
-        res = self.create_from_events(hab=hab, registryName=registryName, vcp=regser.ked, ixn=serder.ked, sigs=sigs)
+        op = self.create_from_events(hab=hab, registryName=registryName, vcp=regser.ked, ixn=serder.ked, sigs=sigs)
 
-        return regser, serder, sigs, res.json()
+        return regser, serder, sigs, op
 
     def create_from_events(self, hab, registryName, vcp, ixn, sigs):
         body = dict(
@@ -79,7 +79,8 @@ class Registries:
         body[keeper.algo] = keeper.params()
         name = hab["name"]
 
-        return self.client.post(path=f"/identifiers/{name}/registries", json=body)
+        resp = self.client.post(path=f"/identifiers/{name}/registries", json=body)
+        return resp.json()
 
     @staticmethod
     def serialize(serder, anc):

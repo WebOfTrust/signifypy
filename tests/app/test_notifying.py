@@ -62,7 +62,7 @@ def test_noticiation_delete():
     mock_client = mock(spec=SignifyClient, strict=True)
 
     from signify.app.notifying import Notifications
-    notes = Notifications(client=mock_client) # type: ignore
+    notes = Notifications(client=mock_client)  # type: ignore
 
     from requests import Response
     mock_response = mock({'status': 202}, spec=Response, strict=True)
@@ -75,7 +75,7 @@ def test_noticiation_delete():
     expect(mock_client, times=1).delete(path='/notifications/DEF456').thenReturn(mock_response)
 
     out = notes.delete(nid="DEF456")
-    assert out is False
+    assert out is True
 
     verifyNoUnwantedInteractions()
     unstub()

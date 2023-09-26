@@ -191,9 +191,6 @@ class Controller:
                     nprxs.append(encrypter.encrypt(matter=coring.Matter(qb64=dsigner.qb64)).qb64)
 
                 pubs = aid["state"]["k"]
-                for signer in signers:
-                    print(signer.verfer.qb64)
-                
                 if pubs != [signer.verfer.qb64 for signer in signers]:
                     raise kering.ValidationError(f"unable to rotate, validation of encrypted public keys {pubs} failed")
 
