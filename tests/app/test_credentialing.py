@@ -100,6 +100,55 @@ def test_credentials_query():
     unstub()
 
 
+def test_credentials_create():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    mock_client.manager = mock_manager  # type: ignore
+
+    mock_hab = {'prefix': 'a_prefix', 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
+    mock_registry = {'regk': "a_regk", 'pre': 'a_prefix', 'state': {'c': ['NB']}}
+    data = dict(dt="2023-09-27T16:27:14.376928+00:00", LEI="ABC1234567890AD4456")
+    schema = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+    recp = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=2).get(aid=mock_hab).thenReturn(mock_keeper)
+    expect(mock_keeper, times=1).sign(ser=ANY()).thenReturn(['a signature'])
+    from requests import Response
+    mock_response = mock({}, spec=Response, strict=True)
+    expect(mock_response, times=1).json().thenReturn({'v': 'ACDC10JSON00014c_'})
+
+    body = {'acdc': {'v': 'ACDC10JSON00014c_', 'd': 'EPXTb9qRHquoEey-QsF-8Sks8nDoXBK6kdlP1G6WynJ3', 'i': 'a_prefix',
+                     'ri': 'a_regk', 's': 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao',
+                     'a': {'d': 'EHpwssa6tmD2U5W7-aogym-r1NobKBNXydP4MmaebA4O',
+                           'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                           'dt': '2023-09-27T16:27:14.376928+00:00', 'LEI': 'ABC1234567890AD4456'}},
+            'iss': {'v': 'KERI10JSON0000c7_', 't': 'iss', 'd': 'EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF',
+                    'i': 'EPXTb9qRHquoEey-QsF-8Sks8nDoXBK6kdlP1G6WynJ3', 's': '0', 'ri': 'a_regk',
+                    'dt': '2023-09-27T16:27:14.376928+00:00'},
+            'ixn': {'v': 'KERI10JSON0000f1_', 't': 'ixn', 'd': 'EJM1yhn99LOgCPRsEqpg8nKXQjkSE4-Q4dfvF3wm1Waz',
+                    'i': 'a_prefix', 's': '2', 'p': 'ABCDEFG', 'a': [
+                    {'i': 'EPXTb9qRHquoEey-QsF-8Sks8nDoXBK6kdlP1G6WynJ3', 's': '0',
+                     'd': 'EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF'}]}, 'sigs': ['a signature'],
+            'salty': {'keeper': 'params'}}
+
+    expect(mock_client, times=1).post(f"/identifiers/aid1/credentials", json=body).thenReturn(mock_response)
+
+    from signify.app.credentialing import Credentials
+    creder, iss, ixn, sigs, op = Credentials(client=mock_client).create(mock_hab, mock_registry, data, schema, recp)
+
+    assert creder.said == "EPXTb9qRHquoEey-QsF-8Sks8nDoXBK6kdlP1G6WynJ3"
+    assert iss.said == "EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF"
+    assert ixn.said == "EJM1yhn99LOgCPRsEqpg8nKXQjkSE4-Q4dfvF3wm1Waz"
+    assert op == {'v': 'ACDC10JSON00014c_'}
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
 def test_ipex():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
@@ -120,8 +169,8 @@ def test_ipex():
                                             payload={'m': 'this is a test',
                                                      'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose'},
                                             embeds={'acdc': {}, 'iss': {}, 'anc': {}}, dt=dt).thenReturn((mock_grant,
-                                                                                                         mock_gsigs,
-                                                                                                         mock_end))
+                                                                                                          mock_gsigs,
+                                                                                                          mock_end))
 
     ipex = credentialing.Ipex(mock_client)
     recp = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
