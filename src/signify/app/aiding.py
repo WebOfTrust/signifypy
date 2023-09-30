@@ -196,7 +196,7 @@ class Identifiers:
         )
 
         res = self.client.post(f"/identifiers/{name}/endroles", json=json)
-        return res.json()
+        return rpy, sigs, res.json()
 
     def sign(self, name, ser):
         hab = self.get(name)

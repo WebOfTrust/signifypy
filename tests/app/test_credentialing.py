@@ -163,7 +163,7 @@ def test_ipex():
     mock_anc = {}
     mock_grant = {}
     mock_gsigs = []
-    mock_end = b''
+    mock_end = ""
     expect(mock_client, times=1).exchanges().thenReturn(mock_excs)
     expect(mock_excs).createExchangeMessage(sender=mock_hab, route="/ipex/grant",
                                             payload={'m': 'this is a test',
