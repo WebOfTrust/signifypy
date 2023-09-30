@@ -9,6 +9,7 @@ Testing aiding with unit tests
 import pytest
 from mockito import mock, verify, verifyNoUnwantedInteractions, unstub, expect
 
+
 def test_aiding_list():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
@@ -376,7 +377,9 @@ def test_aiding_add_end_role():
     expect(mock_client, times=1).post('/identifiers/aid1/endroles', json=expected_data).thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn({'success': 'yay'})
 
-    out = ids.addEndRole('aid1')
+    serder, sig, out = ids.addEndRole('aid1')
+    assert serder == mock_serder
+    assert sig == ['a signature']
     assert out['success'] == 'yay'
 
     verifyNoUnwantedInteractions()

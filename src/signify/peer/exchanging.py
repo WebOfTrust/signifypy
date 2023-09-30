@@ -46,11 +46,13 @@ class Exchanges:
             tpc=topic,
             exn=exn.ked,
             sigs=sigs,
-            atc=atc.decode("utf-8"),
+            atc=atc,
             rec=recipients
         )
 
-        return exn, sigs, self.client.post(f"/identifiers/{name}/exchanges", json=body)
+        res = self.client.post(f"/identifiers/{name}/exchanges", json=body)
+
+        return exn, sigs, res.json()
 
     def createExchangeMessage(self, sender, route, payload, embeds, dt=None):
         """  Create exn message from parameters and return Serder with signatures and additional attachments.
@@ -78,7 +80,7 @@ class Exchanges:
 
         sigs = keeper.sign(ser=exn.raw)
 
-        return exn, sigs, bytes(end)
+        return exn, sigs, bytes(end).decode("utf-8")
 
     def sendFromEvents(self, name, topic, exn, sigs, atc, recipients):
         """  Send precreated exn message to recipients
@@ -104,5 +106,6 @@ class Exchanges:
             rec=recipients
         )
 
-        self.client.post(f"/identifiers/{name}/exchanges", json=body)
+        res = self.client.post(f"/identifiers/{name}/exchanges", json=body)
+        return res.json()
 

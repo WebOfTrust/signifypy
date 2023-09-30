@@ -255,6 +255,10 @@ class SignifyClient:
         from signify.app.credentialing import Ipex
         return Ipex(client=self)
 
+    def challenges(self):
+        from signify.app.challenging import Challenges
+        return Challenges(client=self)
+
     @staticmethod
     def raiseForStatus(res):
         try:
