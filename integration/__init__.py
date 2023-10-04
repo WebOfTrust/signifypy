@@ -1,5 +1,0 @@
-"""
-integration test package
-
-
-"""
