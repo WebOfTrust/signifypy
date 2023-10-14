@@ -259,6 +259,10 @@ class SignifyClient:
         from signify.app.challenging import Challenges
         return Challenges(client=self)
 
+    def contacts(self):
+        from signify.app.contacting import Contacts
+        return Contacts(client=self)
+
     @staticmethod
     def raiseForStatus(res):
         try:
