@@ -6,8 +6,7 @@ signify.app.test_challenging module
 Testing challenge with unit tests
 """
 
-import pytest
-from mockito import mock, verify, verifyNoUnwantedInteractions, unstub, expect
+from mockito import mock, verifyNoUnwantedInteractions, unstub, expect
 
 
 def test_challenges_generate():
@@ -68,14 +67,11 @@ def test_challenge_responded():
     said = "E456"
     from requests import Response
     mock_response = mock({}, spec=Response, strict=True)
-    expect(mock_client, times=1).post(f'/challenges/{name}/verify/{source}',
-                                      json=dict(said=said)).thenReturn(mock_response)
-    expect(mock_response, times=1).json().thenReturn(
-        {"done": False}
-    )
+    expect(mock_client, times=1).put(f'/challenges/{name}/verify/{source}',
+                                     json=dict(said=said)).thenReturn(mock_response)
 
     out = chas.responded(name, source, said)
-    assert out["done"] is False
+    assert out is True
 
     verifyNoUnwantedInteractions()
     unstub()

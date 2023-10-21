@@ -18,6 +18,7 @@ from keri.help import helping
 
 from signify.app.clienting import SignifyClient
 
+TIME = "2023-10-15T16:01:37.000000+00:00"
 
 def multisig_holder():
     print("Creating issuer agent")
@@ -28,6 +29,7 @@ def multisig_holder():
     print("Creating issuer AID")
     create_aid(client0, "issuer", "W1OnK0b5rKq6TcKBWhsQa", "ELTkSY_C70Qj8SbPh7F121Q3iA_zNlt8bS-pzOMiCBgG")
     add_end_role(client0, "issuer")
+    issuer = get_aid(client0, "issuer")
 
     print("Creating holder1 agent")
     client1 = create_agent(b'PoLT1X6fDQliXyCuzCVuv',
@@ -76,7 +78,7 @@ def multisig_holder():
 
     exn = coring.Serder(ked=op["response"]['exn'])
     print(f"Challenge signed in {exn.said}")
-    client1.challenges().responded(holder2['i'], exn.said)
+    client1.challenges().responded("holder1", holder2['i'], exn.said)
 
     states = [holder1, holder2]
 
@@ -110,8 +112,31 @@ def multisig_holder():
 
     holder = resolve_oobi(client0, "holder", "http://127.0.0.1:3902/oobi/EH_axvx0v0gwQaCawqem5u8ZeDKx9TUWKsowTa_xj0yb")
 
-    print(holder)
     create_credential(client0, holder)
+
+    notificatons = client1.notifications()
+
+    notes = notificatons.list()
+    while notes['total'] < 4:
+        sleep(1)
+        notes = notificatons.list()
+
+    grant = notes['notes'][3]
+    gsaid = grant['a']['d']
+    print(f"Received grant notification for grant {gsaid}")
+
+    print(f"\nSending admit back")
+    create_admit(client1, "holder1", "holder", gsaid, [member2['prefix']])
+    create_admit(client2, "holder2", "holder", gsaid, [member1['prefix']])
+
+    notificatons = client0.notifications()
+
+    notes = notificatons.list()
+    while notes['total'] < 1:
+        sleep(1)
+        notes = notificatons.list()
+
+    print(notes)
 
 
 def create_agent(bran, controller, agent):
@@ -188,6 +213,33 @@ def create_multisig(client, name, member, states):
                    embeds=embeds, recipients=recps)
 
     return op
+
+
+def create_admit(client, participant, group, said, recp):
+    exchanges = client.exchanges()
+    ipex = client.ipex()
+
+    res = exchanges.get(participant, said)
+    grant = coring.Serder(ked=res['exn'])
+    ghab = get_aid(client, group)
+    mhab = get_aid(client, participant)
+
+    admit, sigs, end = ipex.admit(ghab, "", grant, dt=TIME)
+
+    mstate = ghab["state"]
+    seal = eventing.SealEvent(i=ghab["prefix"], s=mstate["ee"]["s"], d=mstate["ee"]["d"])
+    ims = eventing.messagize(serder=admit, sigers=[coring.Siger(qb64=sig) for sig in sigs], seal=seal)
+    ims.extend(end)
+    embeds = dict(
+        exn=ims
+    )
+    atc = bytes(ims[admit.size:])
+
+    exchanges.send(participant, "multisig", sender=mhab, route="/multisig/exn",
+                   payload=dict(gid=ghab["prefix"]),
+                   embeds=embeds, recipients=recp)
+
+    exchanges.sendFromEvents(group, "credential", admit, sigs, atc.decode("utf-8"), [grant.ked['i']])
 
 
 def get_aid(client, name):

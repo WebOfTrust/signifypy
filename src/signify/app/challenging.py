@@ -73,5 +73,5 @@ class Challenges:
             said=said
         )
 
-        res = self.client.post(f"/challenges/{name}/verify/{source}", json=json)
-        return res.json()
+        self.client.put(f"/challenges/{name}/verify/{source}", json=json)
+        return True

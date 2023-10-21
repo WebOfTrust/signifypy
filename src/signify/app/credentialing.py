@@ -272,3 +272,14 @@ class Ipex:
                                                             payload=data, embeds=embeds, dt=dt)
 
         return grant, gsigs, end
+
+    def admit(self, hab, message, grant, dt=None):
+        exchanges = self.client.exchanges()
+        data = dict(
+            m=message,
+        )
+
+        grant, gsigs, end = exchanges.createExchangeMessage(sender=hab, route="/ipex/admit",
+                                                            payload=data, embeds=None, dt=dt, dig=grant.said)
+
+        return grant, gsigs, end
