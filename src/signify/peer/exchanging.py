@@ -39,18 +39,9 @@ class Exchanges:
         """
 
         exn, sigs, atc = self.createExchangeMessage(sender, route, payload, embeds)
+        json = self.sendFromEvents(name, topic, exn=exn, sigs=sigs, atc=atc, recipients=recipients)
 
-        body = dict(
-            tpc=topic,
-            exn=exn.ked,
-            sigs=sigs,
-            atc=atc,
-            rec=recipients
-        )
-
-        res = self.client.post(f"/identifiers/{name}/exchanges", json=body)
-
-        return exn, sigs, res.json()
+        return exn, sigs, json
 
     def createExchangeMessage(self, sender, route, payload, embeds, dig=None, dt=None):
         """  Create exn message from parameters and return Serder with signatures and additional attachments.
