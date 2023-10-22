@@ -5,6 +5,7 @@ signify.app.test_credentialing module
 
 Testing credentialing with unit tests
 """
+from keri.peer import exchanging
 from keri.vdr import eventing as veventing
 from keri.core import eventing
 from mockito import mock, unstub, verify, verifyNoUnwantedInteractions, expect, ANY
@@ -149,7 +150,7 @@ def test_credentials_create():
     unstub()
 
 
-def test_ipex():
+def test_ipex_grant():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
@@ -179,6 +180,37 @@ def test_ipex():
                                    anc=mock_anc, dt=dt)
 
     assert grant == mock_grant
+    assert gsigs == mock_gsigs
+    assert end == mock_end
+
+    unstub()
+
+
+def test_ipex_admin():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.peer.exchanging import Exchanges
+    mock_excs = mock(spec=Exchanges, strict=True)
+
+    grant, _ = exchanging.exchange("/admit/grant", payload={}, sender="EEE")
+
+    dt = "2023-09-25T16:01:37.000000+00:00"
+    mock_hab = {'prefix': 'a_prefix', 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
+    mock_admit = {}
+    mock_gsigs = []
+    mock_end = ""
+    expect(mock_client, times=1).exchanges().thenReturn(mock_excs)
+    expect(mock_excs).createExchangeMessage(sender=mock_hab, route="/ipex/admit",
+                                            payload={'m': 'this is a test'},
+                                            embeds=None, dt=dt, dig=grant.said).thenReturn((mock_admit,
+                                                                                            mock_gsigs,
+                                                                                            mock_end))
+
+    ipex = credentialing.Ipex(mock_client)
+    grant, gsigs, end = ipex.admit(hab=mock_hab, message="this is a test", dt=dt, grant=grant)
+
+    assert grant == mock_admit
     assert gsigs == mock_gsigs
     assert end == mock_end
 
