@@ -4,8 +4,6 @@ SIGNIFY
 signify.app.exchanging module
 
 """
-from pprint import pprint
-
 from keri.peer import exchanging
 
 from signify.app.clienting import SignifyClient
@@ -41,20 +39,11 @@ class Exchanges:
         """
 
         exn, sigs, atc = self.createExchangeMessage(sender, route, payload, embeds)
+        json = self.sendFromEvents(name, topic, exn=exn, sigs=sigs, atc=atc, recipients=recipients)
 
-        body = dict(
-            tpc=topic,
-            exn=exn.ked,
-            sigs=sigs,
-            atc=atc,
-            rec=recipients
-        )
+        return exn, sigs, json
 
-        res = self.client.post(f"/identifiers/{name}/exchanges", json=body)
-
-        return exn, sigs, res.json()
-
-    def createExchangeMessage(self, sender, route, payload, embeds, dt=None):
+    def createExchangeMessage(self, sender, route, payload, embeds, dig=None, dt=None):
         """  Create exn message from parameters and return Serder with signatures and additional attachments.
 
         Parameters:
@@ -62,6 +51,7 @@ class Exchanges:
             route (str):  exn route field
             payload (dict): payload of the exn message
             embeds (dict): map of label to bytes of encoded KERI event to embed in exn
+            dig (str): Optional qb64 SAID of exchange message reverse chain
             dt (str): Iso formatted date string
 
         Returns:
@@ -76,6 +66,7 @@ class Exchanges:
                                        payload=payload,
                                        sender=sender["prefix"],
                                        embeds=embeds,
+                                       dig=dig,
                                        date=dt)
 
         sigs = keeper.sign(ser=exn.raw)
@@ -109,3 +100,17 @@ class Exchanges:
         res = self.client.post(f"/identifiers/{name}/exchanges", json=body)
         return res.json()
 
+    def get(self, name, said):
+        """
+
+        Parameters:
+            name (str): human readable identifier alias to send from
+            said (str): qb64 SAID of the exn message to retrieve
+
+        Returns:
+            dict: exn message
+
+        """
+
+        res = self.client.get(f"/identifiers/{name}/exchanges/{said}")
+        return res.json()
