@@ -186,7 +186,7 @@ def test_ipex_grant():
     unstub()
 
 
-def test_ipex_admin():
+def test_ipex_admit():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
@@ -207,7 +207,7 @@ def test_ipex_admin():
                                                                                             mock_gsigs,
                                                                                             mock_end))
 
-    ipex = credentialing.Ipex(mock_client)
+    ipex = credentialing.Ipex(mock_client) # type: ignore
     grant, gsigs, end = ipex.admit(hab=mock_hab, message="this is a test", dt=dt, grant=grant)
 
     assert grant == mock_admit
