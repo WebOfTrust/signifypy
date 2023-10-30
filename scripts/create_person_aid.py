@@ -34,6 +34,7 @@ def create_aid():
     ]
 
     op = identifiers.create("BankUser", bran="0123456789abcdefghijk", wits=wits, toad="2")
+    op = op[2]
 
     while not op["done"]:
         op = operations.get(op["name"])
