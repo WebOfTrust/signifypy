@@ -41,29 +41,49 @@ kli vc registry incept --name qvi --alias qvi --registry-name vLEI-qvi
 kli vc registry incept --name legal-entity --alias legal-entity --registry-name vLEI-legal-entity
 
 # Issue QVI credential vLEI from GLEIF External to QVI
-kli vc issue --name external --alias external --registry-name vLEI-external --schema EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao --recipient EHMnCf8_nIemuPx-cUHaDQq8zSnQIFAurdEpwHpNbnvX --data @"${KERI_DEMO_SCRIPT_DIR}"/data/qvi-data.json
-kli vc accept --name qvi --alias qvi --poll --auto
+kli vc create --name external --alias external --registry-name vLEI-external --schema EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao --recipient EHMnCf8_nIemuPx-cUHaDQq8zSnQIFAurdEpwHpNbnvX --data @"${KERI_DEMO_SCRIPT_DIR}"/data/qvi-data.json
+SAID=$(kli vc list --name external --alias external --issued --said --schema EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao)
+kli ipex grant --name external --alias external --said "${SAID}" --recipient EHMnCf8_nIemuPx-cUHaDQq8zSnQIFAurdEpwHpNbnvX
+GRANT=$(kli ipex list --name qvi --alias qvi --poll --said)
+echo "Admitting credential from grant ${GRANT}"
+kli ipex admit --name qvi --alias qvi --said "${GRANT}"
 kli vc list --name qvi --alias qvi
 
 # Issue LE credential from QVI to Legal Entity - have to create the edges first
 QVI_SAID=$(kli vc list --name qvi --alias qvi --said --schema EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao)
 echo \"$QVI_SAID\" | jq -f "${KERI_DEMO_SCRIPT_DIR}"/data/legal-entity-edges-filter.jq  > /tmp/legal-entity-edges.json
 kli saidify --file /tmp/legal-entity-edges.json
-kli vc issue --name qvi --alias qvi --registry-name vLEI-qvi --schema ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY --recipient EIitNxxiNFXC1HDcPygyfyv3KUlBfS_Zf-ZYOvwjpTuz --data @"${KERI_DEMO_SCRIPT_DIR}"/data/legal-entity-data.json --edges @/tmp/legal-entity-edges.json --rules @"${KERI_DEMO_SCRIPT_DIR}"/data/rules.json
-kli vc accept --name legal-entity --alias legal-entity --poll --auto
+kli vc create --name qvi --alias qvi --registry-name vLEI-qvi --schema ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY --recipient EIitNxxiNFXC1HDcPygyfyv3KUlBfS_Zf-ZYOvwjpTuz --data @"${KERI_DEMO_SCRIPT_DIR}"/data/legal-entity-data.json --edges @/tmp/legal-entity-edges.json --rules @"${KERI_DEMO_SCRIPT_DIR}"/data/rules.json
+SAID=$(kli vc list --name qvi --alias qvi --issued --said --schema ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY)
+kli ipex grant --name qvi --alias qvi --said "${SAID}" --recipient EIitNxxiNFXC1HDcPygyfyv3KUlBfS_Zf-ZYOvwjpTuz
+GRANT=$(kli ipex list --name legal-entity --alias legal-entity --poll --said)
+echo "Admitting credential from grant ${GRANT}"
+kli ipex admit --name legal-entity --alias legal-entity --said "${GRANT}"
 kli vc list --name legal-entity --alias legal-entity
 
 # Issue ECR Authorization credential from Legal Entity to QVI - have to create the edges first
 LE_SAID=$(kli vc list --name legal-entity --alias legal-entity --said)
 echo \"$LE_SAID\" | jq -f "${KERI_DEMO_SCRIPT_DIR}"/data/ecr-auth-edges-filter.jq > /tmp/ecr-auth-edges.json
 kli saidify --file /tmp/ecr-auth-edges.json
-kli vc issue --name legal-entity --alias legal-entity --registry-name vLEI-legal-entity --schema EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g --recipient EHMnCf8_nIemuPx-cUHaDQq8zSnQIFAurdEpwHpNbnvX --data @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-auth-data.json --edges @/tmp/ecr-auth-edges.json --rules @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-auth-rules.json
-kli vc accept --name qvi --alias qvi --poll --auto
+kli vc create --name legal-entity --alias legal-entity --registry-name vLEI-legal-entity --schema EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g --recipient EHMnCf8_nIemuPx-cUHaDQq8zSnQIFAurdEpwHpNbnvX --data @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-auth-data.json --edges @/tmp/ecr-auth-edges.json --rules @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-auth-rules.json
+SAID=$(kli vc list --name legal-entity --alias legal-entity --issued --said --schema EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g)
+kli ipex grant --name legal-entity --alias legal-entity --said "${SAID}" --recipient EHMnCf8_nIemuPx-cUHaDQq8zSnQIFAurdEpwHpNbnvX
+GRANT=$(kli ipex list --name legal-entity --alias legal-entity --sent --type grant --said)
+kli ipex list --name qvi --alias qvi --poll
+echo "Admitting credential from grant ${GRANT}"
+kli ipex admit --name qvi --alias qvi --said "${GRANT}"
 kli vc list --name qvi --alias qvi
 
 # Issue ECR credential from QVI to Person
 AUTH_SAID=$(kli vc list --name qvi --alias qvi --said --schema EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g)
 echo "[\"$QVI_SAID\", \"$AUTH_SAID\"]" | jq -f "${KERI_DEMO_SCRIPT_DIR}"/data/ecr-edges-filter.jq > /tmp/ecr-edges.json
 kli saidify --file /tmp/ecr-edges.json
-kli vc issue --name qvi --alias qvi --private --registry-name vLEI-qvi --schema EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw --recipient EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk --data @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-data.json --edges @/tmp/ecr-edges.json --rules @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-rules.json
+kli vc create --name qvi --alias qvi --private --registry-name vLEI-qvi --schema EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw --recipient EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk --data @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-data.json --edges @/tmp/ecr-edges.json --rules @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-rules.json
+SAID=$(kli vc list --name qvi --alias qvi --issued --said --schema EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw)
+kli ipex grant --name qvi --alias qvi --said "${SAID}" --recipient EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk
+
+kli ipex list --name qvi --alias qvi
+GRANT=$(python "${KERI_SCRIPT_DIR}"/list_ipex.py)
+python "${KERI_SCRIPT_DIR}"/send_admit.py "${GRANT}" EHMnCf8_nIemuPx-cUHaDQq8zSnQIFAurdEpwHpNbnvX
+kli ipex list --name qvi --alias qvi --poll
 python "${KERI_SCRIPT_DIR}"/list_person_credentials.py
