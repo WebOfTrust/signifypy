@@ -207,8 +207,8 @@ def test_ipex_admit():
                                                                                             mock_gsigs,
                                                                                             mock_end))
 
-    ipex = credentialing.Ipex(mock_client) # type: ignore
-    grant, gsigs, end = ipex.admit(hab=mock_hab, message="this is a test", dt=dt, grant=grant)
+    ipex = credentialing.Ipex(mock_client)  # type: ignore
+    grant, gsigs, end = ipex.admit(hab=mock_hab, message="this is a test", dt=dt, grant=grant.said)
 
     assert grant == mock_admit
     assert gsigs == mock_gsigs
