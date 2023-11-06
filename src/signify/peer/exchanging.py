@@ -21,7 +21,7 @@ class Exchanges:
         """
         self.client = client
 
-    def send(self, name, topic, sender, route, payload, embeds, recipients):
+    def send(self, name, topic, sender, route, payload, embeds, recipients, dig=None):
         """  Send exn message to recipients
 
         Parameters:
@@ -32,13 +32,14 @@ class Exchanges:
             payload (dict): payload of the exn message
             embeds (dict): map of label to bytes of encoded KERI event to embed in exn
             recipients (list[string]): list of qb64 recipient AIDs
+            dig (str): Optional qb64 SAID of exchange message reverse chain
 
         Returns:
             dict: operation response from KERIA
 
         """
 
-        exn, sigs, atc = self.createExchangeMessage(sender, route, payload, embeds)
+        exn, sigs, atc = self.createExchangeMessage(sender, route, payload, embeds, dig=dig)
         json = self.sendFromEvents(name, topic, exn=exn, sigs=sigs, atc=atc, recipients=recipients)
 
         return exn, sigs, json

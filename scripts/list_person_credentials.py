@@ -10,7 +10,6 @@ from keri.core.coring import Tiers
 from keri.vc.proving import Creder
 
 from signify.app.clienting import SignifyClient
-from signify.app.credentialing import CredentialTypes
 
 
 def list_credentials():
@@ -21,7 +20,9 @@ def list_credentials():
     client = SignifyClient(passcode=bran, tier=tier, url=url)
 
     identifiers = client.identifiers()
-    aids = identifiers.list()
+    res = identifiers.list()
+
+    aids = res['aids']
 
     assert len(aids) == 1
     aid = aids[0]['prefix']
@@ -29,6 +30,7 @@ def list_credentials():
     credentials = client.credentials()
 
     creds = credentials.list("BankUser", filtr={'-a-i': aid})
+    print(creds)
     assert len(creds) == 1
 
     creder = Creder(ked=creds[0]['sad'])

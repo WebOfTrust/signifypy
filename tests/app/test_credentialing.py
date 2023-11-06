@@ -207,11 +207,35 @@ def test_ipex_admit():
                                                                                             mock_gsigs,
                                                                                             mock_end))
 
-    ipex = credentialing.Ipex(mock_client) # type: ignore
-    grant, gsigs, end = ipex.admit(hab=mock_hab, message="this is a test", dt=dt, grant=grant)
+    ipex = credentialing.Ipex(mock_client)  # type: ignore
+    grant, gsigs, end = ipex.admit(hab=mock_hab, message="this is a test", dt=dt, grant=grant.said)
 
     assert grant == mock_admit
     assert gsigs == mock_gsigs
     assert end == mock_end
+
+    unstub()
+
+
+def test_submit_admit():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from requests import Response
+    mock_rep = mock(spec=Response, strict=True)
+
+    expect(mock_rep).json().thenReturn(dict(b='c'))
+
+    mock_admit = mock({'ked': dict(a='b')})
+    mock_gsigs = []
+    mock_end = ""
+    recp = ["ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"]
+
+    ipex = credentialing.Ipex(mock_client)  # type: ignore
+    body = {'exn': {'a': 'b'}, 'sigs': [], 'atc': '', 'rec': [['ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose']]}
+    expect(mock_client, times=1).post(f"/identifiers/aid1/ipex/admit", json=body).thenReturn(mock_rep)
+    rep = ipex.submitAdmit("aid1", exn=mock_admit, sigs=mock_gsigs, atc=mock_end, recp=recp)
+
+    assert rep == dict(b='c')
 
     unstub()

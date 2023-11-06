@@ -233,6 +233,9 @@ class Authenticater:
 
     def verify(self, rep, **kwargs):
         url = urlparse(rep.request.url)
+        if "SIGNIFY-RESOURCE" not in rep.headers:
+            raise kering.AuthNError("No valid signature from agent on response.")
+
         resource = rep.headers["SIGNIFY-RESOURCE"]
         if resource != self.agent.pre or not self.verifysig(rep.headers, rep.request.method, url.path):
             raise kering.AuthNError("No valid signature from agent on response.")
