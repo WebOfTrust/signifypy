@@ -1,6 +1,42 @@
-
-from mockito import mock, patch, unstub, expect, verifyNoUnwantedInteractions, when
+from keri import kering
+from mockito import mock, unstub, expect, verifyNoUnwantedInteractions
 import pytest
+
+
+def rt(a, b, c):
+    return True
+
+
+def test_verify():
+    agent = mock({'pre': "EEz01234"})
+    ctrl = mock()
+
+    from signify.core.authing import Authenticater
+    authn = Authenticater(agent, ctrl)
+
+    import requests
+    mock_request = mock({'method': 'GET', 'url': 'http://example.com/my_path', 'headers': {}, 'body': "a body for len"},
+                        spec=requests.Request, strict=True)
+    mock_rep = mock({'request': mock_request, 'headers': {}}, spec=requests.Response, strict=True)
+
+    with pytest.raises(kering.AuthNError):
+        authn.verify(rep=mock_rep)
+
+    mock_rep = mock({'request': mock_request, 'headers': {"SIGNIFY-RESOURCE": 'EABC'}}, spec=requests.Response,
+                    strict=True)
+
+    with pytest.raises(kering.AuthNError):
+        authn.verify(rep=mock_rep)
+
+    # Swap out verifysig so we can test verify
+    authn.verifysig = rt
+    mock_rep = mock({'request': mock_request, 'headers': {"SIGNIFY-RESOURCE": 'EEz01234'}}, spec=requests.Response,
+                    strict=True)
+
+    authn.verify(rep=mock_rep)
+    verifyNoUnwantedInteractions()
+    unstub()
+
 
 def test_agent(): 
     mock_verfer = mock()
@@ -71,7 +107,8 @@ def test_controller(bran):
     assert ctrl.event()[1].raw == (b'\x8a\xf6\x7f\x9e\xc8%\xc4\xe9\xc1<p\x8as\xd3[\x95k;\xe1\xe1\xce\x84\xcf\xe3'
                                    b'\t\xf9\x7f}\xeeb\xa6c\xe21-t\x17h\xad\x91\x14\xf7\x88L\xdc5\xaf\xc6'
                                    b'\x05\xc0\x01\xd3\x9f}\xbf\xe7\x06\x80\xfb\x80\x14*\x8c\x04')
-    
+
+
 def test_controller_derive():
     from signify.core.authing import Controller
     from keri.core.coring import Tiers
@@ -98,6 +135,7 @@ def test_controller_derive():
 
     assert serder.raw == (b'{"v":"KERI10JSON00006f_","d":"EIM66TjBMfwPnbwK7oZqbZyGz9nOeVmQHeH3NZxrsk8F",'
                           b'"i":"ABCDEFG","s":"0001","t":"rot"}')
+
 
 def test_approve_delegation():
     from signify.core.authing import Controller
@@ -131,6 +169,7 @@ def test_approve_delegation():
 
     verifyNoUnwantedInteractions()
     unstub()
+
 
 def test_approve_delegation(): 
     from signify.core.authing import Controller
@@ -172,6 +211,7 @@ def test_approve_delegation():
 
     verifyNoUnwantedInteractions()
     unstub()
+
 
 def test_controller_rotate_salty():
     from signify.core.authing import Controller
