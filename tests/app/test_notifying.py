@@ -41,13 +41,13 @@ def test_noticiation_mark_as_read():
     notes = Notifications(client=mock_client) # type: ignore
 
     from requests import Response
-    mock_response = mock({'status': 202}, spec=Response, strict=True)
+    mock_response = mock({'status_code': 202}, spec=Response, strict=True)
     expect(mock_client, times=1).put('/notifications/ABC123', json={}).thenReturn(mock_response)
 
     out = notes.markAsRead(nid="ABC123")
     assert out is True
 
-    mock_response = mock({'status': 404}, spec=Response, strict=True)
+    mock_response = mock({'status_code': 404}, spec=Response, strict=True)
     expect(mock_client, times=1).put('/notifications/DEF456', json={}).thenReturn(mock_response)
 
     out = notes.markAsRead(nid="DEF456")
@@ -65,17 +65,17 @@ def test_noticiation_delete():
     notes = Notifications(client=mock_client)  # type: ignore
 
     from requests import Response
-    mock_response = mock({'status': 202}, spec=Response, strict=True)
+    mock_response = mock({'status_code': 202}, spec=Response, strict=True)
     expect(mock_client, times=1).delete(path='/notifications/ABC123').thenReturn(mock_response)
 
     out = notes.delete(nid="ABC123")
     assert out is True
 
-    mock_response = mock({'status': 404}, spec=Response, strict=True)
+    mock_response = mock({'status_code': 404}, spec=Response, strict=True)
     expect(mock_client, times=1).delete(path='/notifications/DEF456').thenReturn(mock_response)
 
     out = notes.delete(nid="DEF456")
-    assert out is True
+    assert out is False
 
     verifyNoUnwantedInteractions()
     unstub()
