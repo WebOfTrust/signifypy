@@ -169,7 +169,6 @@ def run():
 
     print(f"Listing credentials...")
 
-    sleep(2)
     credentials = holder_client.credentials().list('holder', filtr={})
     while len(credentials) < 1:
         print('No credentials yet...')
