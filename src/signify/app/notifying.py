@@ -43,7 +43,7 @@ class Notifications:
 
         """
         res = self.client.put(f"/notifications/{nid}", json={})
-        return res.status == 202
+        return res.status_code == 202
 
     def delete(self, nid):
         """ Delete notification
@@ -56,6 +56,4 @@ class Notifications:
 
         """
         res = self.client.delete(path=f"/notifications/{nid}")
-        # TODO: Figure out why res doesn't have status??
-        # return res.status == 202
-        return True
+        return res.status_code == 202
