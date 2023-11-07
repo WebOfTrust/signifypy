@@ -22,7 +22,7 @@ from signify.app.clienting import SignifyClient
 URL = 'http://127.0.0.1:3901'
 BOOT_URL = 'http://127.0.0.1:3903'
 SCHEMA_SAID = 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao'
-WITNESS_AIDS = []; # ['BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha'];
+WITNESS_AIDS = ['BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha']
 SCHEMA_OOBI = 'http://127.0.0.1:7723/oobi/EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao'
 
 def random_passcode():
@@ -48,11 +48,11 @@ def connect():
     return client
 
 def create_identifier(client: SignifyClient, name: str):
-    result = client.identifiers().create(name, toad=0, wits=[])
+    result = client.identifiers().create(name, toad=str(len(WITNESS_AIDS)), wits=WITNESS_AIDS)
     op = result[2]
 
     while not op["done"]:
-        op = client.operations.get(op["name"])
+        op = client.operations().get(op["name"])
         sleep(1)
 
     hab = client.identifiers().get(name)
@@ -169,8 +169,8 @@ def run():
 
     print(f"Listing credentials...")
 
+    sleep(2)
     credentials = holder_client.credentials().list('holder', filtr={})
-    # , filtr={'-a-i': holder_prefix})
     while len(credentials) < 1:
         print('No credentials yet...')
         sleep(1)
