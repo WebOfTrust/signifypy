@@ -5,18 +5,14 @@ signify.app.clienting module
 
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
-import json
 from time import sleep
-
-import requests
-import datetime
-import pysodium
-from keri import kering
+from requests import post
+from pysodium import randombytes, crypto_sign_SEEDBYTES
 from keri.app import signing
-from keri.app.keeping import Algos
 from keri.core import coring, eventing
 from keri.core.coring import Tiers
 from keri.help import helping
+from keri.vc.proving import Creder
 from signify.app.clienting import SignifyClient
 
 URL = 'http://127.0.0.1:3901'
@@ -26,7 +22,7 @@ WITNESS_AIDS = ['BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha']
 SCHEMA_OOBI = 'http://127.0.0.1:7723/oobi/EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao'
 
 def random_passcode():
-    return coring.Salter(raw=pysodium.randombytes(pysodium.crypto_sign_SEEDBYTES)).qb64
+    return coring.Salter(raw=randombytes(crypto_sign_SEEDBYTES)).qb64
 
 def create_timestamp():
     return helping.nowIso8601()
@@ -35,7 +31,7 @@ def connect():
     client = SignifyClient(passcode=random_passcode(), tier=Tiers.low)
 
     evt, siger = client.ctrl.event()
-    res = requests.post(url=BOOT_URL + "/boot",
+    post(url=BOOT_URL + "/boot",
                         json=dict(
                             icp=evt.ked,
                             sig=siger.qb64,
@@ -158,7 +154,7 @@ def run():
         schema=SCHEMA_SAID,
         recipient=holder_prefix,
         data=data)
-    
+
     notification = wait_for_notification(holder_client, '/exn/ipex/grant')
     print(f"Received grant {notification}")
 
@@ -173,8 +169,10 @@ def run():
     while len(credentials) < 1:
         print('No credentials yet...')
         sleep(1)
-  
+
     print('Succeeded')
+    creder = Creder(ked=credentials[0]['sad'])
+    print(creder.pretty(size=5000))
 
 
 if __name__ == "__main__":
