@@ -18,30 +18,34 @@ from signify.app.clienting import SignifyClient
 URL = 'http://127.0.0.1:3901'
 BOOT_URL = 'http://127.0.0.1:3903'
 SCHEMA_SAID = 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao'
-WITNESS_AIDS = ['BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha']
+WITNESS_AIDS = []
 SCHEMA_OOBI = 'http://127.0.0.1:7723/oobi/EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao'
+
 
 def random_passcode():
     return coring.Salter(raw=randombytes(crypto_sign_SEEDBYTES)).qb64
 
+
 def create_timestamp():
     return helping.nowIso8601()
+
 
 def connect():
     client = SignifyClient(passcode=random_passcode(), tier=Tiers.low)
 
     evt, siger = client.ctrl.event()
     post(url=BOOT_URL + "/boot",
-                        json=dict(
-                            icp=evt.ked,
-                            sig=siger.qb64,
-                            stem=client.ctrl.stem,
-                            pidx=1,
-                            tier=client.ctrl.tier))
+         json=dict(
+             icp=evt.ked,
+             sig=siger.qb64,
+             stem=client.ctrl.stem,
+             pidx=1,
+             tier=client.ctrl.tier))
 
     client.connect(url=URL)
 
     return client
+
 
 def create_identifier(client: SignifyClient, name: str):
     result = client.identifiers().create(name, toad=str(len(WITNESS_AIDS)), wits=WITNESS_AIDS)
@@ -57,6 +61,7 @@ def create_identifier(client: SignifyClient, name: str):
 
     return hab["prefix"]
 
+
 def get_agent_oobi(client: SignifyClient, name: str):
     result = client.oobis().get(name, role='agent')
     return result["oobis"][0]
@@ -67,6 +72,7 @@ def resolve_oobi(client: SignifyClient, oobi: str, alias: str):
     while not op['done']:
         op = client.operations().get(op["name"])
         sleep(1)
+
 
 def create_registry(client: SignifyClient, name: str, registry_name: str):
     hab = client.identifiers().get(name)
@@ -79,10 +85,12 @@ def create_registry(client: SignifyClient, name: str, registry_name: str):
     registry = client.registries().get(name=name, registryName=registry_name)
     return registry
 
-def issue_credential(client: SignifyClient, name:str, registry_name: str, schema: str, recipient: str, data):
+
+def issue_credential(client: SignifyClient, name: str, registry_name: str, schema: str, recipient: str, data):
     hab = client.identifiers().get(name)
     registry = client.registries().get(name, registryName=registry_name)
-    creder, iserder, anc, sigs, op = client.credentials().create(hab, registry=registry, data=data, schema=schema, recipient=recipient, timestamp=create_timestamp())
+    creder, iserder, anc, sigs, op = client.credentials().create(hab, registry=registry, data=data, schema=schema,
+                                                                 recipient=recipient, timestamp=create_timestamp())
 
     while not op['done']:
         print(f"Waiting for creds... {op['name']}")
@@ -95,13 +103,16 @@ def issue_credential(client: SignifyClient, name:str, registry_name: str, schema
     iss = client.registries().serialize(iserder, anc)
 
     grant, sigs, end = client.ipex().grant(hab, recp=recipient, acdc=acdc,
-                                  iss=iss, message="",
-                                  anc=eventing.messagize(serder=anc, sigers=[coring.Siger(qb64=sig) for sig in sigs]),
-                                  dt=create_timestamp())
+                                           iss=iss, message="",
+                                           anc=eventing.messagize(serder=anc,
+                                                                  sigers=[coring.Siger(qb64=sig) for sig in sigs]),
+                                           dt=create_timestamp())
 
-    client.exchanges().sendFromEvents(name=name, topic="credential", exn=grant, sigs=sigs, atc=end, recipients=[recipient])
+    client.exchanges().sendFromEvents(name=name, topic="credential", exn=grant, sigs=sigs, atc=end,
+                                      recipients=[recipient])
 
     return
+
 
 def wait_for_notification(client: SignifyClient, route: str):
     while True:
@@ -110,6 +121,7 @@ def wait_for_notification(client: SignifyClient, route: str):
             if notif['a']['r'] == route:
                 return notif
         sleep(1)
+
 
 def admit_credential(client: SignifyClient, name: str, said: str, recipient: str):
     dt = create_timestamp()
@@ -147,7 +159,7 @@ def run():
         "LEI": "5493001KJTIIGC8Y1R17"
     }
 
-    creds = issue_credential(
+    issue_credential(
         client=issuer_client,
         name='issuer',
         registry_name='vLEI',
@@ -169,6 +181,7 @@ def run():
     while len(credentials) < 1:
         print('No credentials yet...')
         sleep(1)
+        credentials = holder_client.credentials().list('holder', filtr={})
 
     print('Succeeded')
     creder = Creder(ked=credentials[0]['sad'])
