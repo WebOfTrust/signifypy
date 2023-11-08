@@ -12,7 +12,7 @@ from signify.app.clienting import SignifyClient
 
 def list_notifications():
     url = "http://localhost:3901"
-    bran = b'PoLT1X6fDQliXyCuzCVuv'
+    bran = b'0123456789abcdefghsaw'
     tier = Tiers.low
 
     client = SignifyClient(passcode=bran, tier=tier, url=url)
@@ -20,16 +20,6 @@ def list_notifications():
 
     notes = notificatons.list()
     print(notes)
-
-    exchanges = client.exchanges()
-
-    note = notes['notes'][3]
-    said = note['a']['d']
-
-    res = exchanges.get("holder1", said)
-    exn = coring.Serder(ked=res['exn'])
-
-    print(exn.pretty(size=7000))
 
 
 if __name__ == "__main__":
