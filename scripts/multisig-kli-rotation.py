@@ -104,8 +104,8 @@ def create_multisig():
     while not op["done"]:
         op = operations.get(op["name"])
         sleep(1)
-    gAid = op["response"]
-    print(f"group multisig created {gAid}")
+    gid = op["response"]
+    print(f"group multisig created {gid}")
 
     # Join an interaction event with the group
     data = {"i": "EE77q3_zWb5ojgJr-R1vzsL5yiL4Nzm-bfSOQzQl02dy"}

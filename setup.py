@@ -85,7 +85,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'signify = signify.app.cli.signify:main',
+            'sigpy = signify.app.cli.sigpy:main',
         ]
     },
 )
