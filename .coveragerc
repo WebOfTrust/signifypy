@@ -5,3 +5,4 @@ omit =
     docs/*
     tests/*
     setup.py
+    src/signify/app/cli/*
