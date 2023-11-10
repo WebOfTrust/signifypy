@@ -57,3 +57,31 @@ class Groups:
 
         res = self.client.post(f"/identifiers/{name}/multisig/request", json=body)
         return res.json()
+
+    def join(self, name, rot, sigs, gid, smids, rmids):
+        """
+
+        Parameters:
+            name:
+            rot:
+            sigs:
+            gid:
+            smids:
+            rmids:
+
+        Returns:
+            dict: Operation
+
+        """
+
+        body = dict(
+            tpc='multisig',
+            rot=rot.ked,
+            sigs=sigs,
+            gid=gid,
+            smids=smids,
+            rmids=rmids,
+        )
+
+        res = self.client.post(f"/identifiers/{name}/multisig/join", json=body)
+        return res.json()

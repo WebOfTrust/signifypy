@@ -17,11 +17,12 @@ def list_contacts():
     tier = Tiers.low
 
     client = SignifyClient(passcode=bran, tier=tier, url=url)
-    contacts = client.contacts()
+    keyStates = client.keyStates()
 
-    cons = contacts.list()
+    multisig1 = keyStates.get("EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4")
+    multisig2 = keyStates.get("EJccSRTfXYF6wrUVuenAIHzwcx3hJugeiJsEKmndi5q1")
 
-    print(json.dumps(cons))
+    print(json.dumps([multisig1, multisig2]))
 
 
 if __name__ == "__main__":
