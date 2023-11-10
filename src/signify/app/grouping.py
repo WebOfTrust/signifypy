@@ -70,7 +70,7 @@ class Groups:
             rmids:
 
         Returns:
-            dict: ked of sent message
+            dict: Operation
 
         """
 
