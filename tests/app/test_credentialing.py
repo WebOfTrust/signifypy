@@ -69,12 +69,12 @@ def test_credentials_list():
 
     from requests import Response
     mock_response = mock({'json': lambda: {}}, spec=Response, strict=True)
-    expect(mock_client, times=1).post('/identifiers/aid1/credentials/query',
+    expect(mock_client, times=1).post('/credentials/query',
                                       json={'filter': {'genre': 'horror'},
                                             'sort': ['updside down'], 'skip': 10, 'limt': 10}).thenReturn(mock_response)
 
     from signify.app.credentialing import Credentials
-    Credentials(client=mock_client).list('aid1', filtr={'genre': 'horror'}, sort=['updside down'], skip=10,
+    Credentials(client=mock_client).list(filtr={'genre': 'horror'}, sort=['updside down'], skip=10,
                                          limit=10)  # type: ignore
 
     verify(mock_response, times=1).json()
@@ -83,7 +83,7 @@ def test_credentials_list():
     unstub()
 
 
-def test_credentials_query():
+def test_credentials_export():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
