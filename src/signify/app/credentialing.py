@@ -116,11 +116,10 @@ class Credentials:
         """
         self.client = client
 
-    def list(self, name, filtr=None, sort=None, skip=None, limit=None):
+    def list(self, filtr=None, sort=None, skip=None, limit=None):
         """
 
         Parameters:
-            name (str): Alias associated with the AID
             filtr (dict): Credential filter dict
             sort(list): list of SAD Path field references to sort by
             skip (int): number of credentials to skip at the front of the list
@@ -142,7 +141,7 @@ class Credentials:
             limt=limit
         )
 
-        res = self.client.post(f"/identifiers/{name}/credentials/query", json=json)
+        res = self.client.post(f"/credentials/query", json=json)
         return res.json()
 
     def export(self, name, said):

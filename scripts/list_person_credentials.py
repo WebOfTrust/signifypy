@@ -29,7 +29,7 @@ def list_credentials():
     print(aid)
     credentials = client.credentials()
 
-    creds = credentials.list("BankUser", filtr={'-a-i': aid})
+    creds = credentials.list(filtr={'-a-i': aid})
     print(creds)
     assert len(creds) == 1
 
