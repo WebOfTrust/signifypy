@@ -273,6 +273,9 @@ class Ipex:
         return grant, gsigs, end
 
     def admit(self, hab, message, grant, dt=None):
+        if not grant:
+            raise ValueError(f"invalid grant={grant}")
+
         exchanges = self.client.exchanges()
         data = dict(
             m=message,

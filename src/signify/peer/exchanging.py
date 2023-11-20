@@ -101,11 +101,10 @@ class Exchanges:
         res = self.client.post(f"/identifiers/{name}/exchanges", json=body)
         return res.json()
 
-    def get(self, name, said):
+    def get(self, said):
         """
 
         Parameters:
-            name (str): human readable identifier alias to send from
             said (str): qb64 SAID of the exn message to retrieve
 
         Returns:
@@ -113,5 +112,5 @@ class Exchanges:
 
         """
 
-        res = self.client.get(f"/identifiers/{name}/exchanges/{said}")
+        res = self.client.get(f"/exchanges/{said}")
         return res.json()

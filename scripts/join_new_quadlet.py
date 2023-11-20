@@ -56,7 +56,7 @@ def accept_join_request(client, name, group):
         if route == "/multisig/rot":
             said = payload['d']
 
-            res = exchanges.get(name=name, said=said)
+            res = exchanges.get(said=said)
             exn = res['exn']
             a = exn['a']
 
