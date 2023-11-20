@@ -219,7 +219,7 @@ def create_admit(client, participant, group, said, recp):
     exchanges = client.exchanges()
     ipex = client.ipex()
 
-    res = exchanges.get(participant, said)
+    res = exchanges.get(said)
     grant = coring.Serder(ked=res['exn'])
     ghab = get_aid(client, group)
     mhab = get_aid(client, participant)

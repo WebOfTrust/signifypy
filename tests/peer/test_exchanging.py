@@ -60,10 +60,10 @@ def test_exchanges_get(mockHelpingNowIso8601):
     from requests import Response
     mock_response = mock({'content': 'things I found'}, spec=Response, strict=True)
     expect(mock_response, times=1).json().thenReturn({'content': 'an exn'})
-    expect(mock_client, times=1).get("/identifiers/aid1/exchanges/EEE",).thenReturn(mock_response)
+    expect(mock_client, times=1).get("/exchanges/EEE",).thenReturn(mock_response)
 
     from signify.peer.exchanging import Exchanges
-    out = Exchanges(client=mock_client).get('aid1', 'EEE')  # type: ignore
+    out = Exchanges(client=mock_client).get('EEE')  # type: ignore
 
     assert out == {'content': 'an exn'}
 

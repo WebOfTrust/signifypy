@@ -81,9 +81,10 @@ kli saidify --file /tmp/ecr-edges.json
 kli vc create --name qvi --alias qvi --private --registry-name vLEI-qvi --schema EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw --recipient EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk --data @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-data.json --edges @/tmp/ecr-edges.json --rules @"${KERI_DEMO_SCRIPT_DIR}"/data/ecr-rules.json
 SAID=$(kli vc list --name qvi --alias qvi --issued --said --schema EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw)
 kli ipex grant --name qvi --alias qvi --said "${SAID}" --recipient EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk
+kli ipex list --name qvi --alias qvi --poll
 
-kli ipex list --name qvi --alias qvi
 GRANT=$(python "${KERI_SCRIPT_DIR}"/list_ipex.py)
+echo "Sending admit with ${GRANT}"
 python "${KERI_SCRIPT_DIR}"/send_admit.py "${GRANT}" EHMnCf8_nIemuPx-cUHaDQq8zSnQIFAurdEpwHpNbnvX
 kli ipex list --name qvi --alias qvi --poll
 python "${KERI_SCRIPT_DIR}"/list_person_credentials.py
