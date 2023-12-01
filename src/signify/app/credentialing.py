@@ -85,7 +85,7 @@ class Registries:
     @staticmethod
     def serialize(serder, anc):
         seqner = coring.Seqner(sn=anc.sn)
-        couple = seqner.qb64b + anc.saider.qb64b
+        couple = seqner.qb64b + anc.said.encode("utf-8")
         atc = bytearray()
         atc.extend(coring.Counter(code=coring.CtrDex.SealSourceCouples,
                                   count=1).qb64b)
@@ -197,7 +197,7 @@ class Credentials:
                                     rules=rules,
                                     status=regk)
 
-        dt = creder.subject["dt"] if "dt" in creder.subject else helping.nowIso8601()
+        dt = creder.attrib["dt"] if "dt" in creder.attrib else helping.nowIso8601()
         noBackers = 'NB' in registry['state']['c']
         if noBackers:
             iserder = eventing.issue(vcdig=creder.said, regk=regk, dt=dt)
@@ -221,7 +221,7 @@ class Credentials:
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=anc.raw)
 
-        res = self.create_from_events(hab=hab, creder=creder.ked, iss=iserder.ked, anc=anc.ked,
+        res = self.create_from_events(hab=hab, creder=creder.sad, iss=iserder.sad, anc=anc.sad,
                                       sigs=sigs)
 
         return creder, iserder, anc, sigs, res.json()

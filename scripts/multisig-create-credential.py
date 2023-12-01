@@ -55,7 +55,7 @@ def create_credential():
 
     (_, _, op) = identifiers.create("multisig3", bran="0123456789lmnopqrstuv")
     icp = op["response"]
-    serder = coring.Serder(ked=icp)
+    serder = serdering.SerderKERI(sad=icp)
     assert serder.pre == "EOGvmhJDBbJP4zeXaRun5vSz0O3_1zB10DwNMyjXlJEv"
     print(f"created AID {serder.pre}")
 

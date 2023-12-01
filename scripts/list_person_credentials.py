@@ -5,9 +5,8 @@ signify.app.clienting module
 
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
-
+from keri.core import serdering
 from keri.core.coring import Tiers
-from keri.vc.proving import Creder
 
 from signify.app.clienting import SignifyClient
 
@@ -33,7 +32,7 @@ def list_credentials():
     print(creds)
     assert len(creds) == 1
 
-    creder = Creder(ked=creds[0]['sad'])
+    creder = serdering.SerderACDC(sad=creds[0]['sad'])
     print(creder.pretty(size=5000))
 
     # said = creder.said

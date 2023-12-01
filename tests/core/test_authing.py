@@ -1,4 +1,14 @@
+# -*- encoding: utf-8 -*-
+"""
+SIGNIFY
+signify.app.test_authing module
+
+Testing authing with unit tests
+"""
+
 from keri import kering
+from keri.core import serdering
+from keri.core.coring import Tiers
 from mockito import mock, unstub, expect, verifyNoUnwantedInteractions
 import pytest
 
@@ -122,10 +132,20 @@ def test_controller_derive():
 
     from keri.core import coring
     e1 = dict(v=coring.Vstrings.json,
+              t="rot",
               d="",
-              i="ABCDEFG",
-              s="0001",
-              t="rot")
+              i="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV",
+              s="1",
+              p="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV",
+              kt="1",
+              k=["DMZy6qbgnKzvCE594tQ4SPs6pIECXTYQBH7BkC4hNY3E"],
+              nt="1",
+              n=["EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV"],
+              bt="0",
+              br=[],
+              ba=[],
+              a=[]
+              )
     
     _, e1 = coring.Saider.saidify(sad=e1)
 
@@ -133,8 +153,11 @@ def test_controller_derive():
     state = State(controller={"ee": e1})
     serder = ctrl.derive(state=state)
 
-    assert serder.raw == (b'{"v":"KERI10JSON00006f_","d":"EIM66TjBMfwPnbwK7oZqbZyGz9nOeVmQHeH3NZxrsk8F",'
-                          b'"i":"ABCDEFG","s":"0001","t":"rot"}')
+    assert serder.raw == (b'{"v":"KERI10JSON000160_","t":"rot","d":"ENvjVqUoq2SGDrFSzqI5AI37ZE4IAlKLdFGw'
+                          b'Uzf7Ir7I","i":"EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV","s":"1","p":"EM'
+                          b'PYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV","kt":"1","k":["DMZy6qbgnKzvCE594'
+                          b'tQ4SPs6pIECXTYQBH7BkC4hNY3E"],"nt":"1","n":["EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8'
+                          b'A3jjXxqYawLcV"],"bt":"0","br":[],"ba":[],"a":[]}')
 
 
 def test_approve_delegation():
@@ -160,7 +183,7 @@ def test_approve_delegation():
         pre="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
         dig="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
         sn=1,
-        data=[{'i': 'pre', 's': '1', 'd': 'said'}]).thenReturn(coring.Serder(ked=e1))
+        data=[{'i': 'pre', 's': '1', 'd': 'said'}]).thenReturn(serdering.SerderKERI(sad=e1))
 
     serder, sig = ctrl.approveDelegation(agent=mock_agent)
     

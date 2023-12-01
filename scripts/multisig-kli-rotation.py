@@ -42,7 +42,7 @@ def create_multisig():
 
     (_, _, op) = identifiers.create("multisig3", bran="0123456789lmnopqrstuv")
     icp = op["response"]
-    serder = coring.Serder(ked=icp)
+    serder = serdering.SerderKERI(sad=icp)
     assert serder.pre == "EOGvmhJDBbJP4zeXaRun5vSz0O3_1zB10DwNMyjXlJEv"
     print(f"created AID {serder.pre}")
 
@@ -124,17 +124,17 @@ def create_multisig():
         op = operations.get(op["name"])
         sleep(1)
 
-    ixn = coring.Serder(ked=op["response"])
+    ixn = serdering.SerderKERI(sad=op["response"])
     events = client.keyEvents()
     log = events.get(pre=ixn.pre)
     assert len(log) == 2
 
     for event in log:
-        print(coring.Serder(ked=event).pretty())
+        print(serdering.SerderKERI(sad=event).pretty())
 
     (_, _, op2) = identifiers.rotate("multisig3")
     rot = op2["response"]
-    serder = coring.Serder(ked=rot)
+    serder = serdering.SerderKERI(sad=rot)
     print(f"rotated multisig3 to {serder.sn}")
 
     input("hit any key when other two participants have rotated their AIDs")

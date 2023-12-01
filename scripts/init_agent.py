@@ -21,7 +21,7 @@ def create_agent():
     stem = "signify:controller"
 
     ims = input("Type of paste controller inception event:")
-    serder = coring.Serder(raw=ims.encode("utf-8"))
+    serder = serdering.SerderKERIraw=ims.encode("utf-8"))
     siger = coring.Siger(qb64=ims[serder.size:])
 
     res = requests.post(url="http://localhost:3903/boot",

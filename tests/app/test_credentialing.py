@@ -7,7 +7,7 @@ Testing credentialing with unit tests
 """
 from keri.peer import exchanging
 from keri.vdr import eventing as veventing
-from keri.core import eventing
+from keri.core import eventing, coring
 from mockito import mock, unstub, verify, verifyNoUnwantedInteractions, expect, ANY
 
 from signify.app import credentialing
@@ -26,7 +26,8 @@ def test_registries():
 
     from requests import Response
     mock_response = mock({'json': lambda: {}}, spec=Response, strict=True)
-    mock_hab = {'prefix': 'a_prefix', 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
+    mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
     name = "aid1"
     regName = "reg1"
 
@@ -109,8 +110,10 @@ def test_credentials_create():
     mock_manager = mock(spec=keeping.Manager, strict=True)
     mock_client.manager = mock_manager  # type: ignore
 
-    mock_hab = {'prefix': 'a_prefix', 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
-    mock_registry = {'regk': "a_regk", 'pre': 'a_prefix', 'state': {'c': ['NB']}}
+    mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose', 'name': 'aid1',
+                'state': {'s': '1', 'd': "ABCDEFG"}}
+    mock_registry = {'regk': "EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF",
+                     'pre': 'EHpwssa6tmD2U5W7-aogym-r1NobKBNXydP4MmaebA4O', 'state': {'c': ['NB']}}
     data = dict(dt="2023-09-27T16:27:14.376928+00:00", LEI="ABC1234567890AD4456")
     schema = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
     recp = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
@@ -122,18 +125,29 @@ def test_credentials_create():
     mock_response = mock({}, spec=Response, strict=True)
     expect(mock_response, times=1).json().thenReturn({'v': 'ACDC10JSON00014c_'})
 
-    body = {'acdc': {'v': 'ACDC10JSON00014c_', 'd': 'EPXTb9qRHquoEey-QsF-8Sks8nDoXBK6kdlP1G6WynJ3', 'i': 'a_prefix',
-                     'ri': 'a_regk', 's': 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao',
+    sad = {'v': 'ACDC10JSON00014c_', 'd': '',
+           'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+           'ri': 'a_regk', 's': 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao',
+           'a': {'d': 'EHpwssa6tmD2U5W7-aogym-r1NobKBNXydP4MmaebA4O',
+                 'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                 'dt': '2023-09-27T16:27:14.376928+00:00', 'LEI': 'ABC1234567890AD4456'}}
+
+    _, sad = coring.Saider.saidify(sad)
+
+    body = {'acdc': {'v': 'ACDC10JSON000196_', 'd': 'EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m',
+                     'i': 'EHpwssa6tmD2U5W7-aogym-r1NobKBNXydP4MmaebA4O',
+                     'ri': 'EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF',
+                     's': 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao',
                      'a': {'d': 'EHpwssa6tmD2U5W7-aogym-r1NobKBNXydP4MmaebA4O',
                            'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
                            'dt': '2023-09-27T16:27:14.376928+00:00', 'LEI': 'ABC1234567890AD4456'}},
-            'iss': {'v': 'KERI10JSON0000c7_', 't': 'iss', 'd': 'EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF',
-                    'i': 'EPXTb9qRHquoEey-QsF-8Sks8nDoXBK6kdlP1G6WynJ3', 's': '0', 'ri': 'a_regk',
-                    'dt': '2023-09-27T16:27:14.376928+00:00'},
-            'ixn': {'v': 'KERI10JSON0000f1_', 't': 'ixn', 'd': 'EJM1yhn99LOgCPRsEqpg8nKXQjkSE4-Q4dfvF3wm1Waz',
-                    'i': 'a_prefix', 's': '2', 'p': 'ABCDEFG', 'a': [
-                    {'i': 'EPXTb9qRHquoEey-QsF-8Sks8nDoXBK6kdlP1G6WynJ3', 's': '0',
-                     'd': 'EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF'}]}, 'sigs': ['a signature'],
+            'iss': {'v': 'KERI10JSON0000ed_', 't': 'iss', 'd': 'EE8yncw1LCyBVtZPtozAFi7qvGn9dRPwTbuq--ulOAtB',
+                    'i': 'EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m', 's': '0',
+                    'ri': 'EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF', 'dt': '2023-09-27T16:27:14.376928+00:00'},
+            'ixn': {'v': 'KERI10JSON000115_', 't': 'ixn', 'd': 'EC5KxyucpxnOpIpHe2QUPs9YeH1yGvkALg8NcWLYFe6a',
+                    'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose', 's': '2', 'p': 'ABCDEFG', 'a': [
+                    {'i': 'EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m', 's': '0',
+                     'd': 'EE8yncw1LCyBVtZPtozAFi7qvGn9dRPwTbuq--ulOAtB'}]}, 'sigs': ['a signature'],
             'salty': {'keeper': 'params'}}
 
     expect(mock_client, times=1).post(f"/identifiers/aid1/credentials", json=body).thenReturn(mock_response)
@@ -141,9 +155,9 @@ def test_credentials_create():
     from signify.app.credentialing import Credentials
     creder, iss, ixn, sigs, op = Credentials(client=mock_client).create(mock_hab, mock_registry, data, schema, recp)
 
-    assert creder.said == "EPXTb9qRHquoEey-QsF-8Sks8nDoXBK6kdlP1G6WynJ3"
-    assert iss.said == "EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF"
-    assert ixn.said == "EJM1yhn99LOgCPRsEqpg8nKXQjkSE4-Q4dfvF3wm1Waz"
+    assert creder.said == "EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m"
+    assert iss.said == "EE8yncw1LCyBVtZPtozAFi7qvGn9dRPwTbuq--ulOAtB"
+    assert ixn.said == "EC5KxyucpxnOpIpHe2QUPs9YeH1yGvkALg8NcWLYFe6a"
     assert op == {'v': 'ACDC10JSON00014c_'}
 
     verifyNoUnwantedInteractions()

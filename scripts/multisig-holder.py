@@ -76,7 +76,7 @@ def multisig_holder():
         op = client1.operations().get(op['name'])
         sleep(1)
 
-    exn = coring.Serder(ked=op["response"]['exn'])
+    exn = serdering.SerderKERI(sad=op["response"]['exn'])
     print(f"Challenge signed in {exn.said}")
     client1.challenges().responded("holder1", holder2['i'], exn.said)
 
@@ -171,7 +171,7 @@ def create_aid(client, name, bran, expected):
     identifiers = client.identifiers()
     (_, _, op) = identifiers.create(name, bran=bran)
     icp = op["response"]
-    serder = coring.Serder(ked=icp)
+    serder = serdering.SerderKERI(sad=icp)
     assert serder.pre == expected
     print(f"AID Created: {serder.pre}")
 
@@ -220,7 +220,7 @@ def create_admit(client, participant, group, said, recp):
     ipex = client.ipex()
 
     res = exchanges.get(said)
-    grant = coring.Serder(ked=res['exn'])
+    grant = serdering.SerderKERI(sad=res['exn'])
     ghab = get_aid(client, group)
     mhab = get_aid(client, participant)
 
