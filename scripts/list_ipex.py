@@ -5,10 +5,7 @@ signify.app.clienting module
 
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
-import sys
-
 from keri.core.coring import Tiers
-from keri.vc.proving import Creder
 
 from signify.app.clienting import SignifyClient
 

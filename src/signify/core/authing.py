@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from keri import kering
 from keri.app import keeping
-from keri.core import coring, eventing
+from keri.core import coring, eventing, serdering
 
 from keri.end import ending
 from signify.signifying import State
@@ -74,7 +74,7 @@ class Controller:
                                    toad="0",
                                    wits=[])
         elif type(state) is State:
-            return coring.Serder(ked=state.controller['ee'])
+            return serdering.SerderKERI(sad=state.controller['ee'])
 
     def approveDelegation(self, agent):
         seqner = coring.Seqner(sn=agent.sn)

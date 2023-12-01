@@ -9,7 +9,7 @@ from time import sleep
 
 import requests
 from keri import kering
-from keri.core import coring
+from keri.core import coring, serdering
 from keri.core.coring import Tiers
 
 from signify.app.clienting import SignifyClient
@@ -131,7 +131,7 @@ def create_aid(client, name, bran, pre):
         op = operations.get(op["name"])
         sleep(1)
 
-    icp = coring.Serder(ked=op["response"])
+    icp = serdering.SerderKERI(sad=op["response"])
     print(icp.pre)
     assert icp.pre == pre
 

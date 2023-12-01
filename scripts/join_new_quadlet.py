@@ -72,7 +72,7 @@ def accept_join_request(client, name, group):
 
             embeds = exn['e']
             ked = embeds['rot']
-            rot = coring.Serder(ked=ked)
+            rot = serdering.SerderKERI(sad=ked)
 
             keeper = client.manager.get(aid=hab)
             sigs = keeper.sign(ser=rot.raw, indexed=True, indices=[idx], ondices=[odx])

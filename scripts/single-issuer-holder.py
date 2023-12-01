@@ -9,10 +9,9 @@ from time import sleep
 from requests import post
 from pysodium import randombytes, crypto_sign_SEEDBYTES
 from keri.app import signing
-from keri.core import coring, eventing
+from keri.core import coring, eventing, serdering
 from keri.core.coring import Tiers
 from keri.help import helping
-from keri.vc.proving import Creder
 from signify.app.clienting import SignifyClient
 
 URL = 'http://127.0.0.1:3901'
@@ -184,7 +183,7 @@ def run():
         credentials = holder_client.credentials().list('holder', filtr={})
 
     print('Succeeded')
-    creder = Creder(ked=credentials[0]['sad'])
+    creder = serdering.SerderACDC(sad=credentials[0]['sad'])
     print(creder.pretty(size=5000))
 
 

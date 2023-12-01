@@ -40,7 +40,7 @@ def create_aid():
         op = operations.get(op["name"])
         sleep(1)
 
-    icp = coring.Serder(ked=op["response"])
+    icp = serdering.SerderKERI(sad=op["response"])
     assert icp.pre == "EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk"
     print(f"Person AID {icp.pre} created")
 
