@@ -72,8 +72,8 @@ def test_aiding_create():
 
     expect(mock_keeper, times=1).incept(transferable=True).thenReturn((keys, ndigs))
 
-    from keri.core import coring
-    mock_serder = mock({'raw': b'raw bytes', 'ked': {'a': 'key event dictionary'}}, spec=coring.Serder, strict=True)
+    from keri.core import serdering
+    mock_serder = mock({'raw': b'raw bytes', 'ked': {'a': 'key event dictionary'}}, spec=serdering.SerderKERI, strict=True)
 
     from keri.core import eventing
     expect(eventing, times=1).incept(keys=keys, isith='1', nsith='1', ndigs=ndigs, code='E', wits=[], toad='0', data=[]).thenReturn(mock_serder)
@@ -114,8 +114,8 @@ def test_aiding_create_delegation():
 
     expect(mock_keeper, times=1).incept(transferable=True).thenReturn((keys, ndigs))
 
-    from keri.core import coring
-    mock_serder = mock({'raw': b'raw bytes', 'ked': {'a': 'key event dictionary'}}, spec=coring.Serder, strict=True)
+    from keri.core import serdering
+    mock_serder = mock({'raw': b'raw bytes', 'ked': {'a': 'key event dictionary'}}, spec=serdering.SerderKERI, strict=True)
 
     from keri.core import eventing
     expect(eventing, times=1).delcept(keys=['a signer verfer qb64'], delpre='my delegation', isith='1', nsith='1',
@@ -234,8 +234,9 @@ def test_aiding_interact_no_data():
     mock_hab = {'prefix': 'hab prefix', 'name': 'aid1', 'state': {'s': '0', 'd': 'hab digest'}}
     expect(ids, times=1).get('aid1').thenReturn(mock_hab)
 
-    from keri.core import eventing, coring
-    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=coring.Serder, strict=True)
+    from keri.core import eventing, serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI,
+                       strict=True)
     expect(eventing, times=1).interact('hab prefix', sn=1, data=[None], dig='hab digest').thenReturn(mock_serder)
 
     mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
@@ -273,8 +274,8 @@ def test_aiding_interact_with_data():
     mock_hab = {'prefix': 'hab prefix', 'name': 'aid1', 'state': {'s': '0', 'd': 'hab digest'}}
     expect(ids, times=1).get('aid1').thenReturn(mock_hab)
 
-    from keri.core import eventing, coring
-    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=coring.Serder, strict=True)
+    from keri.core import eventing, serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI, strict=True)
     expect(eventing, times=1).interact('hab prefix', sn=1, data=[{'some': 'data'}, {'some': 'more'}], dig='hab digest').thenReturn(
         mock_serder)
 
@@ -323,8 +324,8 @@ def test_aiding_rotate():
     expect(mock_keeper, times=1).rotate(ncodes=['A'], transferable=True, states=[{'i': 'state 1'}, {'i': 'state 2'}],
                              rstates=[{'i': 'rstate 1'}, {'i': 'rstate 2'}]).thenReturn((keys, ndigs))
 
-    from keri.core import coring
-    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=coring.Serder, strict=True)
+    from keri.core import serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI, strict=True)
 
     from keri.core import eventing
     expect(eventing, times=1).rotate(pre='hab prefix', keys=['key1'], dig='hab digest', sn=1, isith='1', nsith='1',
@@ -362,8 +363,8 @@ def test_aiding_add_end_role():
     mock_hab = {'prefix': 'hab prefix', 'name': 'aid1'}
     expect(ids, times=1).get('aid1').thenReturn(mock_hab)
 
-    from keri.core import coring
-    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=coring.Serder, strict=True)
+    from keri.core import serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI, strict=True)
     expect(ids, times=1).makeEndRole('hab prefix', 'agent', None, None).thenReturn(mock_serder)
 
     from signify.core import keeping
@@ -397,8 +398,8 @@ def test_aiding_sign():
     from signify.app.aiding import Identifiers
     ids = Identifiers(client=mock_client) # type: ignore
 
-    from keri.core import coring
-    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=coring.Serder, strict=True)
+    from keri.core import serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI, strict=True)
 
     mock_hab = {'prefix': 'hab prefix', 'name': 'aid1'}
     expect(ids, times=1).get('aid1').thenReturn(mock_hab)
@@ -422,7 +423,7 @@ def test_aiding_member():
     mock_client = mock(spec=SignifyClient, strict=True)
 
     from signify.app.aiding import Identifiers
-    ids = Identifiers(client=mock_client) # type: ignore
+    ids = Identifiers(client=mock_client)  # type: ignore
 
     from requests import Response
     mock_response = mock(spec=Response, strict=True)

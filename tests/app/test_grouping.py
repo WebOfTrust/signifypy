@@ -88,8 +88,8 @@ def test_grouping_join():
     groups = Groups(client=mock_client)  # type: ignore
 
     from requests import Response
-    from keri.core.coring import Serder
-    mock_rot = mock({'ked': {}}, spec=Serder, strict=True)
+    from keri.core.serdering import SerderKERI
+    mock_rot = mock({'ked': {}}, spec=SerderKERI, strict=True)
     mock_sigs = ['sig']
     mock_smids = ['1', '2', '3']
     mock_rmids = ['a', 'b', 'c']
