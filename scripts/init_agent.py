@@ -9,7 +9,7 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 import pytest
 import requests
 from keri import kering
-from keri.core import coring
+from keri.core import coring, serdering
 from keri.core.coring import Tiers
 
 from signify.app.clienting import SignifyClient
@@ -21,7 +21,7 @@ def create_agent():
     stem = "signify:controller"
 
     ims = input("Type of paste controller inception event:")
-    serder = serdering.SerderKERIraw=ims.encode("utf-8"))
+    serder = serdering.SerderKERI(raw=ims.encode("utf-8"))
     siger = coring.Siger(qb64=ims[serder.size:])
 
     res = requests.post(url="http://localhost:3903/boot",

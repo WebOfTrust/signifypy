@@ -80,7 +80,7 @@ class Exchanges:
         Parameters:
             name (str): human readable identifier alias to send from
             topic (Str): message topic
-            exn (Serder): peer-to-peer message to send
+            exn (SerderKERI): peer-to-peer message to send
             sigs (list): qb64 signatures over the exn
             atc (string|bytes): additional attachments for exn (usually pathed signatures over embeds)
             recipients (list[string]): list of qb64 recipient AIDs
