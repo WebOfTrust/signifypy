@@ -11,7 +11,7 @@ import requests
 from keri import kering
 from keri.app import signing
 from keri.app.keeping import Algos
-from keri.core import coring, eventing
+from keri.core import coring, eventing, serdering
 from keri.core.coring import Tiers
 from signify.app.clienting import SignifyClient
 
@@ -164,7 +164,7 @@ def create_credential():
 
     prefixer = coring.Prefixer(qb64=iserder.pre)
     seqner = coring.Seqner(sn=iserder.sn)
-    acdc = signing.serialize(creder, prefixer, seqner, iserder.saider)
+    acdc = signing.serialize(creder, prefixer, seqner, coring.Saider(qb64=iserder.said))
     iss = registries.serialize(iserder, anc)
 
     embeds = dict(

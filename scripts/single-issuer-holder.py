@@ -98,7 +98,7 @@ def issue_credential(client: SignifyClient, name: str, registry_name: str, schem
 
     prefixer = coring.Prefixer(qb64=iserder.pre)
     seqner = coring.Seqner(sn=iserder.sn)
-    acdc = signing.serialize(creder, prefixer, seqner, iserder.saider)
+    acdc = signing.serialize(creder, prefixer, seqner, coring.Saider(qb64=iserder.said))
     iss = client.registries().serialize(iserder, anc)
 
     grant, sigs, end = client.ipex().grant(hab, recp=recipient, acdc=acdc,
@@ -176,11 +176,11 @@ def run():
 
     print(f"Listing credentials...")
 
-    credentials = holder_client.credentials().list('holder', filtr={})
+    credentials = holder_client.credentials().list(filtr={'-a-i': holder_prefix})
     while len(credentials) < 1:
         print('No credentials yet...')
         sleep(1)
-        credentials = holder_client.credentials().list('holder', filtr={})
+        credentials = holder_client.credentials().list(filtr={'-a-i': holder_prefix})
 
     print('Succeeded')
     creder = serdering.SerderACDC(sad=credentials[0]['sad'])

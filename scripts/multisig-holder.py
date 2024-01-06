@@ -12,7 +12,7 @@ import requests
 from keri import kering
 from keri.app import signing
 from keri.app.keeping import Algos
-from keri.core import coring, eventing
+from keri.core import coring, eventing, serdering
 from keri.core.coring import Tiers
 from keri.help import helping
 
@@ -136,8 +136,19 @@ def multisig_holder():
         sleep(1)
         notes = notificatons.list()
 
+    print(f"\nissuer notifications..")
     print(notes)
 
+    print(f"\nChecking credentials for holder1...")
+    credentials = client1.credentials().list()
+    while len(credentials) < 1:
+        print('  No credentials yet...')
+        sleep(1)
+        credentials = client1.credentials().list()
+
+    print('holder1 recieved credential: ')
+    creder = serdering.SerderACDC(sad=credentials[0]['sad'])
+    print(creder.pretty(size=5000))
 
 def create_agent(bran, controller, agent):
     url = "http://localhost:3901"
@@ -224,7 +235,7 @@ def create_admit(client, participant, group, said, recp):
     ghab = get_aid(client, group)
     mhab = get_aid(client, participant)
 
-    admit, sigs, end = ipex.admit(ghab, "", grant, dt=TIME)
+    admit, sigs, end = ipex.admit(ghab, "", said, dt=TIME)
 
     mstate = ghab["state"]
     seal = eventing.SealEvent(i=ghab["prefix"], s=mstate["ee"]["s"], d=mstate["ee"]["d"])
@@ -239,7 +250,7 @@ def create_admit(client, participant, group, said, recp):
                    payload=dict(gid=ghab["prefix"]),
                    embeds=embeds, recipients=recp)
 
-    exchanges.sendFromEvents(group, "credential", admit, sigs, atc.decode("utf-8"), [grant.ked['i']])
+    ipex.submitAdmit(ghab['name'], exn=admit, sigs=sigs, atc=end, recp=grant.ked['i'])
 
 
 def get_aid(client, name):
@@ -323,7 +334,7 @@ def create_credential(client, holder):
 
     prefixer = coring.Prefixer(qb64=iserder.pre)
     seqner = coring.Seqner(sn=iserder.sn)
-    acdc = signing.serialize(creder, prefixer, seqner, iserder.saider)
+    acdc = signing.serialize(creder, prefixer, seqner, coring.Saider(qb64=iserder.said))
     iss = registries.serialize(iserder, anc)
 
     grant, sigs, end = ipex.grant(issuer, recp=holder['i'], acdc=acdc,
