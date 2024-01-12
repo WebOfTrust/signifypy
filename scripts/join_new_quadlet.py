@@ -7,7 +7,7 @@ join new quadlet script
 
 from time import sleep
 
-from keri.core import eventing, coring
+from keri.core import eventing, coring, serdering
 from keri.core.coring import Tiers
 from signify.app.clienting import SignifyClient
 
