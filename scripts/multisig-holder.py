@@ -250,7 +250,7 @@ def create_admit(client, participant, group, said, recp):
                    payload=dict(gid=ghab["prefix"]),
                    embeds=embeds, recipients=recp)
 
-    ipex.submitAdmit(ghab['name'], exn=admit, sigs=sigs, atc=end, recp=grant.ked['i'])
+    ipex.submitAdmit(ghab['name'], exn=admit, sigs=sigs, atc=end, recp=[grant.ked['i']])
 
 
 def get_aid(client, name):

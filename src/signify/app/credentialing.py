@@ -272,6 +272,31 @@ class Ipex:
 
         return grant, gsigs, end
 
+    def submitGrant(self, name, exn, sigs, atc, recp):
+        """  Send precreated grant message to recipients
+
+        Parameters:
+            name (str): human readable identifier alias to send from
+            exn (Serder): peer-to-peer message to send
+            sigs (list): qb64 signatures over the exn
+            atc (string|bytes): additional attachments for exn (usually pathed signatures over embeds)
+            recp (list[string]): qb64 recipient AID
+
+        Returns:
+            dict: operation response from KERIA
+
+        """
+
+        body = dict(
+            exn=exn.ked,
+            sigs=sigs,
+            atc=atc,
+            rec=recp
+        )
+
+        res = self.client.post(f"/identifiers/{name}/ipex/grant", json=body)
+        return res.json()
+
     def admit(self, hab, message, grant, dt=None):
         if not grant:
             raise ValueError(f"invalid grant={grant}")
@@ -291,9 +316,8 @@ class Ipex:
 
         Parameters:
             name (str): human readable identifier alias to send from
-            exn (Serder): peer-to-peer message to send
-            sigs (list): qb64 signatures over the exn
-            atc (string|bytes): additional attachments for exn (usually pathed signatures over embeds)
+            exn (bytes): stream byte string of peer-to-peer message to send
+            admit (bytes): stream byte string of admit exn message
             recp (list[string]): qb64 recipient AID
 
         Returns:
@@ -305,8 +329,9 @@ class Ipex:
             exn=exn.ked,
             sigs=sigs,
             atc=atc,
-            rec=[recp]
+            rec=recp
         )
 
         res = self.client.post(f"/identifiers/{name}/ipex/admit", json=body)
         return res.json()
+
