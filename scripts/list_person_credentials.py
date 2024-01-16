@@ -13,7 +13,9 @@ from signify.app.clienting import SignifyClient
 
 def list_credentials():
     url = "http://localhost:3901"
-    bran = b'0123456789abcdefghijk'
+    # bran = b'0123456789abcdefghijk'
+    # bran = b'PoLT1X6fDQliXyCuzCVuv'
+    bran = b'Pwt6yLXRSs7IjZ23tRHIV'
     tier = Tiers.low
 
     client = SignifyClient(passcode=bran, tier=tier, url=url)
@@ -23,13 +25,16 @@ def list_credentials():
 
     aids = res['aids']
 
-    assert len(aids) == 1
-    aid = aids[0]['prefix']
+    assert len(aids) == 2
+
+    res = identifiers.get("holder")
+
+    aid = res['prefix']
     print(aid)
     credentials = client.credentials()
 
     creds = credentials.list(filtr={'-a-i': aid})
-    print(creds)
+    # print(creds)
     assert len(creds) == 1
 
     creder = serdering.SerderACDC(sad=creds[0]['sad'])
