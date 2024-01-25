@@ -7,7 +7,7 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 from time import sleep
 
-from keri.core import coring
+from keri.core import serdering
 from keri.core.coring import Tiers
 
 from signify.app.clienting import SignifyClient
