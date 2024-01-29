@@ -36,7 +36,7 @@ class Identifiers:
         return res.json()
 
     def create(self, name, transferable=True, isith="1", nsith="1", wits=None, toad="0", proxy=None, delpre=None,
-               dcode=MtrDex.Blake3_256, data=None, algo=Algos.salty, **kwargs):
+               dcode=MtrDex.Blake3_256, data=None, algo=Algos.salty, estOnly=False, DnD=False, **kwargs):
 
         # Get the algo specific key params
         keeper = self.client.manager.new(algo, self.client.pidx, **kwargs)
@@ -45,6 +45,12 @@ class Identifiers:
 
         wits = wits if wits is not None else []
         data = [data] if data is not None else []
+        cnfg = []
+        if estOnly:
+            cnfg.append(eventing.TraitCodex.EstOnly)
+        if DnD:
+            cnfg.append(eventing.TraitCodex.DoNotDelegate)
+
         if delpre is not None:
             serder = eventing.delcept(delpre=delpre,
                                       keys=keys,
@@ -54,6 +60,7 @@ class Identifiers:
                                       code=dcode,
                                       wits=wits,
                                       toad=toad,
+                                      cnfg=cnfg,
                                       data=data)
         else:
             serder = eventing.incept(keys=keys,
@@ -63,6 +70,7 @@ class Identifiers:
                                      code=dcode,
                                      wits=wits,
                                      toad=toad,
+                                     cnfg=cnfg,
                                      data=data)
 
         sigs = keeper.sign(serder.raw)
