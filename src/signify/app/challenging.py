@@ -41,11 +41,10 @@ class Challenges:
 
         return res
 
-    def verify(self, name, source, words):
+    def verify(self, source, words):
         """ Ask Agent to verify a given sender signed the provided words
 
         Parameters:
-            name (str): human readable name of AID environment
             source(str): qb64 AID of source of challenge response to check for
             words(list): list of challenge words to check for
         """
@@ -54,14 +53,13 @@ class Challenges:
             words=words
         )
 
-        res = self.client.post(f"/challenges/{name}/verify/{source}", json=json)
+        res = self.client.post(f"/challenges_verify/{source}", json=json)
         return res.json()
 
-    def responded(self, name, source, said):
+    def responded(self, source, said):
         """ Mark challenge response as signed and accepted
 
         Parameters:
-            name (str): human readable name of AID environment
             source (str): qb64 AID of signer
             said (str): qb64 AID of exn message representing the signed response
 
@@ -73,5 +71,5 @@ class Challenges:
             said=said
         )
 
-        self.client.put(f"/challenges/{name}/verify/{source}", json=json)
+        self.client.put(f"/challenges_verify/{source}", json=json)
         return True
