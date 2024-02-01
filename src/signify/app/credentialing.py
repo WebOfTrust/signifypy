@@ -144,11 +144,10 @@ class Credentials:
         res = self.client.post(f"/credentials/query", json=json)
         return res.json()
 
-    def export(self, name, said):
+    def export(self, said):
         """
 
         Parameters:
-            name (str): Name associated with the AID
             said (str): SAID of credential to export
         Returns:
             credential (bytes): exported credential
@@ -156,7 +155,7 @@ class Credentials:
         """
         headers = dict(accept="application/json+cesr")
 
-        res = self.client.get(f"/identifiers/{name}/credentials/{said}", headers=headers)
+        res = self.client.get(f"/credentials/{said}", headers=headers)
         return res.content
 
     def create(self, hab, registry, data, schema, recipient=None, edges=None, rules=None, private=False,

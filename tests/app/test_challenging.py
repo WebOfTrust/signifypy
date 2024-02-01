@@ -42,13 +42,13 @@ def test_challenge_verify():
     words = ["word", "one", "two", "three"]
     from requests import Response
     mock_response = mock({}, spec=Response, strict=True)
-    expect(mock_client, times=1).post(f'/challenges/{name}/verify/{source}',
+    expect(mock_client, times=1).post(f'/challenges_verify/{source}',
                                       json=dict(words=words)).thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn(
         {"done": False}
     )
 
-    out = chas.verify(name, source, words)
+    out = chas.verify(source, words)
     assert out["done"] is False
 
     verifyNoUnwantedInteractions()
@@ -67,10 +67,10 @@ def test_challenge_responded():
     said = "E456"
     from requests import Response
     mock_response = mock({}, spec=Response, strict=True)
-    expect(mock_client, times=1).put(f'/challenges/{name}/verify/{source}',
+    expect(mock_client, times=1).put(f'/challenges_verify/{source}',
                                      json=dict(said=said)).thenReturn(mock_response)
 
-    out = chas.responded(name, source, said)
+    out = chas.responded(source, said)
     assert out is True
 
     verifyNoUnwantedInteractions()
