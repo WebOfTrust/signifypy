@@ -39,6 +39,7 @@ def create_agent():
                             stem=client.ctrl.stem,
                             pidx=1,
                             tier=client.ctrl.tier))
+    print(res.json())
 
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")

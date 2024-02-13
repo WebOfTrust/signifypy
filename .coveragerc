@@ -1,0 +1,8 @@
+[run]
+omit =
+    scripts/*
+    integration/*
+    docs/*
+    tests/*
+    setup.py
+    src/signify/app/cli/*

@@ -7,7 +7,7 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 from time import sleep
 
-from keri.core import coring
+from keri.core import serdering
 from keri.core.coring import Tiers
 
 from signify.app.clienting import SignifyClient
@@ -25,7 +25,7 @@ def create_aid():
     oobis = client.oobis()
 
     aids = identifiers.list()
-    assert aids == []
+    assert aids['aids'] == []
 
     wits = [
         "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha",
@@ -34,12 +34,13 @@ def create_aid():
     ]
 
     op = identifiers.create("BankUser", bran="0123456789abcdefghijk", wits=wits, toad="2")
+    op = op[2]
 
     while not op["done"]:
         op = operations.get(op["name"])
         sleep(1)
 
-    icp = coring.Serder(ked=op["response"])
+    icp = serdering.SerderKERI(sad=op["response"])
     assert icp.pre == "EBcIURLpxmVwahksgrsGW6_dUw0zBhyEHYFk17eWrZfk"
     print(f"Person AID {icp.pre} created")
 

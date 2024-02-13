@@ -4,18 +4,20 @@ SignifyPy
 signify.core.httping module
 
 """
+from typing import Tuple
 
 
-def parseRangeHeader(header: str):
+def parseRangeHeader(header: str, typ: str) -> Tuple[int, int, int]:
     """ Parse start, end and total from HTTP Content-Range header value
 
     Parameters:
         header (str): HTTP Content-Range header value
+        typ (str): Type in range header
 
-    Returns:
+    Returns: Tuple[int, int int]
 
     """
-    data = header.lstrip("aids ")
+    data = header.lstrip(f"{typ} ")
 
     values = data.split("/")
     rng = values[0].split("-")

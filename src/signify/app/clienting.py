@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 """
-KERI
+Signify
 signify.app.clienting module
 
 """
@@ -15,16 +15,8 @@ from keri.help import helping
 from requests import HTTPError
 from requests.auth import AuthBase
 
-from signify.core import keeping
-from signify.core.authing import Authenticater, Controller, Agent
-
-
-@dataclass
-class State:
-    controller: dict = None
-    agent : dict = None
-    ridx: int = None
-    pidx: int = None
+from signify.core import keeping, authing
+from signify.signifying import State
 
 
 class SignifyClient:
@@ -39,14 +31,13 @@ class SignifyClient:
         self.tier = tier
         self.extern_modules = extern_modules
 
-        self.ctrl = None
         self.mgr = None
         self.session = None
         self.agent = None
         self.authn = None
         self.base = None
 
-        self.ctrl = Controller(bran=self.bran, tier=self.tier)
+        self.ctrl = authing.Controller(bran=self.bran, tier=self.tier)
         if url is not None:
             self.connect(url)
 
@@ -62,10 +53,10 @@ class SignifyClient:
         self.pidx = state.pidx
 
         # Create agent representing the AID of the cloud agent
-        self.agent = Agent(state=state.agent)
+        self.agent = authing.Agent(state=state.agent)
 
         # Create controller representing local auth AID
-        self.ctrl = Controller(bran=self.bran, tier=self.tier, state=state.controller)
+        self.ctrl = authing.Controller(bran=self.bran, tier=self.tier, state=state.controller)
         self.mgr = keeping.Manager(salter=self.ctrl.salter, extern_modules=self.extern_modules)
 
         if self.agent.delpre != self.ctrl.pre:
@@ -74,7 +65,7 @@ class SignifyClient:
         if self.ctrl.serder.sn == 0:
             self.approveDelegation()
 
-        self.authn = Authenticater(agent=self.agent, ctrl=self.ctrl)
+        self.authn = authing.Authenticater(agent=self.agent, ctrl=self.ctrl)
         self.session.auth = SignifyAuth(self.authn)
         self.session.hooks = dict(response=self.authn.verify)
 
@@ -243,6 +234,34 @@ class SignifyClient:
     def endroles(self):
         from signify.app.ending import EndRoleAuthorizations
         return EndRoleAuthorizations(client=self)
+
+    def notifications(self):
+        from signify.app.notifying import Notifications
+        return Notifications(client=self)
+
+    def groups(self):
+        from signify.app.grouping import Groups
+        return Groups(client=self)
+
+    def registries(self):
+        from signify.app.credentialing import Registries
+        return Registries(client=self)
+
+    def exchanges(self):
+        from signify.peer.exchanging import Exchanges
+        return Exchanges(client=self)
+
+    def ipex(self):
+        from signify.app.credentialing import Ipex
+        return Ipex(client=self)
+
+    def challenges(self):
+        from signify.app.challenging import Challenges
+        return Challenges(client=self)
+
+    def contacts(self):
+        from signify.app.contacting import Contacts
+        return Contacts(client=self)
 
     @staticmethod
     def raiseForStatus(res):

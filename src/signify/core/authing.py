@@ -7,10 +7,11 @@ signify.core.authing module
 from urllib.parse import urlparse
 
 from keri import kering
-from keri.app.keeping import SaltyCreator
-from keri.core import coring, eventing
+from keri.app import keeping
+from keri.core import coring, eventing, serdering
 
 from keri.end import ending
+from signify.signifying import State
 
 
 class Agent:
@@ -45,7 +46,7 @@ class Controller:
         self.tier = tier
 
         self.salter = coring.Salter(qb64=self.bran)
-        creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=tier)
+        creator = keeping.SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=tier)
 
         self.signer = creator.create(ridx=0, tier=tier).pop()
         self.nsigner = creator.create(ridx=0 + 1, tier=tier).pop()
@@ -63,12 +64,8 @@ class Controller:
         siger = self.signer.sign(ser=self.serder.raw, index=0)
         return self.serder, siger
 
-    @property
-    def verfers(self):
-        return self.signer.verfers
-
     def derive(self, state):
-        if state is None or state['ee']['s'] == "0":
+        if state is None or (type(state) is dict and state['ee']['s'] == "0"):
             return eventing.incept(keys=self.keys,
                                    isith="1",
                                    nsith="1",
@@ -76,8 +73,8 @@ class Controller:
                                    code=coring.MtrDex.Blake3_256,
                                    toad="0",
                                    wits=[])
-        else:
-            return coring.Serder(ked=state.controller['ee'])
+        elif type(state) is State:
+            return serdering.SerderKERI(sad=state.controller['ee'])
 
     def approveDelegation(self, agent):
         seqner = coring.Seqner(sn=agent.sn)
@@ -125,10 +122,11 @@ class Controller:
         nsigner = self.salter.signer(transferable=False)
 
         # This is the previous next signer so it will be used to sign the rotation and then have 0 signing authority
-        creator = SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=self.tier)
+        #here
+        creator = keeping.SaltyCreator(salt=self.salter.qb64, stem=self.stem, tier=self.tier)
         signer = creator.create(ridx=0 + 1, tier=self.tier).pop()
 
-        ncreator = SaltyCreator(salt=nsalter.qb64, stem=self.stem, tier=self.tier)
+        ncreator = keeping.SaltyCreator(salt=nsalter.qb64, stem=self.stem, tier=self.tier)
         self.signer = ncreator.create(ridx=0, tier=self.tier).pop()
         self.nsigner = ncreator.create(ridx=0 + 1, tier=self.tier).pop()
 
@@ -167,7 +165,7 @@ class Controller:
                 dnxt = decrypter.decrypt(cipher=cipher).qb64
 
                 # Now we have the AID salt, use it to verify against the current public keys
-                acreator = SaltyCreator(dnxt, stem=salty["stem"], tier=salty["tier"])
+                acreator = keeping.SaltyCreator(dnxt, stem=salty["stem"], tier=salty["tier"])
                 signers = acreator.create(codes=salty["icodes"], pidx=salty["pidx"], kidx=salty["kidx"],
                                           transferable=salty["transferable"])
                 pubs = aid["state"]["k"]
@@ -235,6 +233,9 @@ class Authenticater:
 
     def verify(self, rep, **kwargs):
         url = urlparse(rep.request.url)
+        if "SIGNIFY-RESOURCE" not in rep.headers:
+            raise kering.AuthNError("No valid signature from agent on response.")
+
         resource = rep.headers["SIGNIFY-RESOURCE"]
         if resource != self.agent.pre or not self.verifysig(rep.headers, rep.request.method, url.path):
             raise kering.AuthNError("No valid signature from agent on response.")
@@ -309,7 +310,7 @@ class Authenticater:
             fields (Optional[list]): Optional list of Signature Input fields to sign.
 
         Returns:
-            headers (Hict): Modified headers with new Signature and Signature Input fields
+            headers (dict): Modified headers with new Signature and Signature Input fields
 
         """
 

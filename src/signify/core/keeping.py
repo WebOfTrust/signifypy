@@ -9,7 +9,7 @@ signify.core.keeping module
 import importlib
 
 from keri import kering
-from keri.app.keeping import SaltyCreator, Algos, RandyCreator
+from keri.app import keeping
 from keri.core import coring
 from keri.core.coring import Tiers, MtrDex
 
@@ -32,16 +32,16 @@ class Manager:
 
     def new(self, algo, pidx, **kwargs):
         match algo:
-            case Algos.salty:
+            case keeping.Algos.salty:
                 return SaltyKeeper(salter=self.salter, pidx=pidx, **kwargs)
 
-            case Algos.group:
+            case keeping.Algos.group:
                 return GroupKeeper(mgr=self, **kwargs)
 
-            case Algos.randy:
+            case keeping.Algos.randy:
                 return RandyKeeper(salter=self.salter, **kwargs)
 
-            case Algos.extern:
+            case keeping.Algos.extern:
                 typ = kwargs["extern_type"]
                 if typ not in self.modules:
                     raise kering.ConfigurationError(f"unsupported external module type {typ}")
@@ -52,16 +52,18 @@ class Manager:
 
     def get(self, aid):
         pre = coring.Prefixer(qb64=aid["prefix"])
-        if Algos.salty in aid:
-            kwargs = aid[Algos.salty]
+        if keeping.Algos.salty in aid:
+            kwargs = aid[keeping.Algos.salty]
+            if "pidx" not in kwargs:
+                raise kering.ConfigurationError(f"missing pidx in {kwargs}")
             return SaltyKeeper(salter=self.salter, **kwargs)
 
-        elif Algos.randy in aid:
-            kwargs = aid[Algos.randy]
+        elif keeping.Algos.randy in aid:
+            kwargs = aid[keeping.Algos.randy]
             return RandyKeeper(salter=self.salter, transferable=pre.transferable, **kwargs)
 
-        elif Algos.group in aid:
-            kwargs = aid[Algos.group]
+        elif keeping.Algos.group in aid:
+            kwargs = aid[keeping.Algos.group]
             return GroupKeeper(mgr=self, **kwargs)
 
 
@@ -70,13 +72,13 @@ class BaseKeeper:
     @property
     def algo(self):
         if isinstance(self, SaltyKeeper):
-            return Algos.salty
+            return keeping.Algos.salty
         elif isinstance(self, RandyKeeper):
-            return Algos.randy
+            return keeping.Algos.randy
         elif isinstance(self, GroupKeeper):
-            return Algos.group
+            return keeping.Algos.group
         else:
-            return Algos.extern
+            return keeping.Algos.extern
 
     @staticmethod
     def __sign__(ser, signers, indexed=False, indices=None, ondices=None):
@@ -174,17 +176,15 @@ class SaltyKeeper(BaseKeeper):
         # sxlt is encrypted salt for this AID or None if incepting
         if bran is not None:
             bran = coring.MtrDex.Salt_128 + 'A' + bran[:21]
-            self.creator = SaltyCreator(salt=bran, stem=stem, tier=tier)
+            self.creator = keeping.SaltyCreator(salt=bran, stem=stem, tier=tier)
             self.sxlt = self.encrypter.encrypt(self.creator.salt).qb64
-
         elif sxlt is None:
-            self.creator = SaltyCreator(stem=stem, tier=tier)
+            self.creator = keeping.SaltyCreator(stem=stem, tier=tier)
             self.sxlt = self.encrypter.encrypt(self.creator.salt).qb64
-
         else:
             self.sxlt = sxlt
             ciph = coring.Cipher(qb64=self.sxlt)
-            self.creator = SaltyCreator(self.decrypter.decrypt(cipher=ciph).qb64, stem=stem, tier=tier)
+            self.creator = keeping.SaltyCreator(self.decrypter.decrypt(cipher=ciph).qb64, stem=stem, tier=tier)
 
     def params(self):
         """ Get AID parameters to store externally """
@@ -290,7 +290,7 @@ class RandyKeeper(BaseKeeper):
         self.ncodes = ncodes
         self.dcode = dcode
 
-        self.creator = RandyCreator()
+        self.creator = keeping.RandyCreator()
 
     def params(self):
         return dict(
@@ -355,7 +355,7 @@ class GroupKeeper(BaseKeeper):
 
         return self.gkeys, self.gdigs
 
-    def sign(self, ser, indexed=True, rotate=False, **_):
+    def sign(self, ser, indexed=True, **_):
         key = self.mhab['state']['k'][0]
         ndig = self.mhab['state']['n'][0]
 

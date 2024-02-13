@@ -1,332 +1,763 @@
 # -*- encoding: utf-8 -*-
 """
 SIGNIFY
-signify.app.clienting module
+signify.app.test_clienting module
 
-Testing clienting with integration tests that require a running KERIA Cloud Agent
+Testing clienting with unit tests
 """
-import os
-from time import sleep
-import requests
-import responses
 
+from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, expect
 import pytest
-from keri import kering
-from keri.app.cli.commands.witness import start as wstart
-from keri.app.keeping import Algos
-from keri.core.coring import Tiers, Serder
 
-from keria.app.cli.commands import start as kstart
-from keria.testing.testing_helper import Helpers
+def test_signify_client_defaults():
+    from signify.app.clienting import SignifyClient
+    patch(SignifyClient, 'connect', lambda str: None)
+    client = SignifyClient(passcode='abcdefghijklmnop01234', url='http://example.com')
 
-from signify.app.clienting import SignifyClient
+    assert client.bran == 'abcdefghijklmnop01234'
+    assert client.pidx == 0
+    from keri.core.coring import Tiers
+    assert client.tier == Tiers.low
+    assert client.extern_modules is None
 
-import threading
+    from signify.core.authing import Controller
+    assert isinstance(client.ctrl, Controller)
+    assert client.mgr is None
+    assert client.session is None
+    assert client.agent is None
+    assert client.authn is None
+    assert client.base is None
 
-TEST_DIR = os.path.dirname(os.path.abspath(__file__))
-cwd = os.getcwd()
+    verify(SignifyClient, times=1).connect('http://example.com')
 
-host="localhost"
-adminport=3901
-httpport=3902
-bootport=3903
-agentPre = "EEXekkGu9IAzav6pZVJhkLnjtjM5v3AcyA-pdKUcaGei"
-ctrlPre = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
-base=""
-kname="keria"
-kbran=""
-wname="witness"
-wbase=""
-walias="witness"
-wbran=""
-wtcp=5631
-whttp=5632
-wexpire=0.0
-bran = "0123456789abcdefghijk"
-burl = f"http://{host}:{bootport}/boot"
-url = f"http://{host}:{adminport}"
-configDir=f"{cwd}/tests/"
-configFile="demo-witness-oobis.json"
-wconfigDir=f"{cwd}/tests/"
-wconfigFile="demo-witness-oobis.json"
-wit1 = "BBilc4-L3tFUnfM_wJr4S4OJanAv_VmF_dJNN6vkf2Ha"
-wit2 = "BLskRTInXnMxWaGqcpSyMgo0nYbalW99cGZESrz3zapM"
-wit3 = "BIKKuvBwpmDVA4Ds-EpL5bt9OqPzWPja2LigFYZN2YfX"
+    verifyNoUnwantedInteractions()
+    unstub()
 
-@pytest.fixture
-def setup():
-    print("Before test", )
-    Helpers.remove_test_dirs(ctrlPre)
+def test_signify_client_bad_passcode_length():
+    from keri import kering
+    with pytest.raises(kering.ConfigurationError, match='too short'):
+        from signify.app.clienting import SignifyClient
+        SignifyClient(passcode='too short')
+
+def test_signify_client_connect_no_delegation():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_init_controller = mock(spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    expect(requests, times=1).Session().thenReturn(mock_session)
+
+    from signify.signifying import State
+    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=State, strict=True)
+    expect(client, times=1).states().thenReturn(mock_state)
+
+    from signify.core import authing
+    mock_agent = mock({'delpre': 'a prefix'}, spec=authing.Agent, strict=True)
+    expect(authing, times=1).Agent(state=mock_state.agent).thenReturn(mock_agent)
+
+    from keri.core import serdering
+    mock_serder = mock({'sn': 1}, spec=serdering.Serder, strict=True)
+    from keri.core import coring
+    mock_salter = mock(spec=coring.Salter, strict=True)
+    mock_controller = mock({'pre': 'a prefix', 'salter': mock_salter, 'serder': mock_serder}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low, state=mock_state.controller).thenReturn(mock_controller)
     
-    # Start witness network
-    wThread=threading.Thread(target=wstart.runWitness,
-                             args=[wname,
-               wbase,
-               walias,
-               wbran,
-               wtcp,
-               whttp,
-               0.0,
-               wconfigDir,
-               wconfigFile])
-    wThread.daemon=True
-    wThread.start()
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    expect(keeping, times=1).Manager(salter=mock_salter, extern_modules=None).thenReturn(mock_manager)
+
+    from signify.core import authing
+    mock_authenticator = mock({'verify': lambda: {'hook1': 'hook1 info', 'hook2': 'hook2 info'}}, spec=authing.Authenticater, strict=True)
+    expect(authing, times=1).Authenticater(agent=mock_agent, ctrl=mock_controller).thenReturn(mock_authenticator)
+
+    from signify.app import clienting
+    mock_signify_auth = mock(spec=clienting.SignifyAuth, strict=True)
+    expect(clienting, times=1).SignifyAuth(mock_authenticator).thenReturn(mock_signify_auth)
+
+    client.connect('http://example.com')
+
+    assert client.pidx == mock_state.pidx
+    assert client.session.auth == mock_signify_auth #type: ignore
+    assert client.session.hooks == {'response': mock_authenticator.verify} #type: ignore
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_connect_delegation():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_init_controller = mock(spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    expect(requests, times=1).Session().thenReturn(mock_session)
+
+    from signify.signifying import State
+    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=State, strict=True)
+    expect(client, times=1).states().thenReturn(mock_state)
+
+    from signify.core import authing
+    mock_agent = mock({'delpre': 'a prefix'}, spec=authing.Agent, strict=True)
+    expect(authing, times=1).Agent(state=mock_state.agent).thenReturn(mock_agent)
+
+    from keri.core import serdering
+    mock_serder = mock({'sn': 0}, spec=serdering.Serder, strict=True)
+    from keri.core import coring
+    mock_salter = mock(spec=coring.Salter, strict=True)
+    mock_controller = mock({'pre': 'a prefix', 'salter': mock_salter, 'serder': mock_serder}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low, state=mock_state.controller).thenReturn(mock_controller)
     
-    # Start keria cloud agent
-    kThread=threading.Thread(target=kstart.runAgent,
-                     args=[kname,
-                    base,
-                    kbran,
-                    adminport,
-                    httpport,
-                    bootport,
-                    configFile,
-                    configDir,
-                    0.0])
-    kThread.daemon=True
-    kThread.start()
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    expect(keeping, times=1).Manager(salter=mock_salter, extern_modules=None).thenReturn(mock_manager)
 
-@pytest.fixture
-def teardown():
-    print("After test")
+    expect(client, times=1).approveDelegation()
+
+    from signify.core import authing
+    mock_authenticator = mock({'verify': lambda: {'hook1': 'hook1 info', 'hook2': 'hook2 info'}}, spec=authing.Authenticater, strict=True)
+    expect(authing, times=1).Authenticater(agent=mock_agent, ctrl=mock_controller).thenReturn(mock_authenticator)
+
+    from signify.app import clienting
+    mock_signify_auth = mock(spec=clienting.SignifyAuth, strict=True)
+    expect(clienting, times=1).SignifyAuth(mock_authenticator).thenReturn(mock_signify_auth)
+
+    client.connect('http://example.com')
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_connect_bad_scheme():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    from keri.kering import ConfigurationError
+    with pytest.raises(ConfigurationError, match='invalid scheme foo for SignifyClient'):
+        client.connect('foo://example.com')
+
+def test_signify_client_connect_bad_delegation():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_init_controller = mock(spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
     
-def test_init(setup,teardown):
-    # Try with bran that is too short
-    with pytest.raises(kering.ConfigurationError):
-        SignifyClient(passcode=bran[:16], tier=Tiers.low)
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
 
-    # Try with an invalid URL
-    with pytest.raises(kering.ConfigurationError):
-        SignifyClient(url="ftp://www.example.com", passcode=bran, tier=Tiers.low)
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    expect(requests, times=1).Session().thenReturn(mock_session)
 
-    client = SignifyClient(passcode=bran)
-    assert client.controller == ctrlPre
+    from signify.signifying import State
+    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=State, strict=True)
+    expect(client, times=1).states().thenReturn(mock_state)
 
-    tier = Tiers.low
-    client = SignifyClient(passcode=bran, tier=tier)
-    assert client.controller == ctrlPre
+    from signify.core import authing
+    mock_agent = mock({'delpre': 'a prefix'}, spec=authing.Agent, strict=True)
+    expect(authing, times=1).Agent(state=mock_state.agent).thenReturn(mock_agent)
 
-    tier = Tiers.med
-    client = SignifyClient(passcode=bran, tier=tier)
-    assert client.controller != ctrlPre
-
-    tier = Tiers.high
-    client = SignifyClient(passcode=bran, tier=tier)
-    assert client.controller != ctrlPre
-
-def test_connect(setup,teardown):
-    client = SignifyClient(passcode=bran, tier=Tiers.low)
-    assert client.controller == ctrlPre
-
-    evt, siger = client.ctrl.event()
-
-    print(evt.pretty())
-    print(siger.qb64)
-    res = requests.post(url=burl,
-                        json=dict(
-                            icp=evt.ked,
-                            sig=siger.qb64,
-                            stem=client.ctrl.stem,
-                            pidx=1,
-                            tier=client.ctrl.tier))
-
-    if res.status_code != requests.codes.accepted:
-        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
-
-    client.connect(url=url)
-    assert client.agent is not None
-    assert client.agent.pre == agentPre
-    assert client.agent.delpre == ctrlPre
-
-    identifiers = client.identifiers()
-    aids = identifiers.list()
-    assert aids == []
-
-    op1 = identifiers.create("aid1", bran=f"{bran}_1")
-    aid = op1["response"]
-    icp = Serder(ked=aid)
-    assert icp.pre == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
-    assert len(icp.verfers) == 1
-    assert icp.verfers[0].qb64 == "DPmhSfdhCPxr3EqjxzEtF8TVy0YX7ATo0Uc8oo2cnmY9"
-    assert len(icp.digers) == 1
-    assert icp.digers[0].qb64 == "EAORnRtObOgNiOlMolji-KijC_isa3lRDpHCsol79cOc"
-    assert icp.tholder.num == 1
-    assert icp.ntholder.num == 1
-
-    rpy = identifiers.makeEndRole(pre=icp.pre, eid="EPGaq6inGxOx-VVVEcUb_KstzJZldHJvVsHqD4IPxTWf")
-    print(rpy.pretty())
-    assert rpy.ked['a']['cid'] == "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
-    assert rpy.ked['a']['eid'] == "EPGaq6inGxOx-VVVEcUb_KstzJZldHJvVsHqD4IPxTWf"
-
-    aids = identifiers.list()
-    assert len(aids) == 1
-    aid = aids.pop()
-
-    salt = aid[Algos.salty]
-    assert aid['name'] == "aid1"
-    assert salt["pidx"] == 0
-    assert aid["prefix"] == icp.pre
-    assert salt["stem"] == "signify:aid"
-
-    op2 = identifiers.create("aid2", count=3, ncount=3, isith="2", nsith="2", bran="0123456789lmnopqrstuv")
-    aid2 = op2["response"]
-    icp2 = Serder(ked=aid2)
-    print(icp2.pre)
-    assert icp2.pre == "EP10ooRj0DJF0HWZePEYMLPl-arMV-MAoTKK-o3DXbgX"
-    assert len(icp2.verfers) == 3
-    assert icp2.verfers[0].qb64 == "DGBw7C7AfC7jbD3jLLRS3SzIWFndM947TyNWKQ52iQx5"
-    assert icp2.verfers[1].qb64 == "DD_bHYFsgWXuCbz3SD0HjCIe_ITjRvEoCGuZ4PcNFFDz"
-    assert icp2.verfers[2].qb64 == "DEe9u8k0fm1wMFAuOIsCtCNrpduoaV5R21rAcJl0awze"
-    assert len(icp2.digers) == 3
-    print([diger.qb64 for diger in icp2.digers])
-    assert icp2.digers[0].qb64 == "EML5FrjCpz8SEl4dh0U15l8bMRhV_O5iDcR1opLJGBSH"
-    assert icp2.digers[1].qb64 == "EJpKquuibYTqpwMDqEFAFs0gwq0PASAHZ_iDmSF3I2Vg"
-    assert icp2.digers[2].qb64 == "ELplTAiEKdobFhlf-dh1vUb2iVDW0dYOSzs1dR7fQo60"
-    assert icp2.tholder.num == 2
-    assert icp2.ntholder.num == 2
-
-    aids = identifiers.list()
-    assert len(aids) == 2
-    aid = aids[1]
-    assert aid['name'] == "aid2"
-    assert aid["prefix"] == icp2.pre
-    salt = aid[Algos.salty]
-    assert salt["pidx"] == 1
-    assert salt["stem"] == "signify:aid"
-
-    op3 = identifiers.rotate("aid1")
-    ked = op3["response"]
-    rot = Serder(ked=ked)
-
-    assert rot.said == "EBQABdRgaxJONrSLcgrdtbASflkvLxJkiDO0H-XmuhGg"
-    assert rot.sn == 1
-    assert len(rot.digers) == 1
-    assert rot.verfers[0].qb64 == "DHgomzINlGJHr-XP3sv2ZcR9QsIEYS3LJhs4KRaZYKly"
-    assert rot.digers[0].qb64 == "EJMovBlrBuD6BVeUsGSxLjczbLEbZU9YnTSud9K4nVzk"
-
-    op4 = identifiers.interact("aid1", data=[icp.pre])
-    ked = op4["response"]
-    ixn = Serder(ked=ked)
-    assert ixn.said == "ENsmRAg_oM7Hl1S-GTRMA7s4y760lQMjzl0aqOQ2iTce"
-    assert ixn.sn == 2
-    assert ixn.ked["a"] == [icp.pre]
-
-    aid = identifiers.get("aid1")
-    state = aid["state"]
-    assert state['s'] == '2'
-    assert state['f'] == '2'
-    assert state['et'] == 'ixn'
-    assert state['d'] == ixn.said
-    assert state['ee']['d'] == rot.said
-
-    events = client.keyEvents()
-    log = events.get(pre=aid["prefix"])
-    assert len(log) == 3
-    serder = Serder(ked=log[0])
-    assert serder.pre == icp.pre
-    assert serder.said == icp.said
-    serder = Serder(ked=log[1])
-    assert serder.pre == rot.pre
-    assert serder.said == rot.said
-    serder = Serder(ked=log[2])
-    assert serder.pre == ixn.pre
-    assert serder.said == ixn.said
-
-    print(identifiers.list())
-
-def test_witnesses(setup,teardown):
-    client = SignifyClient(passcode=bran, tier=Tiers.low)
-    assert client.controller == ctrlPre
-    evt, siger = client.ctrl.event()
-    res = requests.post(url=burl,
-                        json=dict(
-                            icp=evt.ked,
-                            sig=siger.qb64,
-                            stem=client.ctrl.stem,
-                            pidx=1,
-                            tier=client.ctrl.tier))
+    from keri.core import serdering
+    mock_serder = mock({'sn': 1}, spec=serdering.Serder, strict=True)
+    from keri.core import coring
+    mock_salter = mock(spec=coring.Salter, strict=True)
+    mock_controller = mock({'pre': 'a different prefix', 'salter': mock_salter, 'serder': mock_serder}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low, state=mock_state.controller).thenReturn(mock_controller)
     
-    if res.status_code != requests.codes.accepted:
-        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    expect(keeping, times=1).Manager(salter=mock_salter, extern_modules=None).thenReturn(mock_manager)
+
+    from keri.kering import ConfigurationError
+    with pytest.raises(ConfigurationError, match='commitment to controller AID missing in agent inception event'):
+        client.connect('https://example.com')
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_approve_delegation():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
     
-    client.connect(url=url)
-    assert client.agent is not None
-    assert client.agent.delpre == ctrlPre
-    assert client.agent.pre == agentPre
+    from signify.core import authing
+    mock_agent = mock({'delpre': 'a prefix'}, spec=authing.Agent, strict=True)
 
-    identifiers = client.identifiers()
-    operations = client.operations()
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.agent = mock_agent # type: ignore
 
-    # Use witnesses
-    op = identifiers.create("aid1", bran="canIGetAWitnessSaltGreaterThan21", toad="2", 
-                            wits=[wit1, wit2, wit3])
+    from keri.core import serdering
+    mock_serder = mock({'ked': 'key event dictionary'}, spec=serdering.Serder, strict=True)
+    signatures = ["signature 1", "signature 2"]
+    expect(client.ctrl, times=1).approveDelegation(mock_agent).thenReturn((mock_serder, signatures))
 
-    while not op["done"]:
-        op = operations.get(op["name"])
-        sleep(1)
+    expected_data = {'ixn': 'key event dictionary', 'sigs': ['signature 1', 'signature 2']}
+    expect(client, times=1).put(path="/agent/a_prefix?type=ixn", json=expected_data)
 
-    icp1 = Serder(ked=op["response"])
-    assert icp1.pre == "EGTFIbnFoA7G-f4FHzzXUMp6VAgQfJ-2nXqzfb5hVwKa"
-    assert icp1.ked['b'] == [wit1,
-                             wit2,
-                             wit3]
-    assert icp1.ked['bt'] == "2"
+    client.approveDelegation()
 
-    aid1 = identifiers.get("aid1")
-    assert aid1["prefix"] == icp1.pre
-    assert len(aid1["windexes"]) == 3
+    verifyNoUnwantedInteractions()
+    unstub()
 
-    aids = identifiers.list()
-    assert len(aids) == 1
-    aid = aids.pop()
-    assert aid['prefix'] == icp1.pre
+def test_signify_client_rotate():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    expect(mock_controller, times=1).rotate(nbran="new bran", aids=["aid1", "aid2"]).thenReturn({'rotate': 'data'})
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    expect(client, times=1).put(path="/agent/a_prefix", json={'rotate': 'data'})
+
+    client.rotate("new bran", ["aid1", "aid2"])
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_properties():
+    from keri.core import serdering
+    mock_serder = mock(spec=serdering.Serder, strict=True)
+
+    from keri.core import coring
+    mock_salter = mock(spec=coring.Salter, strict=True)
+
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({
+        'pre': 'a_prefix', 
+        'serder': mock_serder, 
+        'salter': mock_salter
+        }, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    client.mgr = mock_manager # type: ignore
+
+    assert client.controller == "a_prefix"
+    assert client.icp == mock_serder
+    assert client.salter == mock_salter
+    assert client.manager == mock_manager
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+@pytest.mark.parametrize("data,expected_pidx", [
+    ({'controller': 'controller info', 'agent': 'agent info'}, 0),
+    ({'controller': 'controller info', 'agent': 'agent info', 'pidx': 1}, 1),
+])
+def test_signify_client_states(data, expected_pidx):
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    mock_response = mock({'status_code': 200}, spec=requests.Response, strict=True)
+    expect(mock_session, times=1).get(url='http://example.com/agent/a_prefix').thenReturn(mock_response)
+
+    expect(mock_response, times=1).json().thenReturn(data)
+
+    states = client.states()
+
+    assert states.controller == 'controller info'
+    assert states.agent == 'agent info'
+    assert states.pidx == expected_pidx
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_states_agent_error():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    mock_response = mock({'status_code': 404}, spec=requests.Response, strict=True)
+    expect(mock_session, times=1).get(url='http://example.com/agent/a_prefix').thenReturn(mock_response)
+
+    from keri import kering
+    with pytest.raises(kering.ConfigurationError, match='agent does not exist for controller a_prefix'):
+        client.states()
+
+    unstub()
+    verifyNoUnwantedInteractions()
+
+@pytest.mark.parametrize("status_code,expected", [
+    (200, False), 
+    (204, True), 
+    (500, False), 
+    (400, False),
+])
+def test_signify_client_save_old_salt(status_code, expected):
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    
+    import requests
+    mock_response = mock({'status_code': status_code}, spec=requests.Response, strict=True)
+
+    expected_data = {'salt': 'salty'}
+    expect(client, times=1).put('/salt/a_prefix', json=expected_data).thenReturn(mock_response)
+    
+    assert client._save_old_salt("salty") == expected
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+@pytest.mark.parametrize("status_code,expected", [
+    (200, False), 
+    (204, True), 
+    (500, False), 
+    (400, False),
+])
+def test_signify_client_delete_old_salt(status_code, expected):
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    
+    import requests
+    mock_response = mock({'status_code': status_code}, spec=requests.Response, strict=True)
+
+    expect(client, times=1).delete('/salt/a_prefix').thenReturn(mock_response)
+    
+    assert client._delete_old_salt() == expected
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_get():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    mock_response = mock({'ok': True}, spec=requests.Response, strict=True)
+    expect(mock_session).get('http://example.com/my_path', params={'a': 'param'}, headers={'a': 'header'}, json={'a': 'body'}).thenReturn(mock_response)
+
+    out = client.get('my_path', params={'a': 'param'}, headers={'a': 'header'}, body={'a': 'body'})
+    assert out == mock_response
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_get_not_ok():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    mock_response = mock({'ok': False}, spec=requests.Response, strict=True)
+    from mockito import kwargs
+    expect(mock_session).get('http://example.com/my_path', **kwargs).thenReturn(mock_response)
+
+    expect(client, times=1).raiseForStatus(mock_response)
+    client.get('my_path', params={'a': 'param'}, headers={'a': 'header'}, body={'a': 'body'})
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_stream():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    from mockito import kwargs
+    import sseclient
+    expect(sseclient, times=1).SSEClient('http://example.com/my_path', session=mock_session, **kwargs).thenReturn([])
+
+    # probably a cleaner way to do this
+    with pytest.raises(StopIteration):
+        next(client.stream('my_path', params={'a': 'param'}, headers={'a': 'header'}, body={'a': 'body'}))
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_delete():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    mock_response = mock({'ok': True}, spec=requests.Response, strict=True)
+    from mockito import kwargs
+    expect(mock_session).delete('http://example.com/my_path', params={'a': 'param'}, headers={'a': 'header'}).thenReturn(mock_response)
+
+    out = client.delete('my_path', params={'a': 'param'}, headers={'a': 'header'})
+    assert out == mock_response
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_delete_not_ok():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session  # type: ignore
+
+    mock_response = mock({'ok': False}, spec=requests.Response, strict=True)
+    from mockito import kwargs
+    expect(mock_session).delete('http://example.com/my_path', **kwargs).thenReturn(mock_response)
+
+    expect(client, times=1).raiseForStatus(mock_response)
+    client.delete('my_path', params={'a': 'param'}, headers={'a': 'header'})
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_post():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    mock_response = mock({'ok': True}, spec=requests.Response, strict=True)
+    expect(mock_session).post('http://example.com/my_path', json={'a': 'json'}, params={'a': 'param'}, headers={'a': 'header'}).thenReturn(mock_response)
+
+    json = {'a': 'json'}
+    out = client.post('my_path', json, params={'a': 'param'}, headers={'a': 'header'})
+    assert out == mock_response
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_post_not_ok():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    mock_response = mock({'ok': False}, spec=requests.Response, strict=True)
+    from mockito import kwargs
+    expect(mock_session).post('http://example.com/my_path', **kwargs).thenReturn(mock_response)
+    expect(client, times=1).raiseForStatus(mock_response)
+
+    json = {'a': 'json'}
+    client.post('my_path', json, params={'a': 'param'}, headers={'a': 'header'})
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_put():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    mock_response = mock({'ok': True}, spec=requests.Response, strict=True)
+    expect(mock_session).put('http://example.com/my_path', json={'a': 'json'}, params={'a': 'param'}, headers={'a': 'header'}).thenReturn(mock_response)
+
+    json = {'a': 'json'}
+    out = client.put('my_path', json, params={'a': 'param'}, headers={'a': 'header'})
+    assert out == mock_response
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_put_not_ok():
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_controller = mock({'pre': 'a_prefix'}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_controller)
+
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.base = 'http://example.com'
+
+    import requests
+    mock_session = mock(spec=requests.Session, strict=True)
+    client.session = mock_session # type: ignore
+
+    mock_response = mock({'ok': False}, spec=requests.Response, strict=True)
+    from mockito import kwargs
+    expect(mock_session).put('http://example.com/my_path', **kwargs).thenReturn(mock_response)
+    expect(client, times=1).raiseForStatus(mock_response)
+
+    json = {'a': 'json'}
+    client.put('my_path', json, params={'a': 'param'}, headers={'a': 'header'})
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_identfiers():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.identifiers()
+
+    from signify.app.aiding import Identifiers
+    assert type(out) is Identifiers
+    assert out.client == client
+
+def test_signify_client_operations():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.operations()
+
+    from signify.app.coring import Operations
+    assert type(out) is Operations
+    assert out.client == client
+
+def test_signify_client_oobis():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.oobis()
+
+    from signify.app.coring import Oobis
+    assert type(out) is Oobis
+    assert out.client == client
+
+def test_signify_client_credentials():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.credentials()
+
+    from signify.app.credentialing import Credentials
+    assert type(out) is Credentials
+    assert out.client == client
+
+def test_signify_client_key_states():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.keyStates()
+
+    from signify.app.coring import KeyStates
+    assert type(out) is KeyStates
+    assert out.client == client
+
+def test_signify_client_key_events():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.keyEvents()
+
+    from signify.app.coring import KeyEvents
+    assert type(out) is KeyEvents
+    assert out.client == client
 
 
-def test_delegation(setup,teardown):
-    client = SignifyClient(passcode=bran, tier=Tiers.low)
-    print(client.controller)
-    assert client.controller == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+def test_signify_client_escrows():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
 
-    evt, siger = client.ctrl.event()
-    res = requests.post(url="http://localhost:3903/boot",
-                        json=dict(
-                            icp=evt.ked,
-                            sig=siger.qb64,
-                            stem=client.ctrl.stem,
-                            pidx=1,
-                            tier=client.ctrl.tier))
+    out = client.escrows()
 
-    if res.status_code != requests.codes.accepted:
-        raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+    from signify.app.escrowing import Escrows
+    assert type(out) is Escrows
+    assert out.client == client
 
-    client.connect(url=url)
-    assert client.agent is not None
-    assert client.agent.delpre == "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
-    # Delegator OOBI:
-    # http://127.0.0.1:5642/oobi/EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7/witness
+def test_signify_client_endroles():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
 
-    delpre = "EHpD0-CDWOdu5RJ8jHBSUkOqBZ3cXeDVHWNb_Ul89VI7"
-    identifiers = client.identifiers()
-    operations = client.operations()
-    oobis = client.oobis()
+    out = client.endroles()
 
-    op = oobis.resolve(f"http://127.0.0.1:5642/oobi/{delpre}/witness")
-    print("OOBI op is: ", op)
+    from signify.app.ending import EndRoleAuthorizations
+    assert type(out) is EndRoleAuthorizations
+    assert out.client == client
 
-    count = 0
-    while not op["done"] and not count > 25:
-        op = operations.get(op["name"])
-        sleep(1)
 
-    op = identifiers.create("aid1", toad="2", delpre=delpre, wits=[wit1, wit2, wit3])
-    pre = op["metadata"]["pre"]
+def test_signify_client_notifications():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
 
-    while not op["done"]:
-        op = operations.get(op["name"])
-        sleep(1)
+    out = client.notifications()
 
-    icp1 = Serder(ked=op["response"])
+    from signify.app.notifying import Notifications
+    assert type(out) is Notifications
+    assert out.client == client
 
-    print(icp1.pretty())
-    assert icp1.pre == pre
+
+def test_signify_client_groups():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.groups()
+
+    from signify.app.grouping import Groups
+    assert type(out) is Groups
+    assert out.client == client
+
+
+def test_signify_client_registries():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.registries()
+
+    from signify.app.credentialing import Registries
+    assert type(out) is Registries
+    assert out.client == client
+
+
+def test_signify_client_exchanges():
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.exchanges()
+
+    from signify.peer.exchanging import Exchanges
+    assert type(out) is Exchanges
+    assert out.client == client
+
+
+@pytest.mark.parametrize("resp,err", [
+    ({'json': lambda : {'description': {'raise a description'}}, 'status_code': 400, 'url': 'http://example.com'}, "400 Client Error: {'raise a description'} for url: http://example.com"),
+    ({'json': lambda : {'title': {'raise a title'}}, 'status_code': 400, 'url': 'http://example.com'}, "400 Client Error: {'raise a title'} for url: http://example.com"),
+    ({'json': lambda : {'unknown': {'raise unknown'}}, 'status_code': 400, 'url': 'http://example.com'}, "400 Client Error: Unknown for url: http://example.com"),
+    ({'json': lambda : {'description': {'raise a description'}}, 'status_code': 500, 'url': 'http://example.com'}, "500 Server Error: {'raise a description'} for url: http://example.com"),
+    ({'json': lambda : {'title': {'raise a title'}}, 'status_code': 500, 'url': 'http://example.com'}, "500 Server Error: {'raise a title'} for url: http://example.com"),
+    ({'json': lambda : {'unknown': {'raise unknown'}}, 'status_code': 500, 'url': 'http://example.com'}, "500 Server Error: Unknown for url: http://example.com"),
+    ({'text': 'a text error', 'status_code': 400, 'url': 'http://example.com'}, "400 Client Error: a text error for url: http://example.com"),
+    ({'text': 'a text error', 'status_code': 500, 'url': 'http://example.com'}, "500 Server Error: a text error for url: http://example.com"),
+])
+def test_signify_client_raise_for_status(resp, err):
+    import requests
+    mock_response = mock(resp, spec=requests.Response)
+
+    from signify.app.clienting import SignifyClient
+
+    with pytest.raises(requests.HTTPError, match=err):
+        SignifyClient.raiseForStatus(mock_response)
+
+    unstub()
+    verifyNoUnwantedInteractions()
+
+def test_signify_auth():
+    from signify.core import authing
+    mock_agent = mock(spec=authing.Agent, strict=True)
+    mock_controller = mock({'pre': 'a prefix'}, spec=authing.Controller, strict=True)
+
+    from signify.core import authing
+    mock_authenticator = mock({'ctrl': mock_controller}, spec=authing.Authenticater, strict=True)
+    expect(authing, times=1).Authenticater(agent=mock_agent, ctrl=mock_controller).thenReturn(mock_authenticator)
+
+    from signify.app.clienting import SignifyAuth
+    signify_auth = SignifyAuth(mock_authenticator)
+
+    import requests
+    mock_request = mock({'method': 'GET', 'url': 'http://example.com/my_path', 'headers': {}, 'body': "a body for len"}, spec=requests.Request, strict=True)
+
+    from keri.help import helping
+    expect(helping).nowIso8601().thenReturn('now ISO8601!')
+
+    expected_headers = {
+        'Signify-Resource': 'a prefix',
+        'Signify-Timestamp': 'now ISO8601!',
+        'Content-Length': 11
+    }
+    expect(mock_authenticator, times=1).sign({'Signify-Resource': 'a prefix', 'Signify-Timestamp': 'now ISO8601!', 'Content-Length': 14}, 'GET', '/my_path').thenReturn({'headers': 'modified'})
+
+    out = signify_auth.__call__(mock_request)
+    assert out.headers == {'headers': 'modified'}
+
+    unstub()
+    verifyNoUnwantedInteractions()

@@ -11,7 +11,6 @@ from keri.app.keeping import Algos
 from keri.core import eventing
 from keri.core.coring import MtrDex, Tholder
 from keri.kering import Roles
-from requests import exceptions
 
 from signify.app.clienting import SignifyClient
 from signify.core import httping
@@ -28,7 +27,7 @@ class Identifiers:
         res = self.client.get(f"/identifiers", headers=headers)
 
         cr = res.headers["content-range"]
-        start, end, total = httping.parseRangeHeader(cr)
+        start, end, total = httping.parseRangeHeader(cr, "aids")
 
         return dict(start=start, end=end, total=total, aids=res.json())
 
@@ -37,7 +36,7 @@ class Identifiers:
         return res.json()
 
     def create(self, name, transferable=True, isith="1", nsith="1", wits=None, toad="0", proxy=None, delpre=None,
-               dcode=MtrDex.Blake3_256, data=None, algo=Algos.salty, **kwargs):
+               dcode=MtrDex.Blake3_256, data=None, algo=Algos.salty, estOnly=False, DnD=False, **kwargs):
 
         # Get the algo specific key params
         keeper = self.client.manager.new(algo, self.client.pidx, **kwargs)
@@ -46,6 +45,12 @@ class Identifiers:
 
         wits = wits if wits is not None else []
         data = [data] if data is not None else []
+        cnfg = []
+        if estOnly:
+            cnfg.append(eventing.TraitCodex.EstOnly)
+        if DnD:
+            cnfg.append(eventing.TraitCodex.DoNotDelegate)
+
         if delpre is not None:
             serder = eventing.delcept(delpre=delpre,
                                       keys=keys,
@@ -55,6 +60,7 @@ class Identifiers:
                                       code=dcode,
                                       wits=wits,
                                       toad=toad,
+                                      cnfg=cnfg,
                                       data=data)
         else:
             serder = eventing.incept(keys=keys,
@@ -64,6 +70,7 @@ class Identifiers:
                                      code=dcode,
                                      wits=wits,
                                      toad=toad,
+                                     cnfg=cnfg,
                                      data=data)
 
         sigs = keeper.sign(serder.raw)
@@ -84,7 +91,7 @@ class Identifiers:
         self.client.pidx = self.client.pidx + 1
 
         res = self.client.post("/identifiers", json=json)
-        return res.json()
+        return serder, sigs, res.json()
 
     def update(self, name, typ, **kwas):
         if typ == "interact":
@@ -119,7 +126,7 @@ class Identifiers:
         json[keeper.algo] = keeper.params()
 
         res = self.client.put(f"/identifiers/{name}?type=ixn", json=json)
-        return res.json()
+        return serder, sigs, res.json()
 
     def rotate(self, name, *, transferable=True, nsith=None, toad=None, cuts=None, adds=None,
                data=None, ncode=MtrDex.Ed25519_Seed, ncount=1, ncodes=None, states=None, rstates=None):
@@ -131,7 +138,7 @@ class Identifiers:
         dig = state["d"]
         ridx = int(state["s"], 16) + 1
         wits = state['b']
-        isith = state["kt"]
+        isith = state["kt"] if "kt" in state else None
 
         if nsith is None:
             nsith = isith  # use new current as default
@@ -182,7 +189,7 @@ class Identifiers:
             json['rmids'] = [state['i'] for state in rstates]
 
         res = self.client.put(f"/identifiers/{name}", json=json)
-        return res.json()
+        return serder, sigs, res.json()
 
     def addEndRole(self, name, *, role=Roles.agent, eid=None, stamp=None):
         hab = self.get(name)
@@ -197,12 +204,12 @@ class Identifiers:
         )
 
         res = self.client.post(f"/identifiers/{name}/endroles", json=json)
-        return res.json()
+        return rpy, sigs, res.json()
 
     def sign(self, name, ser):
         hab = self.get(name)
         keeper = self.client.manager.get(aid=hab)
-        sigs = keeper.sign(ser=ser)
+        sigs = keeper.sign(ser=ser.raw)
 
         return sigs
 
