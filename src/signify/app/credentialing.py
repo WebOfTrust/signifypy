@@ -41,7 +41,7 @@ class Registries:
 
         cnfg = []
         if noBackers:
-            cnfg.append(TraitDex.NoBackers)
+            cnfg.append(TraitDex.NoRegistrarBackers)
         if estOnly:
             cnfg.append(TraitDex.EstOnly)
 
