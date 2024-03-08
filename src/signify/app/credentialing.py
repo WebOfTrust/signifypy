@@ -41,7 +41,7 @@ class Registries:
 
         cnfg = []
         if noBackers:
-            cnfg.append(TraitDex.NoRegistrarBackers)
+            cnfg.append(TraitDex.NoBackers)
         if estOnly:
             cnfg.append(TraitDex.EstOnly)
 
@@ -102,6 +102,12 @@ class Registries:
         msg.extend(atc)
 
         return msg
+
+    def rename(self, hab, registryName, newName):
+        name = hab["name"]
+        body = dict(name=newName)
+        resp = self.client.put(path=f"/identifiers/{name}/registries/{registryName}", json=body)
+        return resp.json()
 
 
 class Credentials:
