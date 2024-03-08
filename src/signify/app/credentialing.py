@@ -103,6 +103,12 @@ class Registries:
 
         return msg
 
+    def rename(self, hab, registryName, newName):
+        name = hab["name"]
+        body = dict(name=newName)
+        resp = self.client.put(path=f"/identifiers/{name}/registries/{registryName}", json=body)
+        return resp.json()
+
 
 class Credentials:
     """ Domain class for accessing, presenting, issuing and revoking credentials """
