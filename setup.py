@@ -31,7 +31,7 @@ from os.path import splitext
 from setuptools import find_packages, setup
 setup(
     name='signifypy',
-    version='0.1.0',  # also change in src/signify/__init__.py
+    version='0.1.1',  # also change in src/signify/__init__.py
     license='Apache Software License 2.0',
     description='Signify',
     long_description="KERI Signing at the Edge Infrastructure",
@@ -63,9 +63,9 @@ setup(
     keywords=[
         # eg: 'keyword1', 'keyword2', 'keyword3',
     ],
-    python_requires='>=3.10.4',
+    python_requires='>=3.12.1',
     install_requires=[
-        'keri>=1.1.0',
+        'keri>=1.1.6',
         'multicommand>=1.0.0',
         'requests>=2.28',
         'http_sfv>=0.9.8',
@@ -78,8 +78,8 @@ setup(
     tests_require=[
         'responses>=0.22.0',
         'coverage>=6.5.0',
-        'pytest>=7.2.0',
-        'mockito>=1.4.0'
+        'pytest==7.2.0',
+        'mockito==1.4.0'
     ],
     setup_requires=[
     ],

@@ -47,6 +47,10 @@ def test_registries():
     expect(mock_client, times=1).get(f"/identifiers/{name}/registries/{regName}").thenReturn(mock_response)
     registries.get(name="aid1", registryName=regName)
 
+    (expect(mock_client, times=1).put(path=f"/identifiers/{name}/registries/{regName}", json={'name': 'test'})
+     .thenReturn(mock_response))
+    registries.rename(mock_hab, regName, "test")
+
     pre = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     dig = "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
     nonce = "ACb_3pGwW3uIjtOg4zRQ66I-SggMcmoyju_uCzuSvgG4"
