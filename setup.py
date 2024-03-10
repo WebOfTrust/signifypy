@@ -63,7 +63,7 @@ setup(
     keywords=[
         # eg: 'keyword1', 'keyword2', 'keyword3',
     ],
-    python_requires='>=3.10.4',
+    python_requires='>=3.12.1',
     install_requires=[
         'keri>=1.1.6',
         'multicommand>=1.0.0',
