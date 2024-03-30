@@ -131,7 +131,7 @@ def test_controller_derive():
     assert serder.raw == raw
 
     from keri.core import coring
-    e1 = dict(v=coring.Vstrings.json,
+    e1 = dict(v="KERI10JSON000000_",
               t="rot",
               d="",
               i="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV",
@@ -171,7 +171,7 @@ def test_approve_delegation():
     })
 
     from keri.core import coring
-    e1 = dict(v=coring.Vstrings.json,
+    e1 = dict(v="KERI10JSON000000_",
               d="",
               i="ABCDEFG",
               s="1",
