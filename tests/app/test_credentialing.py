@@ -94,11 +94,11 @@ def test_credentials_export():
 
     from requests import Response
     mock_response = mock({'content': 'things I found'}, spec=Response, strict=True)
-    expect(mock_client, times=1).get('/identifiers/aid1/credentials/a_said',
+    expect(mock_client, times=1).get('/credentials/a_said',
                                      headers={'accept': 'application/json+cesr'}).thenReturn(mock_response)
 
     from signify.app.credentialing import Credentials
-    out = Credentials(client=mock_client).export('aid1', 'a_said')  # type: ignore
+    out = Credentials(client=mock_client).export('a_said')  # type: ignore
 
     assert out == 'things I found'
 
