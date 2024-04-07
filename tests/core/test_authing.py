@@ -9,6 +9,7 @@ Testing authing with unit tests
 from keri import kering
 from keri.core import serdering
 from keri.core.coring import Tiers
+from keri.kering import Serials, versify
 from mockito import mock, unstub, expect, verifyNoUnwantedInteractions
 import pytest
 
@@ -131,7 +132,7 @@ def test_controller_derive():
     assert serder.raw == raw
 
     from keri.core import coring
-    e1 = dict(v=coring.Vstrings.json,
+    e1 = dict(v=versify(kind=Serials.json, size=0),
               t="rot",
               d="",
               i="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV",

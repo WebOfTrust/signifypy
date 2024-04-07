@@ -95,7 +95,7 @@ class Registries:
         if len(atc) % 4:
             raise ValueError("Invalid attachments size={}, nonintegral"
                              " quadlets.".format(len(atc)))
-        pcnt = coring.Counter(code=coring.CtrDex.AttachedMaterialQuadlets,
+        pcnt = coring.Counter(code=coring.CtrDex.AttachmentGroup,
                               count=(len(atc) // 4)).qb64b
         msg = bytearray(serder.raw)
         msg.extend(pcnt)

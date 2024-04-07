@@ -65,7 +65,7 @@ setup(
     ],
     python_requires='>=3.12.1',
     install_requires=[
-        'keri>=1.1.6',
+        'keri>=1.2.0-dev0',
         'multicommand>=1.0.0',
         'requests>=2.28',
         'http_sfv>=0.9.8',
