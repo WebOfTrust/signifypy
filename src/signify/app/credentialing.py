@@ -95,13 +95,19 @@ class Registries:
         if len(atc) % 4:
             raise ValueError("Invalid attachments size={}, nonintegral"
                              " quadlets.".format(len(atc)))
-        pcnt = coring.Counter(code=coring.CtrDex.AttachedMaterialQuadlets,
+        pcnt = coring.Counter(code=coring.CtrDex.AttachmentGroup,
                               count=(len(atc) // 4)).qb64b
         msg = bytearray(serder.raw)
         msg.extend(pcnt)
         msg.extend(atc)
 
         return msg
+
+    def rename(self, hab, registryName, newName):
+        name = hab["name"]
+        body = dict(name=newName)
+        resp = self.client.put(path=f"/identifiers/{name}/registries/{registryName}", json=body)
+        return resp.json()
 
 
 class Credentials:

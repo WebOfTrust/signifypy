@@ -845,7 +845,7 @@ def test_base_keeper_sign_indexed(indexed, indices, ondices):
     from keri.core.coring import Signer
     mock_signer_one = mock(spec=Signer, strict=True)
 
-    from keri.core.coring import Siger
+    from keri.core import Siger
     mock_cigar = mock({'qb64': 'an indexed signature'}, spec=Siger, strict=True)
     expect(mock_signer_one, times=1).sign(b'ser bytes', index=0, only=False, ondex=0).thenReturn(mock_cigar)
 
