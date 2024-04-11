@@ -263,6 +263,10 @@ def test_aiding_delete():
     from signify.app.aiding import Identifiers
     ids = Identifiers(client=mock_client)  # type: ignore
 
+    from requests import Response
+    mock_response = mock({'json': lambda: {'success': 'yay'}}, spec=Response, strict=True)
+    expect(mock_client, times=1).delete('/identifiers/aid1').thenReturn(mock_response)
+
     ids.delete(name='aid1')
 
     verifyNoUnwantedInteractions()
@@ -299,7 +303,7 @@ def test_aiding_interact_no_data():
     }
     from requests import Response
     mock_response = mock({'json': lambda: {'success': 'yay'}}, spec=Response, strict=True)
-    expect(mock_client, times=1).put('/identifiers/aid1?type=ixn', json=expected_data).thenReturn(mock_response)
+    expect(mock_client, times=1).post('/identifiers/aid1/events', json=expected_data).thenReturn(mock_response)
 
     ids.interact(name='aid1')
 
@@ -342,7 +346,7 @@ def test_aiding_interact_with_data():
 
     from requests import Response
     mock_response = mock({'json': lambda: {'success': 'yay'}}, spec=Response, strict=True)
-    expect(mock_client, times=1).put('/identifiers/aid1?type=ixn', json=expected_data).thenReturn(mock_response)
+    expect(mock_client, times=1).post('/identifiers/aid1/events', json=expected_data).thenReturn(mock_response)
 
     ids.interact(name='aid1', data=[{'some': 'data'}, {'some': 'more'}])
 
@@ -390,7 +394,7 @@ def test_aiding_rotate():
     mock_response = mock(spec=Response, strict=True)
     expected_data = {'rot': {'a': 'key event dictionary'}, 'sigs': ['a signature'], 'salty': {'keeper': 'params'},
                      'smids': ['state 1', 'state 2'], 'rmids': ['rstate 1', 'rstate 2']}
-    expect(mock_client, times=1).put('/identifiers/aid1', json=expected_data).thenReturn(mock_response)
+    expect(mock_client, times=1).post('/identifiers/aid1/events', json=expected_data).thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn({'success': 'yay'})
 
     _, _, out = ids.rotate(name='aid1', states=[{'i': 'state 1'}, {'i': 'state 2'}],

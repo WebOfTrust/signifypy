@@ -78,7 +78,7 @@ setup(
     tests_require=[
         'responses>=0.22.0',
         'coverage>=6.5.0',
-        'pytest==7.2.0',
+        'pytest>=7.2.0',
         'mockito==1.4.0'
     ],
     setup_requires=[

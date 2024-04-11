@@ -172,7 +172,7 @@ def test_approve_delegation():
     })
 
     from keri.core import coring
-    e1 = dict(v=coring.Vstrings.json,
+    e1 = dict(v="KERI10JSON000000_",
               d="",
               i="ABCDEFG",
               s="1",

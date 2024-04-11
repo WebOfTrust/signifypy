@@ -34,6 +34,10 @@ class Identifiers:
     def get(self, name):
         res = self.client.get(f"/identifiers/{name}")
         return res.json()
+    
+    def rename(self, name, newName):
+        res = self.client.put(f"/identifiers/{name}", json={"name": newName})
+        return res.json()
 
     def create(self, name, transferable=True, isith="1", nsith="1", wits=None, toad="0", proxy=None, delpre=None,
                dcode=MtrDex.Blake3_256, data=None, algo=Algos.salty, estOnly=False, DnD=False, **kwargs):
@@ -104,7 +108,7 @@ class Identifiers:
         pass
 
     def delete(self, name):
-        pass
+        self.client.delete(f"/identifiers/{name}")
 
     def interact(self, name, data=None):
         hab = self.get(name)
@@ -125,7 +129,7 @@ class Identifiers:
             sigs=sigs)
         json[keeper.algo] = keeper.params()
 
-        res = self.client.put(f"/identifiers/{name}?type=ixn", json=json)
+        res = self.client.post(f"/identifiers/{name}/events", json=json)
         return serder, sigs, res.json()
 
     def rotate(self, name, *, transferable=True, nsith=None, toad=None, cuts=None, adds=None,
@@ -188,7 +192,7 @@ class Identifiers:
         if rstates is not None:
             json['rmids'] = [state['i'] for state in rstates]
 
-        res = self.client.put(f"/identifiers/{name}", json=json)
+        res = self.client.post(f"/identifiers/{name}/events", json=json)
         return serder, sigs, res.json()
 
     def addEndRole(self, name, *, role=Roles.agent, eid=None, stamp=None):
