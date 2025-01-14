@@ -50,7 +50,7 @@ class Manager:
                 eargs = kwargs["extern"]
                 return mod.shim(pidx=pidx, **eargs)
 
-    def get(self, aid):
+    def get(self, aid, **kwargs):
         pre = coring.Prefixer(qb64=aid["prefix"])
         if keeping.Algos.salty in aid:
             kwargs = aid[keeping.Algos.salty]
@@ -65,6 +65,16 @@ class Manager:
         elif keeping.Algos.group in aid:
             kwargs = aid[keeping.Algos.group]
             return GroupKeeper(mgr=self, **kwargs)
+        
+        elif keeping.Algos.extern in aid:
+            extnprms = aid[keeping.Algos.extern]
+            typ = kwargs["extern_type"]
+            if typ not in self.modules:
+                raise kering.ConfigurationError(f"unsupported external module type {typ}")
+            mod = self.modules[typ]
+
+            eargs = kwargs["extern"]
+            return mod.shim(pidx=extnprms["pidx"], **eargs)
 
 
 class BaseKeeper:
