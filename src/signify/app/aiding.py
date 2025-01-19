@@ -51,9 +51,9 @@ class Identifiers:
         data = [data] if data is not None else []
         cnfg = []
         if estOnly:
-            cnfg.append(eventing.TraitCodex.EstOnly)
+            cnfg.append(kering.TraitCodex.EstOnly)
         if DnD:
-            cnfg.append(eventing.TraitCodex.DoNotDelegate)
+            cnfg.append(kering.TraitCodex.DoNotDelegate)
 
         if delpre is not None:
             serder = eventing.delcept(delpre=delpre,

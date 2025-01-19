@@ -30,10 +30,12 @@ def test_exchanges_send(mockHelpingNowIso8601):
     expect(mock_response, times=1).json().thenReturn({'content': 'things I found'})
     expect(mock_client, times=1).post("/identifiers/aid1/exchanges",
                                       json={'tpc': 'credentals',
-                                            'exn': {'v': 'KERI10JSON0000c2_', 't': 'exn',
+                                            'exn': {'v': 'KERI10JSON0000ca_', 't': 'exn',
                                                     'd':
-                                                        'EAUlN3BbKZMrkGXEAw_nNppDC-ziimwxgPJfewodW_dh',
-                                                    'i': 'a_prefix', 'p': '',
+                                                        'EE1dCWxjov6vKtKue_700dmS7sn8dOjhTSiNuEsfuREh',
+                                                    'i': 'a_prefix',
+                                                    'rp':'',
+                                                    'p': '',
                                                     'dt': '2021-06-27T21:26:21.233257+00:00',
                                                     'r': '/ipex/admit', 'q': {}, 'a': {'a': 'b'},
                                                     'e': {}}, 'sigs': ['a signature'], 'atc': '',
@@ -45,7 +47,7 @@ def test_exchanges_send(mockHelpingNowIso8601):
                                                         payload=payload,
                                                         embeds=embeds, recipients=recipients)  # type: ignore
 
-    assert exn.said == "EAUlN3BbKZMrkGXEAw_nNppDC-ziimwxgPJfewodW_dh"
+    assert exn.said == "EE1dCWxjov6vKtKue_700dmS7sn8dOjhTSiNuEsfuREh"
     assert sigs == ['a signature']
     assert out == {'content': 'things I found'}
 

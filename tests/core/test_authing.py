@@ -6,12 +6,12 @@ signify.app.test_authing module
 Testing authing with unit tests
 """
 
+import pytest
 from keri import kering
 from keri.core import serdering
 from keri.core.coring import Tiers
-from keri.kering import Serials, versify
+from keri.kering import Kinds, versify
 from mockito import mock, unstub, expect, verifyNoUnwantedInteractions
-import pytest
 
 
 def rt(a, b, c):
@@ -95,13 +95,13 @@ def test_controller(bran):
 
     assert ctrl.tier == Tiers.low
 
-    from keri.core import coring
-    assert type(ctrl.salter) is coring.Salter
-    assert type(ctrl.signer) is coring.Signer
+    from keri.core import signing
+    assert type(ctrl.salter) is signing.Salter
+    assert type(ctrl.signer) is signing.Signer
     assert ctrl.signer.code == "A"
     assert ctrl.signer.qb64 == "AF1iHYsl-7DZFD71kcsg5iUAkLP3Lh_01RZFEHhL3629"
 
-    assert type(ctrl.nsigner) is coring.Signer
+    assert type(ctrl.nsigner) is signing.Signer
     assert ctrl.nsigner.code == "A"
     assert ctrl.nsigner.qb64 == "AGG0prnUWeKJGfh00-rrSqBIxR0Mx5K1FP0XC_UtCdjX"
 
@@ -132,7 +132,7 @@ def test_controller_derive():
     assert serder.raw == raw
 
     from keri.core import coring
-    e1 = dict(v=versify(kind=Serials.json, size=0),
+    e1 = dict(v=versify(kind=Kinds.json, size=0),
               t="rot",
               d="",
               i="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV",
@@ -150,8 +150,8 @@ def test_controller_derive():
     
     _, e1 = coring.Saider.saidify(sad=e1)
 
-    from signify.signifying import State
-    state = State(controller={"ee": e1})
+    from signify.signifying import SignifyState
+    state = SignifyState(controller={"ee": e1})
     serder = ctrl.derive(state=state)
 
     assert serder.raw == (b'{"v":"KERI10JSON000160_","t":"rot","d":"ENvjVqUoq2SGDrFSzqI5AI37ZE4IAlKLdFGw'
@@ -269,7 +269,7 @@ def test_controller_rotate_salty():
 #     from signify.core.authing import Controller
 #     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
 
-#     from keri.core.coring import Salter
+#     from keri.core.signing import Salter
 #     mock_salter = mock({'qb64': 'salter qb64'}, spec=Salter, strict=True)
 #     ctrl.salter = mock_salter
 
@@ -278,7 +278,7 @@ def test_controller_rotate_salty():
 #     from signify.core import keeping
 #     when(keeping).SaltyCreator(salt='salter qb64', stem='signify:controller', tier=Tiers.low).thenReturn(mock_creator)
 
-#     from keri.core.coring import Signer
+#     from keri.core.signing import Signer
 #     mock_signer = mock(spec=Signer, strict=True)
 #     ctrl.signer = mock_signer
 #     mock_nsigner = mock(spec=Signer, strict=True)

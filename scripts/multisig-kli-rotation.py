@@ -3,7 +3,7 @@ from time import sleep
 import requests
 from keri import kering
 from keri.app.keeping import Algos
-from keri.core import coring, eventing
+from keri.core import coring, eventing, signing
 from keri.core.coring import Tiers
 from signify.app.clienting import SignifyClient
 
@@ -93,7 +93,7 @@ def create_multisig():
     recp = [state['i'] for state in [multisig2, multisig1]]
 
     embeds = dict(
-        icp=eventing.messagize(serder=icp, sigers=[coring.Siger(qb64=sig) for sig in isigs])
+        icp=eventing.messagize(serder=icp, sigers=[signing.Siger(qb64=sig) for sig in isigs])
     )
 
     exchanges.send("multisig3", "multisig", sender=m3, route="/multisig/icp",
@@ -112,7 +112,7 @@ def create_multisig():
     ixn, xsigs, op = identifiers.interact("multisig", data=data)
 
     embeds = dict(
-        ixn=eventing.messagize(serder=ixn, sigers=[coring.Siger(qb64=sig) for sig in xsigs])
+        ixn=eventing.messagize(serder=ixn, sigers=[signing.Siger(qb64=sig) for sig in xsigs])
     )
 
     exchanges.send("multisig3", "multisig", sender=m3, route="/multisig/ixn",
@@ -165,7 +165,7 @@ def create_multisig():
 
     rot, rsigs, op = identifiers.rotate("multisig", states=states, rstates=rstates)
     embeds = dict(
-        rot=eventing.messagize(serder=rot, sigers=[coring.Siger(qb64=sig) for sig in rsigs])
+        rot=eventing.messagize(serder=rot, sigers=[signing.Siger(qb64=sig) for sig in rsigs])
     )
 
     smids = [state['i'] for state in states]

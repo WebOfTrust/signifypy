@@ -27,14 +27,23 @@ https://caremad.io/posts/2013/07/setup-vs-requirement/
 from glob import glob
 from os.path import basename
 from os.path import splitext
+from pathlib import Path
 
 from setuptools import find_packages, setup
+
+# Prepares a nice long description for PyPi based on the README.md file
+this_directory = Path(__file__).parent
+if (this_directory / "README.md").exists():  # If building inside a container this file won't exist and fails the build
+    long_description = (this_directory / "README.md").read_text()
+else:
+    long_description = "KERI Signing at the Edge Infrastructure"
+
 setup(
     name='signifypy',
-    version='0.1.1',  # also change in src/signify/__init__.py
+    version='0.1.2',  # also change in src/signify/__init__.py
     license='Apache Software License 2.0',
-    description='Signify',
-    long_description="KERI Signing at the Edge Infrastructure",
+    description='SignifyPy: KERI Signing at the Edge',
+    long_description=long_description,
     author='Philip S. Feairheller',
     author_email='pfeairheller@gmail.com',
     url='https://github.com/WebOfTrust/signifypy',
@@ -51,7 +60,7 @@ setup(
         'Operating System :: Unix',
         'Operating System :: POSIX',
         'Operating System :: Microsoft :: Windows',
-        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: Implementation :: CPython',
         'Topic :: Utilities',
     ],
@@ -59,29 +68,45 @@ setup(
         'Documentation': 'https://signifypy.readthedocs.io/',
         'Changelog': 'https://signifypy.readthedocs.io/en/latest/changelog.html',
         'Issue Tracker': 'https://github.com/WebOfTrust/signifypy/issues',
+        'Source': 'https://github.com/WebOfTrust/signifypy',
     },
     keywords=[
-        # eg: 'keyword1', 'keyword2', 'keyword3',
+        "signing at the eddge",
+        "signify",
+        "secure attribution",
+        "authentic data",
+        "discovery",
+        "resolver"
     ],
-    python_requires='>=3.12.2',
+    python_requires='>=3.12.6',
     install_requires=[
-        'keri>=1.2.0-dev0',
-        'multicommand>=1.0.0',
-        'requests>=2.28',
-        'http_sfv>=0.9.8',
-        'msgpack>=1.0.4',
-        'cbor2>=5.4.3',
+        'keri==1.2.3',
+        'multicommand==1.0.0',
+        'requests==2.32.3',
+        'http_sfv==0.9.9',
+        'msgpack==1.1.0',
+        'cbor2>=5.6.5',
         'sseclient>=0.0.27'
     ],
     extras_require={
+        'test': [
+                'responses>=0.25.6',
+                'coverage>=7.6.10',
+                'pytest>=8.3.4',
+                'mockito==1.5.3'
+        ],
+        'setup': [
+            'setuptools==75.8.0'
+        ]
     },
     tests_require=[
-        'responses>=0.22.0',
-        'coverage>=6.5.0',
-        'pytest>=7.2.0',
-        'mockito==1.4.0'
+        'responses>=0.25.6',
+        'coverage>=7.6.10',
+        'pytest>=8.3.4',
+        'mockito==1.5.3'
     ],
     setup_requires=[
+        'setuptools==75.8.0'
     ],
     entry_points={
         'console_scripts': [

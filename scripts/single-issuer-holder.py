@@ -9,6 +9,7 @@ from time import sleep
 from requests import post
 from pysodium import randombytes, crypto_sign_SEEDBYTES
 from keri.app import signing
+from keri.core import signing as csigning
 from keri.core import coring, eventing, serdering
 from keri.core.coring import Tiers
 from keri.help import helping
@@ -22,7 +23,7 @@ SCHEMA_OOBI = 'http://127.0.0.1:7723/oobi/EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4Mmv
 
 
 def random_passcode():
-    return coring.Salter(raw=randombytes(crypto_sign_SEEDBYTES)).qb64
+    return csigning.Salter(raw=randombytes(crypto_sign_SEEDBYTES)).qb64
 
 
 def create_timestamp():
@@ -104,7 +105,7 @@ def issue_credential(client: SignifyClient, name: str, registry_name: str, schem
     grant, sigs, end = client.ipex().grant(hab, recp=recipient, acdc=acdc,
                                            iss=iss, message="",
                                            anc=eventing.messagize(serder=anc,
-                                                                  sigers=[coring.Siger(qb64=sig) for sig in sigs]),
+                                                                  sigers=[csigning.Siger(qb64=sig) for sig in sigs]),
                                            dt=create_timestamp())
 
     client.exchanges().sendFromEvents(name=name, topic="credential", exn=grant, sigs=sigs, atc=end,

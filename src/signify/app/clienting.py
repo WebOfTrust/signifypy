@@ -4,7 +4,6 @@ Signify
 signify.app.clienting module
 
 """
-from dataclasses import dataclass
 from urllib.parse import urlparse, urljoin, urlsplit
 
 import requests
@@ -16,12 +15,43 @@ from requests import HTTPError
 from requests.auth import AuthBase
 
 from signify.core import keeping, authing
-from signify.signifying import State
+from signify.signifying import SignifyState
 
 
 class SignifyClient:
+    """
+    An edge signing client representing a delegator AID connected to the delegated agent in a KERA
+    instance.
+    """
 
     def __init__(self, passcode, url=None, tier=Tiers.low, extern_modules=None):
+        """
+        Create a new SignifyClient. Connects to the KERIA instance and delegates from the local
+        Signify Client AID (caid) to the KERIA Agent AID with a delegated inception event.
+        The delegation is then approved by the Client AID with an interaction event.
+
+        Uses the following derivation path prefixes to generate signing and rotation keys for the Client AID:
+        - "signify:controller00" for signing keys
+        - "signify:controller01" for rotation keys
+
+        Parameters:
+            passcode (str | bytes): 21 character passphrase for the local controller
+            url (str): Boot interface URL of the KERIA instance to connect to
+            tier (Tiers): tier of the controller (low, med, high)
+            extern_modules (dict): external key management modules such as for Google KMS, Trezor, etc.
+
+        Attributes:
+            bran (str | bytes): 21 character passphrase for the local controller (passcode)
+            pidx (int): prefix index for this keypair sequence
+            tier (Tiers): tier of the controller (low, med, high)
+            extern_modules (dict): external key management modules such as for Google KMS, Trezor, etc.
+            mgr (Manager): key manager for the controller; performs signing and rotation
+            session (requests.Session): HTTP session for the client
+            agent (Agent): Agent representing the KERIA Agent AID
+            authn (Authenticater): Authenticater for the client
+            base (str): Boot interface URL of the KERIA instance to connect to
+            ctrl (Controller): Controller representing the local controller AID
+        """
 
         if len(passcode) < 21:
             raise kering.ConfigurationError(f"bran of length {len(passcode)} is too short, must be 21 characters")
@@ -101,7 +131,7 @@ class SignifyClient:
             raise kering.ConfigurationError(f"agent does not exist for controller {caid}")
 
         data = res.json()
-        state = State()
+        state = SignifyState()
         state.controller = data["controller"]
         state.agent = data["agent"]
         state.pidx = data["pidx"] if "pidx" in data else 0

@@ -16,11 +16,17 @@ jobs:
         os: [ macos-latest, ubuntu-latest ]
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python 3.12.2
+      - uses: actions/checkout@v4.2.2
+      - name: Set up Python 3.12.6
         uses: actions/setup-python@v2
         with:
-          python-version: 3.12.2
+          python-version: 3.12.6
+      # This is needed so MacOS can find the libsodium library installed by Homebrew
+      - name: Install dependencies for MacOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          export DYLD_LIBRARY_PATH="/usr/local/lib:/opt/homebrew/lib:$DYLD_LIBRARY_PATH"
+          echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
