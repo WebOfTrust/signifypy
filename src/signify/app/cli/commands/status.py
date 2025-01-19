@@ -7,8 +7,8 @@ keri.kli.commands module
 import argparse
 import sys
 
-from hio import help
 from hio.base import doing
+from keri import help
 from keri.app.cli.common import terming
 from keri.core.coring import Tiers
 

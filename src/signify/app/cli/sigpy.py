@@ -5,8 +5,8 @@ keri.kli.commands module
 """
 import multicommand
 from keri import help
-
 from keri.app import directing
+
 from signify.app.cli import commands
 
 logger = help.ogler.getLogger()

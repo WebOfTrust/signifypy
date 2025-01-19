@@ -6,11 +6,12 @@ signify.core.keeping module
 Testing authentication
 """
 
-from mockito import mock, verifyNoUnwantedInteractions, unstub, expect
 import pytest
+from mockito import mock, verifyNoUnwantedInteractions, unstub, expect
+
 
 def test_keeping_manager():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -23,7 +24,7 @@ def test_keeping_manager():
     unstub()
 
 def test_keeping_manager_new_salty():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -41,7 +42,7 @@ def test_keeping_manager_new_salty():
     unstub()
 
 def test_keeping_manager_new_randy():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -59,7 +60,7 @@ def test_keeping_manager_new_randy():
     unstub()
 
 def test_keeping_manager_new_group():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -77,7 +78,7 @@ def test_keeping_manager_new_group():
     unstub()
 
 def test_keeping_manager_new_extern():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -97,7 +98,7 @@ def test_keeping_manager_new_extern():
     unstub()
 
 def test_keeping_manager_new_extern_unknown():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -114,7 +115,7 @@ def test_keeping_manager_new_extern_unknown():
     unstub()
 
 def test_keeping_manager_get_salty():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -138,7 +139,7 @@ def test_keeping_manager_get_salty():
     unstub()
 
 def test_keeping_manager_get_salty_pidx():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -158,7 +159,7 @@ def test_keeping_manager_get_salty_pidx():
     unstub()
 
 def test_keeping_manager_get_randy():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -182,7 +183,7 @@ def test_keeping_manager_get_randy():
     unstub()
 
 def test_keeping_manager_get_group():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -207,33 +208,33 @@ def test_keeping_manager_get_group():
 
 def test_salty_keeper():
     # salty keep init mocks
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
-    
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
-    
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
     from keri.app.keeping import SaltyCreator
     mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
     from keri.app import keeping
     expect(keeping, times=1).SaltyCreator(stem='signify:aid', tier='low').thenReturn(mock_creator)
 
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
 
     # test
     from signify.core.keeping import SaltyKeeper
@@ -249,24 +250,24 @@ def test_salty_keeper():
 
 def test_salty_keeper_bran():
     # salty keep init mocks
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
     from keri.app.keeping import SaltyCreator
     mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
@@ -274,9 +275,9 @@ def test_salty_keeper_bran():
     from keri.app import keeping
     expect(keeping, times=1).SaltyCreator(salt='0AA0123456789abcdefghijk', stem='signify:aid', tier='low').thenReturn(mock_creator)
 
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
 
     # test
     from signify.core.keeping import SaltyKeeper
@@ -289,30 +290,30 @@ def test_salty_keeper_bran():
 
 def test_salty_keeper_sxlt():
     # salty keep init mocks
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock({'qb64': 'salter qb64'}, spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
 
-    from keri.core import coring
-    expect(coring, times=1).Cipher(qb64='0123456789abcdefghijk').thenReturn(mock_cipher)
+    from keri.core import signing
+    expect(signing, times=1).Cipher(qb64='0123456789abcdefghijk').thenReturn(mock_cipher)
 
     expect(mock_decrypter, times=1).decrypt(cipher=mock_cipher).thenReturn(mock_salter)
 
@@ -333,24 +334,24 @@ def test_salty_keeper_sxlt():
 
 def test_salty_keeper_incept():
     # salty keep init mocks
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
     from keri.app.keeping import SaltyCreator
     mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
@@ -358,9 +359,9 @@ def test_salty_keeper_incept():
     from keri.app import keeping
     expect(keeping, times=1).SaltyCreator(stem='signify:aid', tier='low').thenReturn(mock_creator)
 
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
 
     # incept mocks
     mock_incept_verfer = mock({'qb64': 'incept verfer qb64'}, spec=Verfer, strict=True)
@@ -372,6 +373,7 @@ def test_salty_keeper_incept():
     expect(mock_creator, times=1).create(codes=['A'], pidx=0, kidx=1, transferable=True).thenReturn([mock_incept_nsigner])
 
     from keri.core.coring import Diger
+    from keri.core import coring
     mock_diger = mock({'qb64': 'diger qb64'}, spec=Diger, strict=True)
     expect(coring, times=1).Diger(ser=b'incept nverfer qb64b', code='E').thenReturn(mock_diger)
 
@@ -388,24 +390,24 @@ def test_salty_keeper_incept():
 
 def test_salty_keeper_rotate():
     # salty keep init mocks
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
     from keri.app.keeping import SaltyCreator
     mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
@@ -413,9 +415,9 @@ def test_salty_keeper_rotate():
     from keri.app import keeping
     expect(keeping, times=1).SaltyCreator(stem='signify:aid', tier='low').thenReturn(mock_creator)
 
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
 
     # rotate mocks
     mock_rotate_verfer = mock({'qb64': 'rotate verfer qb64'}, spec=Verfer, strict=True)
@@ -427,6 +429,7 @@ def test_salty_keeper_rotate():
     expect(mock_creator, times=1).create(codes=['A'], pidx=0, kidx=2, transferable=True).thenReturn([mock_rotate_nsigner])
 
     from keri.core.coring import Diger
+    from keri.core import coring
     mock_diger = mock({'qb64': 'rotate diger qb64'}, spec=Diger, strict=True)
     expect(coring, times=1).Diger(ser=b'rotate nverfer qb64b', code='E').thenReturn(mock_diger)
 
@@ -445,24 +448,24 @@ def test_salty_keeper_rotate():
 
 def test_salty_keeper_sign():
     # salty keep init mocks
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
     from keri.app.keeping import SaltyCreator
     mock_creator = mock({'salt': 'creator salt'}, spec=SaltyCreator, strict=True)
@@ -470,9 +473,9 @@ def test_salty_keeper_sign():
     from keri.app import keeping
     expect(keeping, times=1).SaltyCreator(stem='signify:aid', tier='low').thenReturn(mock_creator)
 
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt('creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
 
     # sign mock
     expect(mock_creator, times=1).create(codes=['A'], pidx=0, kidx=0, transferable=False).thenReturn([mock_signer])
@@ -492,24 +495,24 @@ def test_salty_keeper_sign():
     unstub()
 
 def test_randy_keeper():
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
     from signify.core.keeping import RandyKeeper
     rk = RandyKeeper(mock_salter)
@@ -527,24 +530,24 @@ def test_randy_keeper():
     unstub()
     
 def test_randy_keeper_params():
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
     from signify.core.keeping import RandyKeeper
     rk = RandyKeeper(mock_salter, transferable=True, nxts=['nxt1', 'nxt2'], prxs=['prx1', 'prx2'])
@@ -557,46 +560,48 @@ def test_randy_keeper_params():
     unstub()
 
 def test_randy_keeper_incept():
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
     # start incept mocks
     from keri.app.keeping import RandyCreator
     mock_creator = mock(spec=RandyCreator, strict=True)
 
     # verfers mocks
-    from keri.core.coring import Signer, Verfer
+    from keri.core.coring import Verfer
+    from keri.core.signing import Signer
     mock_verfer = mock({'qb64': 'signer verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
     expect(mock_creator, times=1).create(codes=['A'], transferable=True).thenReturn([mock_signer])
 
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt(matter=mock_signer).thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(prim=mock_signer).thenReturn(mock_cipher)
 
     # digers mocks
     mock_verfer = mock({'qb64b': b'signer verfer qb64b'}, spec=Verfer, strict=True)
     mock_nsigner = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
     expect(mock_creator, times=1).create(codes=['B'], transferable=True).thenReturn([mock_nsigner])
-    expect(mock_encrypter, times=1).encrypt(matter=mock_nsigner).thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(prim=mock_nsigner).thenReturn(mock_cipher)
 
     from keri.core.coring import Diger
+    from keri.core import coring
     mock_diger = mock({'qb64': 'diger qb64'}, spec=Diger, strict=True)
     expect(coring, times=1).Diger(ser=b'signer verfer qb64b', code='E').thenReturn(mock_diger)
     
@@ -614,36 +619,37 @@ def test_randy_keeper_incept():
     unstub()
 
 def test_randy_keeper_rotate():
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
     # start rotate mocks
     from keri.app.keeping import RandyCreator
     mock_creator = mock(spec=RandyCreator, strict=True)
 
     from keri.core import coring
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_nxt_cipher = mock(spec=Cipher, strict=True)
-    expect(coring, times=1).Cipher(qb64='nxt qb64').thenReturn(mock_nxt_cipher)
+    expect(signing, times=1).Cipher(qb64='nxt qb64').thenReturn(mock_nxt_cipher)
 
     # verfers mocks
-    from keri.core.coring import Signer, Verfer
+    from keri.core.coring import Verfer
+    from keri.core.signing import Signer
     mock_verfer = mock({'qb64': 'signer verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
     expect(mock_decrypter, times=1).decrypt(cipher=mock_nxt_cipher, transferable=True).thenReturn(mock_signer)
@@ -653,9 +659,9 @@ def test_randy_keeper_rotate():
     mock_nsigner = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
     expect(mock_creator, times=1).create(codes=['A'], transferable=True).thenReturn([mock_nsigner])
 
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt(matter=mock_nsigner).thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(prim=mock_nsigner).thenReturn(mock_cipher)
 
     from keri.core.coring import Diger
     mock_diger = mock({'qb64': 'diger qb64'}, spec=Diger, strict=True)
@@ -675,31 +681,31 @@ def test_randy_keeper_rotate():
     unstub()
 
 def test_randy_keeper_sign():
-    from keri.core.coring import Salter, Signer
+    from keri.core.signing import Salter, Signer
     mock_salter = mock(spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_salter, times=1).signer(transferable=False).thenReturn(mock_signer)
 
-    from keri.core.coring import Encrypter
+    from keri.core.signing import Encrypter
     mock_encrypter = mock(spec=Encrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
+    from keri.core import signing
+    expect(signing, times=1).Encrypter(verkey='verfer qb64').thenReturn(mock_encrypter)
 
-    from keri.core.coring import Decrypter
+    from keri.core.signing import Decrypter
     mock_decrypter= mock(spec=Decrypter, strict=True)
     
-    from keri.core import coring
-    expect(coring, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
+    from keri.core import signing
+    expect(signing, times=1).Decrypter(seed='signer qb64').thenReturn(mock_decrypter)
 
-    from keri.core import coring
-    from keri.core.coring import Cipher
+    from keri.core.signing import Cipher
     mock_prx_cipher = mock({'qb64b': b'cipher qb64b'}, spec=Cipher, strict=True)
-    expect(coring, times=1).Cipher(qb64='prx qb64').thenReturn(mock_prx_cipher)
+    expect(signing, times=1).Cipher(qb64='prx qb64').thenReturn(mock_prx_cipher)
 
-    from keri.core.coring import Signer, Verfer
+    from keri.core.coring import Verfer
+    from keri.core.signing import Signer
     mock_verfer = mock({'qb64': 'signer verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
     expect(mock_decrypter, times=1).decrypt(ser=b'cipher qb64b', transferable=False).thenReturn(mock_signer)
@@ -719,7 +725,7 @@ def test_randy_keeper_sign():
     unstub()
 
 def test_group_keeper():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -736,7 +742,7 @@ def test_group_keeper():
     assert gk.algo == Algos.group
 
 def test_group_keeper_incept():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -754,7 +760,7 @@ def test_group_keeper_incept():
     unstub()
 
 def test_group_keeper_rotate():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -772,7 +778,7 @@ def test_group_keeper_rotate():
     unstub()
 
 def test_group_keeper_sign():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -781,7 +787,6 @@ def test_group_keeper_sign():
     from signify.core.keeping import GroupKeeper
     gk = GroupKeeper(mgr=mock_manager, mhab={'state': {'k': ['key 1'], 'n': ['n dig 1']}}, keys=['key 1'], ndigs=['n dig 1'])
 
-    from signify.core.keeping import BaseKeeper
     mock_keeper = mock(strict=True)
     expect(mock_manager, times=1).get({'state': {'k': ['key 1'], 'n': ['n dig 1']}}).thenReturn(mock_keeper)
 
@@ -795,7 +800,7 @@ def test_group_keeper_sign():
     unstub()
 
 def test_group_keeper_params():
-    from keri.core.coring import Salter
+    from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
     from signify.core.keeping import Manager
@@ -824,7 +829,7 @@ def test_extern_keeper():
 def test_base_keeper_sign():
     from signify.core.keeping import BaseKeeper
     
-    from keri.core.coring import Signer
+    from keri.core.signing import Signer
     mock_signer = mock(spec=Signer, strict=True)
 
     from keri.core.coring import Cigar
@@ -842,7 +847,7 @@ def test_base_keeper_sign():
 def test_base_keeper_sign_indexed(indexed, indices, ondices):
     from signify.core.keeping import BaseKeeper
     
-    from keri.core.coring import Signer
+    from keri.core.signing import Signer
     mock_signer_one = mock(spec=Signer, strict=True)
 
     from keri.core import Siger
@@ -860,7 +865,7 @@ def test_base_keeper_sign_indexed(indexed, indices, ondices):
 def test_base_keeper_sign_indexed_boom(indexed, indices, ondices, expected):
     from signify.core.keeping import BaseKeeper
     
-    from keri.core.coring import Signer
+    from keri.core.signing import Signer
     mock_signer_one = mock(spec=Signer, strict=True)
 
     with pytest.raises(ValueError, match=expected):

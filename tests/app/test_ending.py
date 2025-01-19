@@ -6,8 +6,9 @@ signify.app.test_ending module
 Testing ending with unit tests
 """
 
-from mockito import mock, unstub, verifyNoUnwantedInteractions, expect
 import pytest
+from mockito import mock, unstub, verifyNoUnwantedInteractions, expect
+
 
 def test_end_role_authorizations_name():
     from signify.app.clienting import SignifyClient

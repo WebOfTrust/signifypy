@@ -12,6 +12,7 @@ from keri import kering
 from keri.app import signing
 from keri.app.keeping import Algos
 from keri.core import coring, eventing, serdering
+from keri.core import signing as csigning
 from keri.core.coring import Tiers
 from signify.app.clienting import SignifyClient
 
@@ -106,7 +107,7 @@ def create_credential():
     recp = [state['i'] for state in [multisig2, multisig1]]
 
     embeds = dict(
-        icp=eventing.messagize(serder=icp, sigers=[coring.Siger(qb64=sig) for sig in isigs])
+        icp=eventing.messagize(serder=icp, sigers=[csigning.Siger(qb64=sig) for sig in isigs])
     )
 
     exchanges.send("multisig3", "multisig", sender=m3, route="/multisig/icp",
@@ -136,7 +137,7 @@ def create_credential():
 
     embeds = dict(
         vcp=vcp.raw,
-        anc=eventing.messagize(serder=anc, sigers=[coring.Siger(qb64=sig) for sig in rsigs])
+        anc=eventing.messagize(serder=anc, sigers=[csigning.Siger(qb64=sig) for sig in rsigs])
     )
 
     recp = ["EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4", "EJccSRTfXYF6wrUVuenAIHzwcx3hJugeiJsEKmndi5q1"]
@@ -170,7 +171,7 @@ def create_credential():
     embeds = dict(
         acdc=acdc,
         iss=iss,
-        anc=eventing.messagize(serder=anc, sigers=[coring.Siger(qb64=sig) for sig in sigs])
+        anc=eventing.messagize(serder=anc, sigers=[csigning.Siger(qb64=sig) for sig in sigs])
     )
     exchanges.send("multisig3", "multisig", sender=m3, route="/multisig/iss",
                    payload=dict(gid=m["prefix"]),
@@ -184,12 +185,12 @@ def create_credential():
     m = identifiers.get("multisig")
     grant, sigs, end = ipex.grant(m, recp="ELjSFdrTdCebJlmvbFNX9-TLhR2PO0_60al1kQp5_e6k", acdc=acdc,
                                   iss=iss, message="",
-                                  anc=eventing.messagize(serder=anc, sigers=[coring.Siger(qb64=sig) for sig in sigs]),
+                                  anc=eventing.messagize(serder=anc, sigers=[csigning.Siger(qb64=sig) for sig in sigs]),
                                   dt=TIME)
 
     mstate = m["state"]
     seal = eventing.SealEvent(i=m["prefix"], s=mstate["ee"]["s"], d=mstate["ee"]["d"])
-    ims = eventing.messagize(serder=grant, sigers=[coring.Siger(qb64=sig) for sig in sigs], seal=seal)
+    ims = eventing.messagize(serder=grant, sigers=[csigning.Siger(qb64=sig) for sig in sigs], seal=seal)
     ims.extend(end)
     embeds = dict(
         exn=ims

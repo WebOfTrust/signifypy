@@ -7,7 +7,7 @@ join new quadlet script
 
 from time import sleep
 
-from keri.core import eventing, coring, serdering
+from keri.core import eventing, serdering, signing
 from keri.core.coring import Tiers
 from signify.app.clienting import SignifyClient
 
@@ -83,7 +83,7 @@ def accept_join_request(client, name, group):
             op = groups.join(group, rot, sigs, gid, smids, rmids)
 
             embeds = dict(
-                rot=eventing.messagize(serder=rot, sigers=[coring.Siger(qb64=sig) for sig in sigs])
+                rot=eventing.messagize(serder=rot, sigers=[signing.Siger(qb64=sig) for sig in sigs])
             )
 
             exchanges.send(name, "multisig", sender=hab, route="/multisig/rot",

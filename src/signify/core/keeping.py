@@ -10,7 +10,7 @@ import importlib
 
 from keri import kering
 from keri.app import keeping
-from keri.core import coring
+from keri.core import coring, signing
 from keri.core.coring import Tiers, MtrDex
 
 
@@ -161,8 +161,8 @@ class SaltyKeeper(BaseKeeper):
         # Salter is the entered passcode and used for enc/dec of salts for each AID
         signer = salter.signer(transferable=False)
         self.aeid = signer.verfer.qb64
-        self.encrypter = coring.Encrypter(verkey=self.aeid)
-        self.decrypter = coring.Decrypter(seed=signer.qb64)
+        self.encrypter = signing.Encrypter(verkey=self.aeid)
+        self.decrypter = signing.Decrypter(seed=signer.qb64)
 
         self.tier = tier
         self.icodes = icodes
@@ -177,13 +177,13 @@ class SaltyKeeper(BaseKeeper):
         if bran is not None:
             bran = coring.MtrDex.Salt_128 + 'A' + bran[:21]
             self.creator = keeping.SaltyCreator(salt=bran, stem=stem, tier=tier)
-            self.sxlt = self.encrypter.encrypt(self.creator.salt).qb64
+            self.sxlt = self.encrypter.encrypt(ser=self.creator.salt).qb64
         elif sxlt is None:
             self.creator = keeping.SaltyCreator(stem=stem, tier=tier)
-            self.sxlt = self.encrypter.encrypt(self.creator.salt).qb64
+            self.sxlt = self.encrypter.encrypt(ser=self.creator.salt).qb64
         else:
             self.sxlt = sxlt
-            ciph = coring.Cipher(qb64=self.sxlt)
+            ciph = signing.Cipher(qb64=self.sxlt)
             self.creator = keeping.SaltyCreator(self.decrypter.decrypt(cipher=ciph).qb64, stem=stem, tier=tier)
 
     def params(self):
@@ -279,8 +279,8 @@ class RandyKeeper(BaseKeeper):
 
         signer = salter.signer(transferable=False)
         self.aeid = signer.verfer.qb64
-        self.encrypter = coring.Encrypter(verkey=self.aeid)
-        self.decrypter = coring.Decrypter(seed=signer.qb64)
+        self.encrypter = signing.Encrypter(verkey=self.aeid)
+        self.decrypter = signing.Decrypter(seed=signer.qb64)
 
         self.prxs = prxs
         self.nxts = nxts
@@ -302,30 +302,30 @@ class RandyKeeper(BaseKeeper):
     def incept(self, transferable):
         self.transferable = transferable
         signers = self.creator.create(codes=self.icodes, transferable=transferable)
-        self.prxs = [self.encrypter.encrypt(matter=signer).qb64 for signer in signers]
+        self.prxs = [self.encrypter.encrypt(prim=signer).qb64 for signer in signers]
 
         verfers = [signer.verfer.qb64 for signer in signers]
 
         nsigners = self.creator.create(codes=self.ncodes, transferable=transferable)
-        self.nxts = [self.encrypter.encrypt(matter=signer).qb64 for signer in nsigners]
+        self.nxts = [self.encrypter.encrypt(prim=signer).qb64 for signer in nsigners]
         digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
         return verfers, digers
 
     def rotate(self, ncodes, transferable, **_):
         self.transferable = transferable
         self.prxs = self.nxts
-        signers = [self.decrypter.decrypt(cipher=coring.Cipher(qb64=nxt),
+        signers = [self.decrypter.decrypt(cipher=signing.Cipher(qb64=nxt),
                                           transferable=self.transferable) for nxt in self.nxts]
         verfers = [signer.verfer.qb64 for signer in signers]
 
         nsigners = self.creator.create(codes=ncodes, transferable=transferable)
-        self.nxts = [self.encrypter.encrypt(matter=signer).qb64 for signer in nsigners]
+        self.nxts = [self.encrypter.encrypt(prim=signer).qb64 for signer in nsigners]
         digers = [coring.Diger(ser=nsigner.verfer.qb64b, code=self.dcode).qb64 for nsigner in nsigners]
 
         return verfers, digers
 
     def sign(self, ser, indexed=True, indices=None, ondices=None, **_):
-        signers = [self.decrypter.decrypt(ser=coring.Cipher(qb64=prx).qb64b, transferable=self.transferable)
+        signers = [self.decrypter.decrypt(ser=signing.Cipher(qb64=prx).qb64b, transferable=self.transferable)
                    for prx in self.prxs]
         return self.__sign__(ser, signers=signers, indexed=indexed, indices=indices, ondices=ondices)
 

@@ -9,7 +9,10 @@ from dataclasses import dataclass
 
 
 @dataclass
-class State:
+class SignifyState:
+    """
+    Initialization state for a SignifyClient instance
+    """
     controller: dict = None
     agent : dict = None
     ridx: int = None

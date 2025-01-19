@@ -13,6 +13,7 @@ from keri import kering
 from keri.app import signing
 from keri.app.keeping import Algos
 from keri.core import coring, eventing, serdering
+from keri.core import signing as csigning
 from keri.core.coring import Tiers
 from keri.help import helping
 
@@ -216,7 +217,7 @@ def create_multisig(client, name, member, states):
     recps = [x['i'] for x in states if x['i'] != member['prefix']]
 
     embeds = dict(
-        icp=eventing.messagize(serder=icp, sigers=[coring.Siger(qb64=sig) for sig in isigs])
+        icp=eventing.messagize(serder=icp, sigers=[csigning.Siger(qb64=sig) for sig in isigs])
     )
 
     exchanges.send(member['name'], "multisig", sender=member, route="/multisig/icp",
@@ -239,7 +240,7 @@ def create_admit(client, participant, group, said, recp):
 
     mstate = ghab["state"]
     seal = eventing.SealEvent(i=ghab["prefix"], s=mstate["ee"]["s"], d=mstate["ee"]["d"])
-    ims = eventing.messagize(serder=admit, sigers=[coring.Siger(qb64=sig) for sig in sigs], seal=seal)
+    ims = eventing.messagize(serder=admit, sigers=[csigning.Siger(qb64=sig) for sig in sigs], seal=seal)
     ims.extend(end)
     embeds = dict(
         exn=ims
@@ -280,7 +281,7 @@ def add_end_role_multisig(client, name, ghab, m, eid, stamp=None):
 
     gstate = ghab["state"]
     seal = eventing.SealEvent(i=ghab["prefix"], s=gstate["ee"]["s"], d=gstate["ee"]["d"])
-    ims = eventing.messagize(serder=rpy, sigers=[coring.Siger(qb64=sig) for sig in sigs], seal=seal)
+    ims = eventing.messagize(serder=rpy, sigers=[csigning.Siger(qb64=sig) for sig in sigs], seal=seal)
     embeds = dict(
         rpy=ims
     )
@@ -339,7 +340,7 @@ def create_credential(client, holder):
 
     grant, sigs, end = ipex.grant(issuer, recp=holder['i'], acdc=acdc,
                                   iss=iss, message="",
-                                  anc=eventing.messagize(serder=anc, sigers=[coring.Siger(qb64=sig) for sig in sigs]))
+                                  anc=eventing.messagize(serder=anc, sigers=[csigning.Siger(qb64=sig) for sig in sigs]))
     print(f"Sending grant {grant.said}")
     exchanges.sendFromEvents("issuer", "credential", grant, sigs, end, [holder['i']])
     print("... sent")

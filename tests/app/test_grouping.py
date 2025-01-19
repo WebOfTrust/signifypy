@@ -6,8 +6,7 @@ signify.app.test_grouping module
 Testing grouping with unit tests
 """
 
-import pytest
-from mockito import mock, verify, verifyNoUnwantedInteractions, unstub, expect
+from mockito import mock, verifyNoUnwantedInteractions, unstub, expect
 
 
 def test_grouping_get_request():

@@ -6,7 +6,7 @@ signify.app.credentialing module
 """
 from collections import namedtuple
 
-from keri.core import coring
+from keri.core import coring, counting
 from keri.core.eventing import TraitDex, interact
 from keri.help import helping
 from keri.vc import proving
@@ -87,7 +87,7 @@ class Registries:
         seqner = coring.Seqner(sn=anc.sn)
         couple = seqner.qb64b + anc.said.encode("utf-8")
         atc = bytearray()
-        atc.extend(coring.Counter(code=coring.CtrDex.SealSourceCouples,
+        atc.extend(counting.Counter(code=counting.CtrDex_1_0.SealSourceCouples,
                                   count=1).qb64b)
         atc.extend(couple)
 
@@ -95,7 +95,7 @@ class Registries:
         if len(atc) % 4:
             raise ValueError("Invalid attachments size={}, nonintegral"
                              " quadlets.".format(len(atc)))
-        pcnt = coring.Counter(code=coring.CtrDex.AttachmentGroup,
+        pcnt = counting.Counter(code=counting.CtrDex_1_0.AttachmentGroup,
                               count=(len(atc) // 4)).qb64b
         msg = bytearray(serder.raw)
         msg.extend(pcnt)

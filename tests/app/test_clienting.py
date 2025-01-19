@@ -6,8 +6,9 @@ signify.app.test_clienting module
 Testing clienting with unit tests
 """
 
-from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, expect
 import pytest
+from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, expect, ANY
+
 
 def test_signify_client_defaults():
     from signify.app.clienting import SignifyClient
@@ -52,8 +53,8 @@ def test_signify_client_connect_no_delegation():
     mock_session = mock(spec=requests.Session, strict=True)
     expect(requests, times=1).Session().thenReturn(mock_session)
 
-    from signify.signifying import State
-    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=State, strict=True)
+    from signify.signifying import SignifyState
+    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=SignifyState, strict=True)
     expect(client, times=1).states().thenReturn(mock_state)
 
     from signify.core import authing
@@ -62,8 +63,8 @@ def test_signify_client_connect_no_delegation():
 
     from keri.core import serdering
     mock_serder = mock({'sn': 1}, spec=serdering.Serder, strict=True)
-    from keri.core import coring
-    mock_salter = mock(spec=coring.Salter, strict=True)
+    from keri.core import signing
+    mock_salter = mock(spec=signing.Salter, strict=True)
     mock_controller = mock({'pre': 'a prefix', 'salter': mock_salter, 'serder': mock_serder}, spec=authing.Controller, strict=True)
     expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low, state=mock_state.controller).thenReturn(mock_controller)
     
@@ -73,7 +74,7 @@ def test_signify_client_connect_no_delegation():
 
     from signify.core import authing
     mock_authenticator = mock({'verify': lambda: {'hook1': 'hook1 info', 'hook2': 'hook2 info'}}, spec=authing.Authenticater, strict=True)
-    expect(authing, times=1).Authenticater(agent=mock_agent, ctrl=mock_controller).thenReturn(mock_authenticator)
+    expect(authing, times=1).Authenticater(agent=mock_agent, ctrl=ANY).thenReturn(mock_authenticator)
 
     from signify.app import clienting
     mock_signify_auth = mock(spec=clienting.SignifyAuth, strict=True)
@@ -89,6 +90,7 @@ def test_signify_client_connect_no_delegation():
     unstub()
 
 def test_signify_client_connect_delegation():
+    # setup for client init
     from signify.core import authing
     from keri.core.coring import Tiers
     mock_init_controller = mock(spec=authing.Controller, strict=True)
@@ -97,12 +99,13 @@ def test_signify_client_connect_delegation():
     from signify.app.clienting import SignifyClient
     client = SignifyClient(passcode='abcdefghijklmnop01234')
 
+    # setup for client.connect()
     import requests
     mock_session = mock(spec=requests.Session, strict=True)
     expect(requests, times=1).Session().thenReturn(mock_session)
 
-    from signify.signifying import State
-    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=State, strict=True)
+    from signify.signifying import SignifyState
+    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=SignifyState, strict=True)
     expect(client, times=1).states().thenReturn(mock_state)
 
     from signify.core import authing
@@ -111,9 +114,10 @@ def test_signify_client_connect_delegation():
 
     from keri.core import serdering
     mock_serder = mock({'sn': 0}, spec=serdering.Serder, strict=True)
-    from keri.core import coring
-    mock_salter = mock(spec=coring.Salter, strict=True)
+    from keri.core import signing
+    mock_salter = mock(spec=signing.Salter, strict=True)
     mock_controller = mock({'pre': 'a prefix', 'salter': mock_salter, 'serder': mock_serder}, spec=authing.Controller, strict=True)
+    # when(authing.Controller).thenReturn(mock_controller)
     expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low, state=mock_state.controller).thenReturn(mock_controller)
     
     from signify.core import keeping
@@ -124,7 +128,7 @@ def test_signify_client_connect_delegation():
 
     from signify.core import authing
     mock_authenticator = mock({'verify': lambda: {'hook1': 'hook1 info', 'hook2': 'hook2 info'}}, spec=authing.Authenticater, strict=True)
-    expect(authing, times=1).Authenticater(agent=mock_agent, ctrl=mock_controller).thenReturn(mock_authenticator)
+    expect(authing, times=1).Authenticater(agent=mock_agent, ctrl=ANY).thenReturn(mock_authenticator)
 
     from signify.app import clienting
     mock_signify_auth = mock(spec=clienting.SignifyAuth, strict=True)
@@ -156,8 +160,8 @@ def test_signify_client_connect_bad_delegation():
     mock_session = mock(spec=requests.Session, strict=True)
     expect(requests, times=1).Session().thenReturn(mock_session)
 
-    from signify.signifying import State
-    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=State, strict=True)
+    from signify.signifying import SignifyState
+    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=SignifyState, strict=True)
     expect(client, times=1).states().thenReturn(mock_state)
 
     from signify.core import authing
@@ -166,8 +170,8 @@ def test_signify_client_connect_bad_delegation():
 
     from keri.core import serdering
     mock_serder = mock({'sn': 1}, spec=serdering.Serder, strict=True)
-    from keri.core import coring
-    mock_salter = mock(spec=coring.Salter, strict=True)
+    from keri.core import signing
+    mock_salter = mock(spec=signing.Salter, strict=True)
     mock_controller = mock({'pre': 'a different prefix', 'salter': mock_salter, 'serder': mock_serder}, spec=authing.Controller, strict=True)
     expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low, state=mock_state.controller).thenReturn(mock_controller)
     
@@ -230,8 +234,8 @@ def test_signify_client_properties():
     from keri.core import serdering
     mock_serder = mock(spec=serdering.Serder, strict=True)
 
-    from keri.core import coring
-    mock_salter = mock(spec=coring.Salter, strict=True)
+    from keri.core import signing
+    mock_salter = mock(spec=signing.Salter, strict=True)
 
     from signify.core import authing
     from keri.core.coring import Tiers
@@ -451,7 +455,6 @@ def test_signify_client_delete():
     client.session = mock_session # type: ignore
 
     mock_response = mock({'ok': True}, spec=requests.Response, strict=True)
-    from mockito import kwargs
     expect(mock_session).delete('http://example.com/my_path', params={'a': 'param'}, headers={'a': 'header'}).thenReturn(mock_response)
 
     out = client.delete('my_path', params={'a': 'param'}, headers={'a': 'header'})

@@ -5,9 +5,9 @@ signify.app.test_credentialing module
 
 Testing credentialing with unit tests
 """
+from keri.core import eventing, coring
 from keri.peer import exchanging
 from keri.vdr import eventing as veventing
-from keri.core import eventing, coring
 from mockito import mock, unstub, verify, verifyNoUnwantedInteractions, expect, ANY
 
 from signify.app import credentialing
