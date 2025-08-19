@@ -24,7 +24,7 @@ class SignifyClient:
     instance.
     """
 
-    def __init__(self, passcode, url=None, tier=Tiers.low, extern_modules=None):
+    def __init__(self, passcode, url=None, boot_url=None, tier=Tiers.low, extern_modules=None):
         """
         Create a new SignifyClient. Connects to the KERIA instance and delegates from the local
         Signify Client AID (caid) to the KERIA Agent AID with a delegated inception event.
@@ -37,6 +37,7 @@ class SignifyClient:
         Parameters:
             passcode (str | bytes): 21 character passphrase for the local controller
             url (str): Boot interface URL of the KERIA instance to connect to
+            boot_url (str): Boot interface URL of the KERIA instance to connect to for initial boot
             tier (Tiers): tier of the controller (low, med, high)
             extern_modules (dict): external key management modules such as for Google KMS, Trezor, etc.
 
@@ -68,10 +69,31 @@ class SignifyClient:
         self.base = None
 
         self.ctrl = authing.Controller(bran=self.bran, tier=self.tier)
-        if url is not None:
-            self.connect(url)
+        self.url = url
+        self.boot_url = boot_url
+
+    def boot(self):
+        """
+        Call a KERIA server to create an Agent that is delegated to by this AID to be its authorized
+        agent.
+        """
+        evt, siger = self.ctrl.event()
+        boot_data = dict(
+            icp=evt.ked,
+            sig=siger.qb64,
+            stem=self.ctrl.stem,
+            pidx=1,
+            tier=self.ctrl.tier)
+        res = requests.post(url=f"{self.boot_url}/boot", json=boot_data)
+        if res.status_code != requests.codes.accepted:
+            raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
+        return res.json()
 
     def connect(self, url):
+        """
+        Approve the delegation from this SignifyClient's Controller AID to the agent AID assigned by
+        the remote KERIA server to this Signify controller.
+        """
         up = urlparse(url)
         if up.scheme not in kering.Schemes:
             raise kering.ConfigurationError(f"invalid scheme {up.scheme} for SignifyClient")

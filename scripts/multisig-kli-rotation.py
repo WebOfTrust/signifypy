@@ -3,7 +3,7 @@ from time import sleep
 import requests
 from keri import kering
 from keri.app.keeping import Algos
-from keri.core import coring, eventing, signing
+from keri.core import eventing, signing, serdering
 from keri.core.coring import Tiers
 from signify.app.clienting import SignifyClient
 
