@@ -4,6 +4,7 @@ SIGNIFY
 signify.app.aiding module
 
 """
+from dataclasses import asdict
 from math import ceil
 
 from keri import kering
@@ -13,7 +14,7 @@ from keri.core.coring import MtrDex, Tholder
 from keri.kering import Roles
 
 from signify.app.clienting import SignifyClient
-from signify.core import httping
+from signify.core import httping, api
 
 
 class Identifiers:
@@ -202,12 +203,11 @@ class Identifiers:
         rpy = self.makeEndRole(pre, role, eid, stamp)
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=rpy.raw)
-        json = dict(
+        rpy_msg = api.ReplyMessage(
             rpy=rpy.ked,
-            sigs=sigs
-        )
+            sigs=sigs)
 
-        res = self.client.post(f"/identifiers/{name}/endroles", json=json)
+        res = self.client.post(f"/identifiers/{name}/endroles", json=asdict(rpy_msg))
         return rpy, sigs, res.json()
 
     def sign(self, name, ser):

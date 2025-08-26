@@ -4,6 +4,7 @@ Signify
 signify.app.clienting module
 
 """
+from dataclasses import asdict
 from urllib.parse import urlparse, urljoin, urlsplit
 
 import requests
@@ -14,7 +15,7 @@ from keri.help import helping
 from requests import HTTPError
 from requests.auth import AuthBase
 
-from signify.core import keeping, authing
+from signify.core import keeping, authing, api
 from signify.signifying import SignifyState
 
 
@@ -72,28 +73,34 @@ class SignifyClient:
         self.url = url
         self.boot_url = boot_url
 
-    def boot(self):
+    def boot(self) -> dict:
         """
         Call a KERIA server to create an Agent that is delegated to by this AID to be its authorized
         agent.
         """
         evt, siger = self.ctrl.event()
-        boot_data = dict(
+        agent_boot = api.AgentBoot(
             icp=evt.ked,
             sig=siger.qb64,
             stem=self.ctrl.stem,
             pidx=1,
-            tier=self.ctrl.tier)
-        res = requests.post(url=f"{self.boot_url}/boot", json=boot_data)
+            tier=self.ctrl.tier
+        )
+        res = requests.post(url=f"{self.boot_url}/boot", json=asdict(agent_boot))
         if res.status_code != requests.codes.accepted:
             raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
-        return res.json()
+        try:
+            body = res.json()
+        except requests.exceptions.JSONDecodeError as ex:
+            raise kering.AuthNError(f"invalid response from server: {ex}") from ex
+        return body
 
-    def connect(self, url):
+    def connect(self, url=None):
         """
         Approve the delegation from this SignifyClient's Controller AID to the agent AID assigned by
         the remote KERIA server to this Signify controller.
         """
+        url = self.url if url is None else url
         up = urlparse(url)
         if up.scheme not in kering.Schemes:
             raise kering.ConfigurationError(f"invalid scheme {up.scheme} for SignifyClient")
