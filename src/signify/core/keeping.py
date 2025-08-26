@@ -78,6 +78,7 @@ class Manager:
 
 
 class BaseKeeper:
+    """Base Keystore class for all Keeper types"""
 
     @property
     def algo(self):
@@ -194,7 +195,7 @@ class SaltyKeeper(BaseKeeper):
         else:
             self.sxlt = sxlt
             ciph = signing.Cipher(qb64=self.sxlt)
-            self.creator = keeping.SaltyCreator(self.decrypter.decrypt(cipher=ciph).qb64, stem=stem, tier=tier)
+            self.creator = keeping.SaltyCreator(self.decrypter.decrypt(cipher=ciph).text, stem=stem, tier=tier)
 
     def params(self):
         """ Get AID parameters to store externally """
@@ -325,7 +326,7 @@ class RandyKeeper(BaseKeeper):
         self.transferable = transferable
         self.prxs = self.nxts
         signers = [self.decrypter.decrypt(cipher=signing.Cipher(qb64=nxt),
-                                          transferable=self.transferable) for nxt in self.nxts]
+                                          transferable=self.transferable).text for nxt in self.nxts]
         verfers = [signer.verfer.qb64 for signer in signers]
 
         nsigners = self.creator.create(codes=ncodes, transferable=transferable)
@@ -335,7 +336,7 @@ class RandyKeeper(BaseKeeper):
         return verfers, digers
 
     def sign(self, ser, indexed=True, indices=None, ondices=None, **_):
-        signers = [self.decrypter.decrypt(ser=signing.Cipher(qb64=prx).qb64b, transferable=self.transferable)
+        signers = [self.decrypter.decrypt(ser=signing.Cipher(qb64=prx).qb64b, transferable=self.transferable).text
                    for prx in self.prxs]
         return self.__sign__(ser, signers=signers, indexed=indexed, indices=indices, ondices=ondices)
 
