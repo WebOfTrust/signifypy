@@ -1,17 +1,20 @@
 import json
 import threading
+from time import sleep
 
 from hio.base import doing
 from keri import core, kering
-from keri.app import configing, habbing, oobiing, connecting
+from keri.app import configing, habbing
+from keri.core.coring import Saids, Saider
 from keri.help import nowIso8601
 from keri.vdr import credentialing
 from keria.app.agenting import KERIAServerConfig, setupDoers, createAgency
 
 from signify.app.clienting import SignifyClient
 from tests import keria_api
-from tests.conftest import HabbingHelpers, WitnessContext, IcpCfg, random_passcode, Schemas, \
-    CredentialHelpers, IpexHelpers, GrantContainer
+from tests.conftest import HabbingHelpers, WitnessContext, IcpCfg, Schemas, \
+    CredentialHelpers
+from tests.keri_ops import GrantContainer
 from tests.keria_api import create_agent
 
 
@@ -176,32 +179,36 @@ def test_e2e_vlei_present():
         # Set up KERIA QAR
         boot_url = f"http://{host}:{bootPort}"
         connect_url = f"http://{host}:{adminPort}"
-        qvi_bran = '0AAmliIpdz2VNPTBdMcLjJ2_'
         # Add QVI schema to QVI Signify Controller
         qvi_bran = b'00123456789abcdefghij'
-        qvi_client = create_agent(qvi_bran,
-                               'EAE5wsF82FzIQxX7Qx9WKfHY13mSiCGzL4Tg8Y6YVSjd',
+        qvi_ctrl_aid = 'EAE5wsF82FzIQxX7Qx9WKfHY13mSiCGzL4Tg8Y6YVSjd'
+        qvi_client = create_agent(qvi_bran, qvi_ctrl_aid,
                                url=connect_url, boot_url=boot_url)
         qvi_agent = agency.get(qvi_client.ctrl.pre)
         HabbingHelpers.add_acdc_schema(qvi_agent.hby.db, Schemas.qvi_schema_as_dict())
 
         # Resolve OOBI of the wan witness for QVI AID
         keria_api.resolve_oobi(qvi_client, alias='wan', url=wan_oobi, agent=qvi_agent, doist=doist, deeds=wan_deeds)
+        # TODO delete OOBI operation
         qvi_aid_name = 'qvi-aid'
         qvi_aid_state = keria_api.create_identifier(qvi_client, name=qvi_aid_name, agent=qvi_agent, doist=doist, deeds=wan_deeds, toad=1, wits=[wan_pre])
+        # TODO delete create identifier operation
         qvi_identifiers = qvi_client.identifiers()
         qvi_aids = qvi_identifiers.list()
+        qvi_aid = qvi_aids['aids'][0]
         assert len(qvi_aids['aids']) == 1, "There should be one QVI AID"
 
+        # Have QVI OOBI with GEDA
         keria_api.resolve_oobi(qvi_client, alias=geda_hab_name, url=geda_oobi, agent=qvi_agent, doist=doist, deeds=wan_deeds)
+        # TODO delete OOBI operation
         contacts = qvi_client.contacts()
         cons = contacts.list()
         assert len(cons['contacts']) == 2, "There should be two contacts for QVI AID"
 
         # GEDA OOBIs with QVI
-        qvi_aid_oobi = qvi_client.oobis().get(name=qvi_aid_name, role='agent')
-        organizer = connecting.Organizer(hby=geda_hby)
-        HabbingHelpers.resolve_wit_oobi(doist, wan_deeds, geda_hby, qvi_aid_oobi['oobis'][0], qvi_aid_name)
+        qvi_aid_oobi_resp = qvi_client.oobis().get(name=qvi_aid_name, role='agent')
+        qvi_oobi = qvi_aid_oobi_resp['oobis'][0]
+        HabbingHelpers.resolve_wit_oobi(doist, wan_deeds, geda_hby, qvi_oobi, qvi_aid_name)
 
         # Issue QVI credential from GEDA to QVI
         qvi_schema_said = 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao'
@@ -209,7 +216,7 @@ def test_e2e_vlei_present():
             'LEI': '506700GE1G29325QX363',
             'gracePeriod': 180
         }
-        creder, _, _ = CredentialHelpers.vc_create(
+        qvi_creder, _, _ = CredentialHelpers.vc_create(
             hby=geda_hby,
             hby_doer=geda_hby_doer,
             regery=geda_regery,
@@ -219,7 +226,7 @@ def test_e2e_vlei_present():
             subject_data=qvi_acdc_data,
             rules_json=Schemas.qvi_rules_as_dict(),
             source=None,
-            recp=qvi_client.ctrl.pre,
+            recp=qvi_aid['prefix'],
             additional_deeds=wan_deeds + geda_deeds
         )
         grant_cont_doer = GrantContainer(
@@ -229,7 +236,7 @@ def test_e2e_vlei_present():
             tymth=doist.tymen()
         )
         grant_cont_doer.kli_grant(
-            said=creder.said,
+            said=qvi_creder.said,
             recp=qvi_aid_state['prefix'],
             message="Here is the QVI credential",
             timestamp=nowIso8601()
@@ -237,14 +244,103 @@ def test_e2e_vlei_present():
         # grant_deed = doist.enter(doers=[grant_cont_doer])
         while not grant_cont_doer.done:
             doist.recur(deeds=grant_cont_doer.deeds + wan_deeds)
+        qvi_grant_notification = keria_api.wait_for_notification(qvi_client, '/exn/ipex/grant')
+        keria_api.admit_credential(qvi_client, qvi_aid_name, qvi_grant_notification['a']['d'], [geda_hab.pre], qvi_agent)
+        # todo mark notification as read
+        # todo delete admit operation
+
         # Create QVI registry
+        qvi_reg_name = 'qvi-reg'
+        keria_api.create_registry(client=qvi_client, name=qvi_aid_name, registry_name=qvi_reg_name, agent=qvi_agent, doist=doist, deeds=wan_deeds)
+        # TODO delete create registry operation
+
         # Set up Legal Entity
+        # Add LE schema to LE Signify Controller
+        le_bran = b'le023456789abcdefghij'
+        le_ctrl_aid = 'EFW7wTDuSWICwgoTxdy85liV4Uzk9jnt6UIsFg0kl6wl'  # expected controller AID given le_bran
+        le_client = create_agent(le_bran, le_ctrl_aid,
+                                 url=connect_url, boot_url=boot_url)
+        le_agent = agency.get(le_client.ctrl.pre)
+        HabbingHelpers.add_acdc_schema(le_agent.hby.db, Schemas.le_schema_as_dict())
+        HabbingHelpers.add_acdc_schema(le_agent.hby.db, Schemas.qvi_schema_as_dict())
+        # Add LE schema to QVI
+        HabbingHelpers.add_acdc_schema(qvi_agent.hby.db, Schemas.le_schema_as_dict())
+
+        # Resolve OOBI of the wan witness for QVI AID
+        keria_api.resolve_oobi(le_client, alias='wan', url=wan_oobi, agent=le_agent, doist=doist, deeds=wan_deeds)
+        le_aid_name = 'le-aid'
+        le_aid_state = keria_api.create_identifier(le_client, name=le_aid_name, agent=le_agent, doist=doist, deeds=wan_deeds, toad=1, wits=[wan_pre])
+        # TODO delete create identifier operation
+        le_identifiers = le_client.identifiers()
+        le_aids = le_identifiers.list()
+        assert len(le_aids['aids']) == 1, "There should be one QVI AID"
+
+        # Have QVI and LE OOBI
+        le_oobi_resp = le_client.oobis().get(name=le_aid_name, role='agent')
+        le_oobi = le_oobi_resp['oobis'][0]
+        keria_api.resolve_oobi(qvi_client, alias=le_aid_name, url=le_oobi, agent=qvi_agent, doist=doist, deeds=wan_deeds)
+        # TODO delete OOBI operation
+        keria_api.resolve_oobi(le_client, alias=qvi_aid_name, url=qvi_oobi, agent=le_agent, doist=doist, deeds=wan_deeds)
+        # TODO delete OOBI operation
+
         # Issue vLEI from QVI to Legal Entity
+        le_schema_said = 'ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY'
+        le_acdc_data = {
+            'LEI': '506700GE1G29325QX363',
+        }
+        qvi_edge_data = {
+            'd':'',
+            'qvi': {
+                'n': qvi_creder.sad['d'],
+                's': qvi_creder.sad['s']
+            }
+        }
+        _, qvi_edge = Saider.saidify(sad=qvi_edge_data, label=Saids.d)
+
+        le_creder, le_iss_serder, le_iss_anc, sigs = keria_api.issue_credential(
+            client=qvi_client,
+            name=qvi_aid_name,
+            registry_name=qvi_reg_name,
+            schema=le_schema_said,
+            recipient=le_aid_state['prefix'],
+            data=le_acdc_data,
+            agent=qvi_agent,
+            doist=doist,
+            deeds=wan_deeds,
+            rules=Schemas.le_rules_as_dict(),
+            edges=qvi_edge,
+        )
+        # TODO delete issue operation
+        _grant = keria_api.ipex_grant(
+            client=qvi_client,
+            agent=qvi_agent,
+            name=qvi_aid_name,
+            creder=le_creder,
+            iss_serder=le_iss_serder,
+            iss_anc=le_iss_anc,
+            sigs=sigs,
+            recipient=le_aid_state['prefix'],
+        )
+        while qvi_agent.grants:
+            sleep(0.125)
+        while len(le_client.credentials().list()) == 0:
+            sleep(0.25)
+        # TODO delete grant operation
+        le_grant_notification = keria_api.wait_for_notification(le_client, '/exn/ipex/grant')
+        keria_api.admit_credential(
+            client=le_client,
+            name=le_aid_name,
+            said=le_grant_notification['a']['d'],
+            recipient=[qvi_aid['prefix']],
+            agent=le_agent)
+        # TODO mark notification as read
+        # TODO delete admit operation
+
         # Set up Sally
         # Have Legal Entity OOBI with Sally
         # Have Legal Entity present vLEI to Sally
         # Assert Sally has received and validated the vLEI
-        le_bran = b'0123456789abcdefghijk'
+
 
         client = SignifyClient(passcode=le_bran, url=connect_url, boot_url=boot_url)
         client.boot()
