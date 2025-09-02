@@ -156,13 +156,22 @@ class HabbingHelpers:
 
     @staticmethod
     def incept_aid(doist: doing.Doist, wit_deeds: List[Doer], hby_deeds: List[Doer], hby: habbing.Habery, icp_cfg: IcpCfg, wit_rcptr: agenting.WitnessReceiptor):
+        """
+        Incept an AID in the given Habery using the given inception configuration.
+
+        Does not yet support delegation or multisig.
+        """
+
         # perform inception
         hab = hby.makeHab(name=icp_cfg.name, isith=icp_cfg.isith, icount=icp_cfg.icount, toad=icp_cfg.toad, wits=icp_cfg.wits)
 
-        # Waiting for witness receipts...
-        wit_rcptr.msgs.append(dict(pre=hab.pre))
-        while not wit_rcptr.cues:
-            doist.recur(deeds=decking.Deck(wit_deeds + hby_deeds)) # Use of Deck avoids type error of raw list
+        if len(icp_cfg.wits) > 0:
+            # Waiting for witness receipts...
+            wit_rcptr.msgs.append(dict(pre=hab.pre))
+
+            while not wit_rcptr.cues:
+                doist.recur(deeds=decking.Deck(wit_deeds + hby_deeds)) # Use of Deck avoids type error of raw list
+        return hab
 
     @staticmethod
     def generate_oobi(hby: habbing.Habery, alias: str = None, role: str = kering.Roles.witness):

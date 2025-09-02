@@ -53,7 +53,10 @@ def resolve_oobi(client, alias, url, agent, doist: Doist, deeds: List[Doer]):
     op = oobis.resolve(oobi=url, alias=alias)
     op = api.Operation(**op)
     while not agent.monitor.get(op.name).done:
-        doist.recur(deeds=decking.Deck(deeds))
+        if deeds:
+            doist.recur(deeds=decking.Deck(deeds))
+        else:
+            sleep(0.25)
     op = operations.get(op.name)
     return op["response"]
 

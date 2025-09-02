@@ -1,7 +1,7 @@
 from typing import List
 
 from hio.base import doing
-from keri.app import notifying, signing, forwarding
+from keri.app import notifying, signing, forwarding, habbing
 from keri.app.habbing import Habery, Hab
 from keri.core import serdering, coring, parsing
 from keri.peer import exchanging
@@ -102,10 +102,13 @@ class KliGrantDoer(doing.Doer):
         postman = forwarding.StreamPoster(hby=self.hby, hab=sender, recp=recp, topic="credential")
 
         sources = self.rgy.reger.sources(self.hby.db, creder)
-        credentialing.sendArtifacts(self.hby, self.rgy.reger, postman, creder, recp)
+        cred_arts = gatherArtifacts(self.hby, self.rgy.reger, creder, recp)
         for source, atc in sources:
-            credentialing.sendArtifacts(self.hby, self.rgy.reger, postman, source, recp)
-            postman.send(serder=source, attachment=atc)
+            cred_arts.extend(gatherArtifacts(self.hby, self.rgy.reger, source, recp))
+            cred_arts.append((source, atc))
+        concatenated = (b''.join([ser.raw + b'\n' + atc + b'\n' for ser, atc in cred_arts])).decode()
+        for serder, atc in cred_arts:
+            postman.send(serder=serder, attachment=atc)
 
         atc = exchanging.serializeMessage(self.hby, exn.said)
         del atc[:exn.size]
@@ -122,3 +125,56 @@ class KliGrantDoer(doing.Doer):
     def recur(self, tock=0.0, **opts):
         yield from self.grant()
         return True
+
+def gatherArtifacts(hby: habbing.Habery, reger: credentialing.Reger, creder: serdering.SerderACDC, recp: str):
+    """ Stream credential artifacts to recipient using postman
+
+    Parameters:
+        hby: Habery to read KELs from
+        reger: Registry to read registries and ACDCs from
+        creder: The credential to send
+        recp: recipient
+
+    Returns:
+        A list of (Serder, attachment) tuples to send
+    """
+    messages = []
+    issr = creder.issuer
+    isse = creder.attrib["i"] if "i" in creder.attrib else None
+    regk = creder.regi
+
+    ikever = hby.db.kevers[issr]
+    for msg in hby.db.cloneDelegation(ikever):
+        serder = serdering.SerderKERI(raw=msg)
+        atc = msg[serder.size:]
+        messages.append((serder, atc))
+
+    for msg in hby.db.clonePreIter(pre=issr):
+        serder = serdering.SerderKERI(raw=msg)
+        atc = msg[serder.size:]
+        messages.append((serder, atc))
+
+    if isse != recp:
+        ikever = hby.db.kevers[isse]
+        for msg in hby.db.cloneDelegation(ikever):
+            serder = serdering.SerderKERI(raw=msg)
+            atc = msg[serder.size:]
+            messages.append((serder, atc))
+
+        for msg in hby.db.clonePreIter(pre=isse):
+            serder = serdering.SerderKERI(raw=msg)
+            atc = msg[serder.size:]
+            messages.append((serder, atc))
+
+    if regk is not None:
+        for msg in reger.clonePreIter(pre=regk):
+            serder = serdering.SerderKERI(raw=msg)
+            atc = msg[serder.size:]
+            messages.append((serder, atc))
+
+    for msg in reger.clonePreIter(pre=creder.said):
+        serder = serdering.SerderKERI(raw=msg)
+        atc = msg[serder.size:]
+        messages.append((serder, atc))
+
+    return messages
