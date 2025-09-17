@@ -9,7 +9,7 @@ from time import sleep
 
 import requests
 from keri import kering
-from keri.core import coring, serdering
+from keri.core import serdering
 from keri.core.coring import Tiers
 
 from signify.app.clienting import SignifyClient

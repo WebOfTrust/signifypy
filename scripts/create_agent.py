@@ -7,7 +7,6 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 
 import pytest
-import requests
 from keri import kering
 from keri.core.coring import Tiers
 

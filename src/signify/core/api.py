@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from typing import List
 
-from keri.core.coring import Tierage
-
 
 @dataclass
 class AgentBoot:

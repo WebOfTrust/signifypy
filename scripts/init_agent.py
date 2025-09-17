@@ -7,13 +7,11 @@ Testing clienting with integration tests that require a running KERIA Cloud Agen
 """
 from dataclasses import asdict
 
-import pytest
 import requests
 from keri import kering
-from keri.core import coring, serdering, signing
+from keri.core import serdering, signing
 from keri.core.coring import Tiers
 
-from signify.app.clienting import SignifyClient
 from signify.core import api
 
 
