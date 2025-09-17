@@ -80,9 +80,7 @@ setup(
     ],
     python_requires='>=3.12.6',
     install_requires=[
-        'keri==1.2.6',
-        'keria==0.2.0rc2',
-        'sally-verifier==1.0.1',
+        'keri==1.2.7',
         'multicommand==1.0.0',
         'requests==2.32.3',
         'http_sfv==0.9.9',
