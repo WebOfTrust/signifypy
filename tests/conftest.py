@@ -12,22 +12,17 @@ from pathlib import Path
 from typing import List, Union
 
 import pytest
-from hio.base import Doer, doing, Doist
+from hio.base import Doer, doing
 from hio.help import decking
 from keri import core, kering
 from keri.app import habbing, delegating, forwarding, indirecting, agenting, keeping, oobiing, \
-    grouping, notifying
-from keri.app.habbing import openHby, Habery
+    grouping
+from keri.app.habbing import openHby
 from keri.core import coring, eventing, serdering, Salter, scheming
 from keri.db import basing
 from keri.help import helping
-from keri.peer import exchanging
-from keri.vc import protocoling
 from keri.vdr import credentialing, verifying
-from keri.vdr.credentialing import Regery
 from pysodium import randombytes, crypto_sign_SEEDBYTES
-
-from tests.keri_ops import KliGrantDoer
 
 
 @pytest.fixture()
@@ -406,33 +401,4 @@ class CredentialHelpers:
         state = registry.tever.vcState(vci=creder.said)
         assert state.et == coring.Ilks.iss
         return creder, reg_iss_serder, anc_serder
-
-class IpexHelpers:
-    @staticmethod
-    def kli_grant(name: str, base: str, bran: bytes, alias: str, said: str, recp: str,
-                  hby: Habery,
-                  regery: Regery,
-                  doist: Doist,
-                  additional_deeds: List[Doer] = None,
-                  message: str = None,
-                  timestamp: str = None):
-        """
-        I had to write the below function instead of using GrantDoer because the KLI command Doer
-        does not allow specifying temp=True and thus puts the databases in a non-temp location.
-        Right now this only supports single sig Granting. Multisig will not be too much more work.
-        """
-        notifier = notifying.Notifier(hby=hby)
-        exc = exchanging.Exchanger(hby=hby, handlers=[])
-        protocoling.loadHandlers(hby, exc, notifier)
-
-        kli_grant_doer = KliGrantDoer(hby=hby, hab=hby.habByName(alias), regery=regery, exc=exc,
-                                      said=said, recp=recp, message=message, timestamp=timestamp)
-        grant_deed = doist.enter(doers=[kli_grant_doer])
-        while not kli_grant_doer.done:
-            doist.recur(deeds=decking.Deck([grant_deed] + additional_deeds))
-
-    @staticmethod
-    def kli_admit():
-        pass
-
 
