@@ -195,7 +195,12 @@ class SaltyKeeper(BaseKeeper):
         else:
             self.sxlt = sxlt
             ciph = signing.Cipher(qb64=self.sxlt)
-            self.creator = keeping.SaltyCreator(self.decrypter.decrypt(cipher=ciph).qb64, stem=stem, tier=tier)
+            decrypted = self.decrypter.decrypt(cipher=ciph)
+            if hasattr(decrypted, 'text'):
+                decrypted_salt = decrypted.text
+            else:
+                decrypted_salt = decrypted.qb64
+            self.creator = keeping.SaltyCreator(decrypted_salt, stem=stem, tier=tier)
 
     def params(self):
         """ Get AID parameters to store externally """
