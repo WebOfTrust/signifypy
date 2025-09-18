@@ -40,7 +40,7 @@ else:
 
 setup(
     name='signifypy',
-    version='0.1.2',  # also change in src/signify/__init__.py
+    version='0.2.0',  # also change in src/signify/__init__.py
     license='Apache Software License 2.0',
     description='SignifyPy: KERI Signing at the Edge',
     long_description=long_description,
@@ -80,7 +80,7 @@ setup(
     ],
     python_requires='>=3.12.6',
     install_requires=[
-        'keri==1.2.3',
+        'keri==1.2.7',
         'multicommand==1.0.0',
         'requests==2.32.3',
         'http_sfv==0.9.9',
@@ -90,14 +90,11 @@ setup(
     ],
     extras_require={
         'test': [
-                'responses>=0.25.6',
-                'coverage>=7.6.10',
-                'pytest>=8.3.4',
-                'mockito==1.5.3'
+            'responses>=0.25.6',
+            'coverage>=7.6.10',
+            'pytest>=8.3.4',
+            'mockito==1.5.3'
         ],
-        'setup': [
-            'setuptools==75.8.0'
-        ]
     },
     tests_require=[
         'responses>=0.25.6',
@@ -105,9 +102,7 @@ setup(
         'pytest>=8.3.4',
         'mockito==1.5.3'
     ],
-    setup_requires=[
-        'setuptools==75.8.0'
-    ],
+    setup_requires=[],
     entry_points={
         'console_scripts': [
             'sigpy = signify.app.cli.sigpy:main',

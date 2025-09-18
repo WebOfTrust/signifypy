@@ -7,7 +7,7 @@ Testing authentication
 """
 
 import pytest
-from mockito import mock, verifyNoUnwantedInteractions, unstub, expect
+from mockito import mock, verifyNoUnwantedInteractions, unstub, expect, when
 
 
 def test_keeping_manager():
@@ -620,7 +620,7 @@ def test_randy_keeper_incept():
 
 def test_randy_keeper_rotate():
     from keri.core.signing import Salter, Signer
-    mock_salter = mock(spec=Salter, strict=True)
+    mock_salter = mock({'qb64': 'salter qb64'}, spec=Salter, strict=True)
     from keri.core.coring import Verfer
     mock_verfer = mock({'qb64': 'verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer ,'qb64': 'signer qb64'}, spec=Signer, strict=True)
@@ -644,19 +644,20 @@ def test_randy_keeper_rotate():
 
     from keri.core import coring
     from keri.core.signing import Cipher
-    mock_nxt_cipher = mock(spec=Cipher, strict=True)
+    mock_nxt_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
+    when(mock_nxt_cipher).qb64.add_answer('nxt qb64')
     expect(signing, times=1).Cipher(qb64='nxt qb64').thenReturn(mock_nxt_cipher)
 
     # verfers mocks
     from keri.core.coring import Verfer
     from keri.core.signing import Signer
     mock_verfer = mock({'qb64': 'signer verfer qb64'}, spec=Verfer, strict=True)
-    mock_signer = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
+    mock_signer = mock({'verfer': mock_verfer, 'qb64': 'signer qb64'}, spec=Signer, strict=True)
     expect(mock_decrypter, times=1).decrypt(cipher=mock_nxt_cipher, transferable=True).thenReturn(mock_signer)
 
     # digers mocks
     mock_verfer = mock({'qb64b': b'signer verfer qb64b'}, spec=Verfer, strict=True)
-    mock_nsigner = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
+    mock_nsigner = mock({'verfer': mock_verfer, 'qb64': 'nsigner qb64'}, spec=Signer, strict=True)
     expect(mock_creator, times=1).create(codes=['A'], transferable=True).thenReturn([mock_nsigner])
 
     from keri.core.signing import Cipher

@@ -5,14 +5,16 @@ signify.app.clienting module
 
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
+from dataclasses import asdict
 from time import sleep
 
 import requests
 from keri import kering
-from keri.core import coring, serdering
+from keri.core import serdering
 from keri.core.coring import Tiers
 
 from signify.app.clienting import SignifyClient
+from signify.core import api
 
 URL = "http://localhost:3901"
 
@@ -78,25 +80,27 @@ def create_quadlet():
     oobi(client4, "multisig", "http://127.0.0.1:5642/oobi/EC61gZ9lCKmHAS7U5ehUfEbGId5rcY0D7MirFZHDQcE2/witness")
 
 
-def create_agent(bran, ctrlAid, agentAid):
+def create_agent(bran, ctrlAid, agentAid, url: str = '', boot_url: str = ""):
     tier = Tiers.low
-    client = SignifyClient(passcode=bran, tier=tier)
+    client = SignifyClient(passcode=bran, tier=tier, url=url, boot_url=boot_url)
     assert client.controller == ctrlAid
 
     evt, siger = client.ctrl.event()
 
-    res = requests.post(url="http://localhost:3903/boot",
-                        json=dict(
-                            icp=evt.ked,
-                            sig=siger.qb64,
-                            stem=client.ctrl.stem,
-                            pidx=1,
-                            tier=client.ctrl.tier))
+    agent_boot = api.AgentBoot(
+        icp=evt.ked,
+        sig=siger.qb64,
+        stem=client.ctrl.stem,
+        pidx=1,
+        tier=client.ctrl.tier
+    )
+    res = requests.post(url=boot_url + "/boot",
+                        json=asdict(agent_boot))
 
     if res.status_code != requests.codes.accepted:
         raise kering.AuthNError(f"unable to initialize cloud agent connection, {res.status_code}, {res.text}")
 
-    client.connect(url=URL, )
+    client.connect(url=url, )
     assert client.agent is not None
 
     assert client.agent.pre == agentAid

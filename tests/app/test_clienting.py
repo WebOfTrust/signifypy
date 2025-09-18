@@ -12,8 +12,9 @@ from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, e
 
 def test_signify_client_defaults():
     from signify.app.clienting import SignifyClient
-    patch(SignifyClient, 'connect', lambda str: None)
+    patch(SignifyClient, 'connect', lambda: None)
     client = SignifyClient(passcode='abcdefghijklmnop01234', url='http://example.com')
+    client.connect()
 
     assert client.bran == 'abcdefghijklmnop01234'
     assert client.pidx == 0
@@ -29,7 +30,7 @@ def test_signify_client_defaults():
     assert client.authn is None
     assert client.base is None
 
-    verify(SignifyClient, times=1).connect('http://example.com')
+    verify(SignifyClient, times=1).connect()
 
     verifyNoUnwantedInteractions()
     unstub()

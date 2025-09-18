@@ -208,6 +208,10 @@ class Credentials:
             iserder = eventing.issue(vcdig=creder.said, regk=regk, dt=dt)
         else:
             regi = registry['state']['s']
+            try:
+                regi = int(regi)  # value is hex though should be parsed as int prior to passing in to backerIssue where it is reconverted to hex
+            except ValueError:
+                raise ValueError(f"invalid registry state sn={regi}")
             regd = registry['state']['d']
             iserder = eventing.backerIssue(vcdig=creder.said, regk=regk, regsn=regi, regd=regd, dt=dt)
 
@@ -272,10 +276,10 @@ class Ipex:
         if agree is not None:
             kwa['dig'] = agree.said
 
-        grant, gsigs, end = exchanges.createExchangeMessage(sender=hab, route="/ipex/grant",
+        grant, gsigs, atc = exchanges.createExchangeMessage(sender=hab, route="/ipex/grant",
                                                             payload=data, embeds=embeds, dt=dt)
 
-        return grant, gsigs, end
+        return grant, gsigs, atc
 
     def submitGrant(self, name, exn, sigs, atc, recp):
         """  Send precreated grant message to recipients
@@ -311,10 +315,10 @@ class Ipex:
             m=message,
         )
 
-        admit, asigs, end = exchanges.createExchangeMessage(sender=hab, route="/ipex/admit",
+        admit, asigs, atc = exchanges.createExchangeMessage(sender=hab, route="/ipex/admit",
                                                             payload=data, embeds=None, dt=dt, dig=grant)
 
-        return admit, asigs, end
+        return admit, asigs, atc
 
     def submitAdmit(self, name, exn, sigs, atc, recp):
         """  Send precreated exn message to recipients

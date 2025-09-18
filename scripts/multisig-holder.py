@@ -5,7 +5,6 @@ signify.app.clienting module
 
 Testing clienting with integration tests that require a running KERIA Cloud Agent
 """
-import json
 from time import sleep
 
 import requests

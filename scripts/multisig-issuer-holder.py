@@ -326,22 +326,22 @@ def create_admit(client, participant, group, said, recp, stamp):
     ghab = get_aid(client, group)
     mhab = get_aid(client, participant)
 
-    admit, sigs, end = ipex.admit(ghab, "", said, dt=stamp)
+    admit, sigs, atc = ipex.admit(ghab, "", said, dt=stamp)
 
     print(f"created ADMIT {admit.said}")
     mstate = ghab["state"]
     seal = eventing.SealEvent(i=ghab["prefix"], s=mstate["ee"]["s"], d=mstate["ee"]["d"])
     ims = eventing.messagize(serder=admit, sigers=[csigning.Siger(qb64=sig) for sig in sigs], seal=seal)
-    ims.extend(end)
+    ims.extend(atc)
     embeds = dict(
         exn=ims
     )
 
-    exn, gsigs, end = exchanges.createExchangeMessage(sender=mhab, route="/multisig/exn",
+    exn, gsigs, atc = exchanges.createExchangeMessage(sender=mhab, route="/multisig/exn",
                                                       payload=dict(gid=ghab["prefix"]),
                                                       embeds=embeds)
 
-    ipex.submitAdmit(ghab['name'], exn=exn, sigs=gsigs, atc=end, recp=recp)
+    ipex.submitAdmit(ghab['name'], exn=exn, sigs=gsigs, atc=atc, recp=recp)
 
 
 def get_aid(client, name):
@@ -464,7 +464,7 @@ def create_grant(client, localName, groupName, creder, iserder, anc, sigs, recp,
     issuer = identifiers.get(groupName)
     local = identifiers.get(localName)
 
-    grant, sigs, end = ipex.grant(issuer, recp=holder, acdc=acdc,
+    grant, sigs, atc = ipex.grant(issuer, recp=holder, acdc=acdc,
                                   iss=iss, message="", dt=stamp,
                                   anc=eventing.messagize(serder=anc, sigers=[csigning.Siger(qb64=sig) for sig in sigs]))
 
@@ -472,16 +472,16 @@ def create_grant(client, localName, groupName, creder, iserder, anc, sigs, recp,
     mstate = issuer["state"]
     seal = eventing.SealEvent(i=issuer["prefix"], s=mstate["ee"]["s"], d=mstate["ee"]["d"])
     ims = eventing.messagize(serder=grant, sigers=[csigning.Siger(qb64=sig) for sig in sigs], seal=seal)
-    ims.extend(end.encode("utf-8"))
+    ims.extend(atc.encode("utf-8"))
     embeds = dict(
         exn=ims
     )
 
-    exn, gsigs, end = exchanges.createExchangeMessage(sender=local, route="/multisig/exn",
+    exn, gsigs, atc = exchanges.createExchangeMessage(sender=local, route="/multisig/exn",
                                                       payload=dict(gid=issuer["prefix"]),
                                                       embeds=embeds)
 
-    op = ipex.submitGrant(issuer['name'], exn=exn, sigs=gsigs, atc=end, recp=recp)
+    op = ipex.submitGrant(issuer['name'], exn=exn, sigs=gsigs, atc=atc, recp=recp)
     return op
 
 

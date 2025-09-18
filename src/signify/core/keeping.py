@@ -78,6 +78,7 @@ class Manager:
 
 
 class BaseKeeper:
+    """Base Keystore class for all Keeper types"""
 
     @property
     def algo(self):
@@ -324,8 +325,7 @@ class RandyKeeper(BaseKeeper):
     def rotate(self, ncodes, transferable, **_):
         self.transferable = transferable
         self.prxs = self.nxts
-        signers = [self.decrypter.decrypt(cipher=signing.Cipher(qb64=nxt),
-                                          transferable=self.transferable) for nxt in self.nxts]
+        signers = [self.decrypter.decrypt(cipher=signing.Cipher(qb64=nxt), transferable=self.transferable) for nxt in self.nxts]
         verfers = [signer.verfer.qb64 for signer in signers]
 
         nsigners = self.creator.create(codes=ncodes, transferable=transferable)

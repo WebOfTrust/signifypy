@@ -56,14 +56,14 @@ class Exchanges:
             dt (str): Iso formatted date string
 
         Returns:
-            (exn, sigs, end): tuple of Serder, list, bytes of event, signatures over the event and any transposed
+            (exn, sigs, atc): tuple of Serder, list, bytes of event, signatures over the event and any transposed
                               attachments from embeds
 
         """
 
         keeper = self.client.manager.get(sender)
 
-        exn, end = exchanging.exchange(route=route,
+        exn, atc = exchanging.exchange(route=route,
                                        payload=payload,
                                        sender=sender["prefix"],
                                        embeds=embeds,
@@ -72,7 +72,7 @@ class Exchanges:
 
         sigs = keeper.sign(ser=exn.raw)
 
-        return exn, sigs, bytes(end).decode("utf-8")
+        return exn, sigs, bytes(atc).decode("utf-8")
 
     def sendFromEvents(self, name, topic, exn, sigs, atc, recipients):
         """  Send precreated exn message to recipients
