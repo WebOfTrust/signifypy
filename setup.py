@@ -78,14 +78,12 @@ setup(
         "discovery",
         "resolver"
     ],
-    python_requires='>=3.12.6',
+    python_requires='>=3.12.3',
     install_requires=[
         'keri==1.2.7',
         'multicommand==1.0.0',
         'requests==2.32.3',
         'http_sfv==0.9.9',
-        'msgpack==1.1.0',
-        'cbor2>=5.6.5',
         'sseclient>=0.0.27'
     ],
     extras_require={
