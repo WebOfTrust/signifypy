@@ -40,7 +40,7 @@ else:
 
 setup(
     name='signifypy',
-    version='0.2.0',  # also change in src/signify/__init__.py
+    version='0.4.0',  # also change in src/signify/__init__.py
     license='Apache Software License 2.0',
     description='SignifyPy: KERI Signing at the Edge',
     long_description=long_description,
@@ -80,7 +80,7 @@ setup(
     ],
     python_requires='>=3.12.3',
     install_requires=[
-        'keri==1.2.7',
+        'keri==1.2.12',
         'multicommand==1.0.0',
         'requests==2.32.3',
         'http_sfv==0.9.9',
