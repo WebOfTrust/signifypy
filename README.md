@@ -31,3 +31,21 @@ pip install pytest mockito
 ```
 
 `pytest` to run tests.
+
+### Packaging
+
+```bash
+python3 setup.py sdist
+```
+
+### Installation
+
+#### From PyPi
+
+`pip install signifypy`
+
+#### Local
+
+```bash
+pip install -e .
+```
