@@ -92,7 +92,7 @@ def mockHelpingNowIso8601(monkeypatch):
 
 @pytest.fixture()
 def mockCoringRandomNonce(monkeypatch):
-    """ Replay randomNonce with fixed falue for testing"""
+    """ Replay randomNonce with fixed value for testing"""
 
     def mockRandomNonce():
         return "A9XfpxIl1LcIkMhUSCCC8fgvkuX8gG9xK3SM-S8a8Y_U"

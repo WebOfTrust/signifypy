@@ -586,7 +586,7 @@ def test_signify_client_put_not_ok():
     verifyNoUnwantedInteractions()
     unstub()
 
-def test_signify_client_identfiers():
+def test_signify_client_identifiers():
     from signify.app.clienting import SignifyClient
     client = SignifyClient(passcode='abcdefghijklmnop01234')
 

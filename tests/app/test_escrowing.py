@@ -8,7 +8,7 @@ Testing escrowing with unit tests
 
 from mockito import mock, expect, unstub, verifyNoUnwantedInteractions
 
-def test_end_role_authorizations_name():
+def test_escrows_get_reply_by_route():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 

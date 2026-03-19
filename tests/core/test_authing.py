@@ -161,41 +161,26 @@ def test_controller_derive():
                           b'A3jjXxqYawLcV"],"bt":"0","br":[],"ba":[],"a":[]}')
 
 
-def test_approve_delegation():
+def test_approve_delegation_builds_expected_interact_event():
     from signify.core.authing import Controller
     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
 
-    mock_agent = mock({
-        'said': 'said',
-        'pre': 'pre',
-        'sn': 1,
-    })
+    class Agent:
+        pre = "pre"
+        sn = 1
+        said = "said"
 
-    from keri.core import coring
-    e1 = dict(v="KERI10JSON000000_",
-              d="",
-              i="ABCDEFG",
-              s="1",
-              t="int")
-    _, e1 = coring.Saider.saidify(sad=e1)
+    serder, sig = ctrl.approveDelegation(agent=Agent())
 
-    from keri.core import eventing
-    expect(eventing, times=1).interact(
-        pre="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
-        dig="EMPYj-h2OoCyPGQoUUd1tLUYe62YD_8A3jjXxqYawLcV", 
-        sn=1,
-        data=[{'i': 'pre', 's': '1', 'd': 'said'}]).thenReturn(serdering.SerderKERI(sad=e1))
-
-    serder, sig = ctrl.approveDelegation(agent=mock_agent)
-    
-    assert serder.raw == b'{"v":"KERI10JSON00006c_","d":"EAnymWG0hPrDWRxKNyYxuHqZle6sT5y_QlW8pf_SfyOu","i":"ABCDEFG","s":"1","t":"int"}'
-    assert sig[0] == "AAD3uTIT98auX5wgbXxq7PnO95vyxMAJ-JWd_PalgDWRyhzkg-0B_hHPh3TAP8dknnwMcBnRjwIDD87YLQOmLL0P"
-
-    verifyNoUnwantedInteractions()
-    unstub()
+    assert serder.ked["t"] == "ixn"
+    assert serder.ked["i"] == ctrl.pre
+    assert serder.ked["s"] == "1"
+    assert serder.ked["a"] == [{'i': 'pre', 's': '1', 'd': 'said'}]
+    assert len(sig) == 1
+    assert isinstance(sig[0], str)
 
 
-def test_approve_delegation(): 
+def test_approve_delegation_returns_controller_signature(): 
     from signify.core.authing import Controller
     from keri.core.coring import Tiers
     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)

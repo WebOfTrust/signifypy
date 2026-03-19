@@ -29,7 +29,7 @@ def test_exchanges_send(mockHelpingNowIso8601):
     mock_response = mock({'content': 'things I found'}, spec=Response, strict=True)
     expect(mock_response, times=1).json().thenReturn({'content': 'things I found'})
     expect(mock_client, times=1).post("/identifiers/aid1/exchanges",
-                                      json={'tpc': 'credentals',
+                                      json={'tpc': 'credentials',
                                             'exn': {'v': 'KERI10JSON0000df_', 't': 'exn',
                                                     'd':
                                                         'EJR8VHK6fQpQK59qPinuhlT9ZzZxuRuRrNhwZldbzF0h',
@@ -43,7 +43,7 @@ def test_exchanges_send(mockHelpingNowIso8601):
         mock_response)
 
     from signify.peer.exchanging import Exchanges
-    exn, sigs, out = Exchanges(client=mock_client).send('aid1', 'credentals', sender=sender, route="/ipex/admit",
+    exn, sigs, out = Exchanges(client=mock_client).send('aid1', 'credentials', sender=sender, route="/ipex/admit",
                                                         payload=payload,
                                                         embeds=embeds, recipients=recipients)  # type: ignore
 
@@ -96,7 +96,7 @@ def test_exchanges_send_multiple_recipients(mockHelpingNowIso8601):
     expect(first_response, times=1).json().thenReturn({'content': 'first'})
     expect(second_response, times=1).json().thenReturn({'content': 'second'})
     expect(mock_client, times=1).post("/identifiers/aid1/exchanges",
-                                      json={'tpc': 'credentals',
+                                      json={'tpc': 'credentials',
                                             'exn': {'v': 'KERI10JSON0000df_', 't': 'exn',
                                                     'd': 'EJR8VHK6fQpQK59qPinuhlT9ZzZxuRuRrNhwZldbzF0h',
                                                     'i': 'a_prefix',
@@ -107,7 +107,7 @@ def test_exchanges_send_multiple_recipients(mockHelpingNowIso8601):
                                                     'e': {}}, 'sigs': ['a signature'], 'atc': '',
                                             'rec': ['Eqbc123']}).thenReturn(first_response)
     expect(mock_client, times=1).post("/identifiers/aid1/exchanges",
-                                      json={'tpc': 'credentals',
+                                      json={'tpc': 'credentials',
                                             'exn': {'v': 'KERI10JSON0000df_', 't': 'exn',
                                                     'd': 'ENONx6LhzT1C6_BzCfSGjt7T6DzW39Upi228PFksG_dE',
                                                     'i': 'a_prefix',
@@ -121,7 +121,7 @@ def test_exchanges_send_multiple_recipients(mockHelpingNowIso8601):
     from signify.peer.exchanging import Exchanges
     results = Exchanges(client=mock_client).send(
         'aid1',
-        'credentals',
+        'credentials',
         sender=sender,
         route="/ipex/admit",
         payload=payload,

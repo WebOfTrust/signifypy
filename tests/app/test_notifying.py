@@ -33,7 +33,7 @@ def test_notification_list():
     unstub()
 
 
-def test_noticiation_mark_as_read():
+def test_notification_mark_as_read():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
@@ -57,7 +57,7 @@ def test_noticiation_mark_as_read():
     unstub()
 
 
-def test_noticiation_delete():
+def test_notification_delete():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
