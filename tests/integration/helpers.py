@@ -933,13 +933,7 @@ def accept_multisig_rotation(
     2. Rebuild the `states`/`rstates` inputs in the exact order carried by the
        exchange payload, using the freshly queried single-sig member states.
     3. Rotate the already-existing group locally with `identifiers().rotate(...)`
-       rather than `groups().join(...)`. `groups().join(...)` is only for the
-       "I do not have this group yet" path and KERIA rejects it once the alias
-       already exists.
     4. Send the participant's matching embedded rotation event back to the peer.
-
-    This mirrors the SignifyTS rotation choreography for an existing multisig
-    group rather than the separate "join a group later" flow.
     """
     member = client.identifiers().get(member_name)
     note = wait_for_notification(client, "/multisig/rot")
@@ -1016,6 +1010,69 @@ def rotate_multisig_group(
     group_b = client_b.identifiers().get(group_name)
     assert group_a["state"]["s"] == group_b["state"]["s"]
     return group_a, group_b
+
+
+def interact_multisig_group(
+    client_a: SignifyClient,
+    member_a_name: str,
+    client_b: SignifyClient,
+    member_b_name: str,
+    group_name: str,
+    *,
+    data: list[dict],
+) -> tuple[serdering.SerderKERI, serdering.SerderKERI, dict, dict]:
+    """Perform one existing-group multisig interaction across both members.
+
+    This is the generic multisig `/multisig/ixn` choreography similar to SignifyTS:
+    1. Member A authors the interaction on the existing group habitat.
+    2. Member A sends the messagized event to member B via `/multisig/ixn`.
+    3. Member B rebuilds the same interaction from the embedded payload and
+       submits its local matching approval.
+    4. Member B echoes the matching interaction back so member A's pending
+       group operation can converge too.
+
+    The helper returns both local serders plus the refreshed group views after
+    both long-running operations complete.
+    """
+    group = client_a.identifiers().get(group_name)
+    member_a = client_a.identifiers().get(member_a_name)
+    member_b = client_b.identifiers().get(member_b_name)
+    participants = [member_a["prefix"], member_b["prefix"]]
+
+    serder_a, sigs_a, operation_a = client_a.identifiers().interact(group_name, data=data)
+    client_a.exchanges().send(
+        member_a_name,
+        "multisig",
+        sender=member_a,
+        route="/multisig/ixn",
+        payload=dict(gid=group["prefix"], smids=participants, rmids=participants),
+        embeds=dict(ixn=_messagize(serder_a, sigs_a)),
+        recipients=[member_b["prefix"]],
+    )
+
+    note = wait_for_notification(client_b, "/multisig/ixn")
+    request = client_b.groups().get_request(note["a"]["d"])
+    request_data = request[0]["exn"]["e"]["ixn"]["a"]
+    # Rebuild the interaction from the received payload instead of local memory
+    # so both members prove they are converging on the same shared event data.
+    serder_b, sigs_b, operation_b = client_b.identifiers().interact(group_name, data=request_data)
+    client_b.exchanges().send(
+        member_b_name,
+        "multisig",
+        sender=member_b,
+        route="/multisig/ixn",
+        payload=dict(gid=group["prefix"], smids=participants, rmids=participants),
+        embeds=dict(ixn=_messagize(serder_b, sigs_b)),
+        recipients=[member_a["prefix"]],
+    )
+
+    wait_for_operation(client_a, operation_a)
+    wait_for_operation(client_b, operation_b)
+    group_a = client_a.identifiers().get(group_name)
+    group_b = client_b.identifiers().get(group_name)
+    assert group_a["state"]["s"] == group_b["state"]["s"]
+    assert group_a["state"]["d"] == group_b["state"]["d"]
+    return serder_a, serder_b, group_a, group_b
 
 
 def rotate_multisig_group_n(

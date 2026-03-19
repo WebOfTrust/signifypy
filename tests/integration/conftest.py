@@ -5,7 +5,15 @@ starts a local witness-demo topology, KERIA, and the vLEI helper server inside
 pytest-owned temp state so tests can exercise real SignifyPy workflows without
 mutating a developer's global `~/.keri`.
 
-The important maintainer constraint is that different services read config from
+This module assumes that the following repositories are cloned in the same containing directory
+SignifyPy is cloned to:
+    - KERIA
+    - VLEI
+    - KERIpy
+
+The test fixtures in this file use Python's subprocess.
+
+The important constraint is that different services read config from
 different `Configer` bases:
 
 - witness demo configs are loaded from `.../keri/cf/main/...`

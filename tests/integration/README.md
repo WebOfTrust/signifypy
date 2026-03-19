@@ -103,6 +103,9 @@ Current Phase 2 shape:
   - self-issued credential smoke
 - `test_multisig.py`
   - 2-of-2 multisig lifecycle
+- `test_multisig_interactions.py`
+  - existing-group multisig interaction path
+  - `icp -> ixn -> rot -> ixn -> ixn` sequence and anchor assertions
 - `test_challenges.py`
   - challenge/response workflow
 - `test_delegation.py`
