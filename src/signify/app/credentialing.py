@@ -230,27 +230,19 @@ class Credentials:
 
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=anc.raw)
-        # KERIA validates signatures over both the anchoring interaction event
-        # and the credential itself during issuance.
-        csigs = keeper.sign(ser=creder.raw)
 
         res = self.create_from_events(hab=hab, creder=creder.sad, iss=iserder.sad, anc=anc.sad,
-                                      sigs=sigs, csigs=csigs)
+                                      sigs=sigs)
 
         return creder, iserder, anc, sigs, res.json()
 
-    def create_from_events(self, hab, creder, iss, anc, sigs, csigs=None, path=None):
+    def create_from_events(self, hab, creder, iss, anc, sigs):
         body = dict(
             acdc=creder,
             iss=iss,
             ixn=anc,
             sigs=sigs
         )
-        if csigs is not None:
-            body["csigs"] = csigs
-        # KERIA expects a CESR path even for the root credential payload; the
-        # empty path is the contract used in KERIA's own endpoint tests.
-        body["path"] = path if path is not None else coring.Pather(path=[]).qb64
         keeper = self.client.manager.get(aid=hab)
         body[keeper.algo] = keeper.params()
         name = hab["name"]

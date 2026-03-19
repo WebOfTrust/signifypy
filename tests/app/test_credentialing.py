@@ -102,7 +102,7 @@ def test_credentials_create(make_mock_client_with_manager, make_mock_response):
 
     mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
     expect(mock_manager, times=2).get(aid=mock_hab).thenReturn(mock_keeper)
-    expect(mock_keeper, times=2).sign(ser=ANY()).thenReturn(['a signature'])
+    expect(mock_keeper, times=1).sign(ser=ANY()).thenReturn(['a signature'])
     mock_response = make_mock_response({})
     expect(mock_response, times=1).json().thenReturn({'v': 'ACDC10JSON00014c_'})
 
@@ -129,7 +129,6 @@ def test_credentials_create(make_mock_client_with_manager, make_mock_response):
                     'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose', 's': '2', 'p': 'ABCDEFG', 'a': [
                     {'i': 'EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m', 's': '0',
                      'd': 'EE8yncw1LCyBVtZPtozAFi7qvGn9dRPwTbuq--ulOAtB'}]}, 'sigs': ['a signature'],
-            'csigs': ['a signature'], 'path': '6AABAAA-',
             'salty': {'keeper': 'params'}}
 
     expect(mock_client, times=1).post(f"/identifiers/aid1/credentials", json=body).thenReturn(mock_response)

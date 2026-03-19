@@ -34,8 +34,9 @@ class Identifiers:
         return dict(start=start, end=end, total=total, aids=res.json())
 
     def get(self, name):
-        res = self.client.get(f"/identifiers/{name}")
-        return res.json()
+        """Returns the Hab and RemoteManager state, if any, for a given identifier, or the HabState."""
+        habState = self.client.get(f"/identifiers/{name}")
+        return habState.json()
     
     def rename(self, name, newName):
         res = self.client.put(f"/identifiers/{name}", json={"name": newName})
@@ -224,10 +225,10 @@ class Identifiers:
         `/end/role/add` and `/loc/scheme` replies when a workflow needs a
         controller, agent, or witness OOBI to resolve into a usable endpoint.
         """
-        hab = self.get(name)
+        habState = self.get(name)
 
         rpy = self.makeLocScheme(url=url, eid=eid, scheme=scheme, stamp=stamp)
-        keeper = self.client.manager.get(aid=hab)
+        keeper = self.client.manager.get(aid=habState)
         sigs = keeper.sign(ser=rpy.raw)
         rpy_msg = api.ReplyMessage(
             rpy=rpy.ked,
