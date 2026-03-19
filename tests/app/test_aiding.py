@@ -507,3 +507,69 @@ def test_aiding_make_end_role():
 
     verifyNoUnwantedInteractions()
     unstub()
+
+
+def test_aiding_add_loc_scheme():
+    # Location-scheme publication is the second half of endpoint publication:
+    # once an end-role is authorized, this reply tells resolvers where that
+    # endpoint actually lives.
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    mock_client.manager = mock_manager  # type: ignore
+
+    from signify.app.aiding import Identifiers
+    ids = Identifiers(client=mock_client)  # type: ignore
+
+    mock_hab = {'prefix': 'aid prefix', 'name': 'aid1'}
+    expect(ids, times=1).get('aid1').thenReturn(mock_hab)
+
+    from keri.core import serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI,
+                       strict=True)
+    expect(ids, times=1).makeLocScheme(
+        url='http://127.0.0.1:3902/',
+        eid='an eid',
+        scheme=None,
+        stamp=None,
+    ).thenReturn(mock_serder)
+
+    mock_keeper = mock(spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=1).get(aid=mock_hab).thenReturn(mock_keeper)
+    expect(mock_keeper, times=1).sign(ser=mock_serder.raw).thenReturn(['a signature'])
+
+    from requests import Response
+    mock_response = mock(spec=Response, strict=True)
+    expected_data = {'rpy': {'a': 'key event dictionary'}, 'sigs': ['a signature']}
+    expect(mock_client, times=1).post('/identifiers/aid1/locschemes', json=expected_data).thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn({'success': 'yay'})
+
+    serder, sig, out = ids.addLocScheme('aid1', url='http://127.0.0.1:3902/', eid='an eid')
+    assert serder == mock_serder
+    assert sig == ['a signature']
+    assert out['success'] == 'yay'
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_aiding_make_loc_scheme():
+    # `makeLocScheme` is intentionally tiny, so the useful assertion here is
+    # the exact `/loc/scheme` reply payload shape.
+    expected_data = {'eid': 'an eid', 'scheme': 'http', 'url': 'http://127.0.0.1:3902/'}
+
+    from keri.core import eventing
+    expect(eventing, times=1).reply(route='/loc/scheme', data=expected_data, stamp='a timestamp')
+
+    from signify.app.aiding import Identifiers
+    Identifiers.makeLocScheme(
+        'http://127.0.0.1:3902/',
+        eid='an eid',
+        scheme='http',
+        stamp='a timestamp',
+    )
+
+    verifyNoUnwantedInteractions()
+    unstub()

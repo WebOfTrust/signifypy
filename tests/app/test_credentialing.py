@@ -188,9 +188,9 @@ def test_ipex_grant():
     expect(mock_excs).createExchangeMessage(sender=mock_hab, route="/ipex/grant",
                                             payload={'m': 'this is a test',
                                                      'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose'},
-                                            embeds={'acdc': {}, 'iss': {}, 'anc': {}}, dt=dt).thenReturn((mock_grant,
-                                                                                                          mock_gsigs,
-                                                                                                          mock_atc))
+                                            embeds={'acdc': {}, 'iss': {}, 'anc': {}},
+                                            recipient='ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                                            dt=dt).thenReturn((mock_grant, mock_gsigs, mock_atc))
 
     ipex = credentialing.Ipex(mock_client)
     recp = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
@@ -222,12 +222,19 @@ def test_ipex_admit():
     expect(mock_client, times=1).exchanges().thenReturn(mock_excs)
     expect(mock_excs).createExchangeMessage(sender=mock_hab, route="/ipex/admit",
                                             payload={'m': 'this is a test'},
-                                            embeds=None, dt=dt, dig=grant.said).thenReturn((mock_admit,
-                                                                                            mock_gsigs,
-                                                                                            mock_atc))
+                                            embeds=None,
+                                            recipient='ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                                            dt=dt,
+                                            dig=grant.said).thenReturn((mock_admit, mock_gsigs, mock_atc))
 
     ipex = credentialing.Ipex(mock_client)  # type: ignore
-    grant, gsigs, atc = ipex.admit(hab=mock_hab, message="this is a test", dt=dt, grant=grant.said)
+    grant, gsigs, atc = ipex.admit(
+        hab=mock_hab,
+        message="this is a test",
+        dt=dt,
+        grant=grant.said,
+        recp="ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose",
+    )
 
     assert grant == mock_admit
     assert gsigs == mock_gsigs

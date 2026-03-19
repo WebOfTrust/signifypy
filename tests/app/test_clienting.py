@@ -691,6 +691,20 @@ def test_signify_client_groups():
     assert out.client == client
 
 
+def test_signify_client_delegations():
+    # The accessor test is small on purpose: parity is the point. If this
+    # resource lookup disappears, the integration suite falls back toward raw
+    # HTTP instead of exercising the real client surface.
+    from signify.app.clienting import SignifyClient
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+
+    out = client.delegations()
+
+    from signify.app.delegating import Delegations
+    assert type(out) is Delegations
+    assert out.client == client
+
+
 def test_signify_client_registries():
     from signify.app.clienting import SignifyClient
     client = SignifyClient(passcode='abcdefghijklmnop01234')
