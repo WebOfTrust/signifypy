@@ -7,32 +7,212 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  # Keep shared stack versions in one place so compatibility upgrades are
+  # deliberate and reviewable instead of being buried inside individual steps.
+  PYTHON_VERSION: '3.12.6'
+  KERIPY_REF: '1.2.12'
+  KERIA_REF: '9e2461550f373ad7bdbe7eebeaceac689cb15397'
+  VLEI_REF: '1.0.2'
+
 jobs:
-  test:
+  unit:
+    # This job is the fast feedback lane: mocked/unit suites only, no live
+    # witness or KERIA orchestration. Keep it cheap so most regressions fail
+    # here before we pay for the heavier integration stack.
+    name: Fast Test Matrix (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         os: [ macos-latest, ubuntu-latest ]
 
     steps:
-      - uses: actions/checkout@v4.2.2
-      - name: Set up Python 3.12.6
-        uses: actions/setup-python@v2
+      - name: Stage 1 - Check out SignifyPy
+        uses: actions/checkout@v4.2.2
         with:
-          python-version: 3.12.6
+          path: signifypy
+      - name: Stage 2 - Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          # Cache pip's download/build artifacts, but not the project venv
+          # itself. The repo-local venv is cached separately below so we can
+          # key it off this project's dependency manifests.
+          cache: pip
+          cache-dependency-path: |
+            signifypy/requirements.txt
+            signifypy/setup.py
       # This is needed so MacOS can find the libsodium library installed by Homebrew
-      - name: Install dependencies for MacOS
+      - name: Stage 3 - Prepare macOS linker paths
         if: matrix.os == 'macos-latest'
+        working-directory: signifypy
         run: |
           export DYLD_LIBRARY_PATH="/usr/local/lib:/opt/homebrew/lib:$DYLD_LIBRARY_PATH"
           echo "DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH" >> $GITHUB_ENV
-      - name: Install dependencies
+      - name: Stage 4 - Restore cached unit virtualenv
+        id: cache-unit-venv
+        uses: actions/cache@v4
+        with:
+          # SignifyPy keeps a repo-local venv because the integration harness
+          # depends on concrete interpreter paths like `../signifypy/venv`.
+          # Caching that directory avoids reinstalling the same environment on
+          # every run while still invalidating on dependency metadata changes.
+          path: signifypy/venv
+          key: ${{ runner.os }}-py${{ env.PYTHON_VERSION }}-unit-venv-${{ hashFiles('signifypy/requirements.txt', 'signifypy/setup.py') }}
+      - name: Stage 5 - Build unit virtualenv
+        if: steps.cache-unit-venv.outputs.cache-hit != 'true'
+        working-directory: signifypy
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest mockito==1.4.0 pytest-cov codecov
-          pip install -r requirements.txt
-      - name: Run tests
+          python -m venv venv
+      - name: Stage 6 - Install unit dependencies
+        if: steps.cache-unit-venv.outputs.cache-hit != 'true'
+        working-directory: signifypy
         run: |
-            pytest --cov=./ --cov-report=xml
-            codecov
+          ./venv/bin/python -m pip install --upgrade pip setuptools wheel
+          ./venv/bin/python -m pip install pytest mockito==1.4.0 pytest-cov codecov
+          ./venv/bin/python -m pip install -r requirements.txt
+      - name: Stage 7 - Run fast tests
+        working-directory: signifypy
+        run: |
+          ./venv/bin/python -m pytest --cov=./ --cov-report=xml tests/app tests/core tests/peer
+          ./venv/bin/python -m codecov
+
+  integration:
+    # Only attempt the live multi-repo stack after the fast suite passes. This
+    # keeps the stage progression readable and avoids spending minutes on
+    # service orchestration when the branch is already broken locally.
+    name: Live Integration Stack
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # The SignifyPy integration harness resolves sibling source repos at
+      # ../keripy, ../keria, and ../vLEI relative to the SignifyPy checkout.
+      # Keep that topology intact here so CI exercises the same layout as local
+      # maintainer runs.
+      - name: Stage 1 - Check out SignifyPy
+        uses: actions/checkout@v4.2.2
+        with:
+          path: signifypy
+
+      - name: Stage 1 - Check out KERIpy
+        uses: actions/checkout@v4.2.2
+        with:
+          repository: WebOfTrust/keripy
+          ref: ${{ env.KERIPY_REF }}
+          path: keripy
+
+      - name: Stage 1 - Check out KERIA
+        uses: actions/checkout@v4.2.2
+        with:
+          repository: WebOfTrust/keria
+          ref: ${{ env.KERIA_REF }}
+          path: keria
+
+      - name: Stage 1 - Check out vLEI
+        uses: actions/checkout@v4.2.2
+        with:
+          repository: WebOfTrust/vLEI
+          ref: ${{ env.VLEI_REF }}
+          path: vLEI
+
+      - name: Stage 2 - Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          # The live stack spans three repo-local Python environments. Pip
+          # caching reduces the cost of rebuilding those venvs when the venv
+          # cache is cold or intentionally invalidated.
+          cache: pip
+          cache-dependency-path: |
+            signifypy/requirements.txt
+            signifypy/setup.py
+            signifypy/.github/constraints/integration.txt
+            keripy/requirements.txt
+            keripy/setup.py
+            keria/pyproject.toml
+            vLEI/requirements.txt
+            vLEI/setup.py
+
+      - name: Stage 3 - Install Ubuntu system packages
+        run: |
+          # These native libraries are runtime prerequisites for the KERI/KERIA
+          # stack on GitHub's Ubuntu runners.
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev libssl-dev libffi-dev
+
+      - name: Stage 4 - Restore cached live-stack virtualenvs
+        id: cache-live-venvs
+        uses: actions/cache@v4
+        with:
+          # Cache the three repo-local virtualenvs as a unit because the live
+          # harness expects fixed interpreter locations for SignifyPy, KERIA,
+          # and vLEI. The key tracks dependency manifests across all repos.
+          path: |
+            signifypy/venv
+            keria/venv
+            vLEI/venv
+          key: ${{ runner.os }}-py${{ env.PYTHON_VERSION }}-live-venvs-${{ hashFiles('signifypy/requirements.txt', 'signifypy/setup.py', 'signifypy/.github/constraints/integration.txt', 'keripy/requirements.txt', 'keripy/setup.py', 'keria/pyproject.toml', 'vLEI/requirements.txt', 'vLEI/setup.py') }}
+
+      - name: Stage 5 - Build live-stack virtualenvs
+        if: steps.cache-live-venvs.outputs.cache-hit != 'true'
+        run: |
+          python -m venv signifypy/venv
+          python -m venv keria/venv
+          python -m venv vLEI/venv
+
+      - name: Stage 6 - Install SignifyPy test runtime
+        if: steps.cache-live-venvs.outputs.cache-hit != 'true'
+        working-directory: signifypy
+        run: |
+          # SignifyPy's test runner installs local KERIpy so the client library
+          # and the launched services resolve against the same source version.
+          ./venv/bin/python -m pip install --upgrade pip setuptools wheel
+          ./venv/bin/python -m pip install -c .github/constraints/integration.txt hio==0.6.14
+          ./venv/bin/python -m pip install pytest mockito==1.4.0 pytest-cov codecov
+          ./venv/bin/python -m pip install -c .github/constraints/integration.txt -e ../keripy
+          ./venv/bin/python -m pip install -c .github/constraints/integration.txt -r requirements.txt
+
+      - name: Stage 7 - Install KERIA runtime
+        if: steps.cache-live-venvs.outputs.cache-hit != 'true'
+        run: |
+          # KERIA runs from its own repo-local venv because the integration
+          # fixture launches the service directly from the checked-out source.
+          keria/venv/bin/python -m pip install --upgrade pip setuptools wheel
+          keria/venv/bin/python -m pip install -c ./signifypy/.github/constraints/integration.txt hio==0.6.14
+          keria/venv/bin/python -m pip install -c ./signifypy/.github/constraints/integration.txt -e ./keripy -e ./keria
+
+      - name: Stage 8 - Install vLEI runtime
+        if: steps.cache-live-venvs.outputs.cache-hit != 'true'
+        run: |
+          # vLEI is installed separately for the same reason: the fixture starts
+          # `vlei-server` from the sibling source tree, not from a package
+          # index artifact.
+          vLEI/venv/bin/python -m pip install --upgrade pip setuptools wheel
+          # vLEI 1.0.2 allows newer hio releases, but the pinned Signify stack
+          # expects the 0.6.14 doer API. Keep the live stack on that shared
+          # floor until the upstream stack is upgraded together.
+          vLEI/venv/bin/python -m pip install -c ./signifypy/.github/constraints/integration.txt hio==0.6.14
+          vLEI/venv/bin/python -m pip install -c ./signifypy/.github/constraints/integration.txt -e ./keripy -e ./vLEI
+
+      - name: Stage 9 - Run integration tests
+        working-directory: signifypy
+        run: |
+          # Store pytest temp output inside a non-hidden repo directory so the
+          # live-stack service logs are easy to upload and inspect after
+          # failures. The integration layer is opt-in locally; CI opts in
+          # explicitly here.
+          ./venv/bin/python -m pytest -q --run-integration --basetemp=pytest-live tests/integration
+
+      - name: Stage 10 - Upload integration logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          # Preserve witness/KERIA/vLEI logs even on red runs so maintainers can
+          # debug backend startup and runtime failures without rerunning locally.
+          name: integration-live-stack-${{ github.run_id }}
+          path: signifypy/pytest-live
+          if-no-files-found: ignore

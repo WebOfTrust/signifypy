@@ -25,6 +25,39 @@ from keri.vdr import credentialing, verifying
 from pysodium import randombytes, crypto_sign_SEEDBYTES
 
 
+def pytest_addoption(parser):
+    """
+    Register the explicit flag required to run the live integration layer.
+    """
+    parser.addoption(
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="run live integration tests that launch local witness, KERIA, and vLEI services",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """
+    Keep plain `pytest` fast and local by deselecting integration tests unless
+    the caller opts in with `--run-integration`.
+    """
+    if config.getoption("--run-integration"):
+        return
+
+    selected = []
+    deselected = []
+    for item in items:
+        if "integration" in item.keywords:
+            deselected.append(item)
+        else:
+            selected.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = selected
+
+
 @pytest.fixture()
 def mockHelpingNowUTC(monkeypatch):
     """
@@ -401,4 +434,3 @@ class CredentialHelpers:
         state = registry.tever.vcState(vci=creder.said)
         assert state.et == coring.Ilks.iss
         return creder, reg_iss_serder, anc_serder
-

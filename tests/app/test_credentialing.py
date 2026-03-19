@@ -36,7 +36,7 @@ def test_registries():
 
     mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
     expect(mock_manager, times=2).get(aid=mock_hab).thenReturn(mock_keeper)
-    expect(mock_keeper, times=1).sign(ser=ANY()).thenReturn(['a signature'])
+    expect(mock_keeper, times=2).sign(ser=ANY()).thenReturn(['a signature'])
     expect(mock_client, times=1).post(path=f"/identifiers/{name}/registries", json=ANY()).thenReturn(mock_response)
 
     from signify.app.credentialing import Registries
@@ -124,7 +124,7 @@ def test_credentials_create():
 
     mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
     expect(mock_manager, times=2).get(aid=mock_hab).thenReturn(mock_keeper)
-    expect(mock_keeper, times=1).sign(ser=ANY()).thenReturn(['a signature'])
+    expect(mock_keeper, times=2).sign(ser=ANY()).thenReturn(['a signature'])
     from requests import Response
     mock_response = mock({}, spec=Response, strict=True)
     expect(mock_response, times=1).json().thenReturn({'v': 'ACDC10JSON00014c_'})
@@ -152,6 +152,7 @@ def test_credentials_create():
                     'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose', 's': '2', 'p': 'ABCDEFG', 'a': [
                     {'i': 'EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m', 's': '0',
                      'd': 'EE8yncw1LCyBVtZPtozAFi7qvGn9dRPwTbuq--ulOAtB'}]}, 'sigs': ['a signature'],
+            'csigs': ['a signature'], 'path': '6AABAAA-',
             'salty': {'keeper': 'params'}}
 
     expect(mock_client, times=1).post(f"/identifiers/aid1/credentials", json=body).thenReturn(mock_response)
