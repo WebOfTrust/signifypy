@@ -11,6 +11,7 @@ Welcome to Signifypy's documentation!
    :caption: Contents:
 
    README
+   maintainer_features
 
 API Reference
 =============
@@ -20,6 +21,7 @@ API Reference
 
    signify_app
    signify_core
+   signify_peer
 
 Indices and tables
 ==================

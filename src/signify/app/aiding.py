@@ -1,8 +1,10 @@
 # -*- encoding: utf-8 -*-
-"""
-SIGNIFY
-signify.app.aiding module
+"""Identifier lifecycle and endpoint-publication helpers for SignifyPy.
 
+This module owns the identifier-facing request surface used throughout the
+client: single-sig and multisig inception, delegated inception, interactions,
+rotations, endpoint-role publication, location publication, and identifier-
+local signing helpers.
 """
 from dataclasses import asdict
 from math import ceil
@@ -19,12 +21,14 @@ from signify.core import httping, api
 
 
 class Identifiers:
-    """ Domain class for accessing, creating and rotating KERI Autonomic IDentifiers (AIDs) """
+    """Resource wrapper for identifier lifecycle and endpoint publication."""
 
     def __init__(self, client: SignifyClient):
+        """Create an identifier resource bound to one Signify client."""
         self.client = client
 
     def list(self, start=0, end=24):
+        """List identifiers visible to the current agent within a range window."""
         headers = dict(Range=f"aids={start}-{end}")
         res = self.client.get(f"/identifiers", headers=headers)
 
@@ -34,16 +38,28 @@ class Identifiers:
         return dict(start=start, end=end, total=total, aids=res.json())
 
     def get(self, name):
-        """Returns the Hab and RemoteManager state, if any, for a given identifier, or the HabState."""
+        """Return the stored habitat state for one identifier by name."""
         habState = self.client.get(f"/identifiers/{name}")
         return habState.json()
-    
+
     def rename(self, name, newName):
+        """Rename an identifier alias without changing its underlying AID."""
         res = self.client.put(f"/identifiers/{name}", json={"name": newName})
         return res.json()
 
     def create(self, name, transferable=True, isith="1", nsith="1", wits=None, toad="0", proxy=None, delpre=None,
                dcode=MtrDex.Blake3_256, data=None, algo=Algos.salty, estOnly=False, DnD=False, **kwargs):
+        """Create and submit an identifier inception request.
+
+        This method supports the maintained identifier variants in SignifyPy:
+        normal single-sig inception, delegated inception via ``delpre``, and
+        multisig/group inception via ``states`` and ``rstates`` membership
+        inputs.
+
+        Returns:
+            tuple: ``(serder, sigs, operation)`` for the locally created event,
+            its signatures, and the KERIA long-running operation payload.
+        """
 
         # Get the algo specific key params
         keeper = self.client.manager.new(algo, self.client.pidx, **kwargs)
@@ -101,6 +117,7 @@ class Identifiers:
         return serder, sigs, res.json()
 
     def update(self, name, typ, **kwas):
+        """Dispatch an identifier update to either ``interact`` or ``rotate``."""
         if typ == "interact":
             return self.interact(name, **kwas)
         elif typ == "rotate":
@@ -109,9 +126,11 @@ class Identifiers:
             raise kering.KeriError(f"{typ} invalid identifier update type, only 'rotate' or 'interact' allowed")
 
     def delete(self, name):
+        """Delete an identifier by alias from the remote agent."""
         self.client.delete(f"/identifiers/{name}")
 
     def interact(self, name, data=None):
+        """Create and submit a signed interaction event for an identifier."""
         hab = self.get(name)
         pre = hab["prefix"]
 
@@ -135,6 +154,12 @@ class Identifiers:
 
     def rotate(self, name, *, transferable=True, nsith=None, toad=None, cuts=None, adds=None,
                data=None, ncode=MtrDex.Ed25519_Seed, ncount=1, ncodes=None, states=None, rstates=None):
+        """Create and submit a rotation event for an identifier or group.
+
+        ``states`` and ``rstates`` are used by the multisig flows to pass the
+        current signing-member and rotating-member state into the KERIA request
+        body.
+        """
         hab = self.get(name)
         pre = hab["prefix"]
 
@@ -238,6 +263,7 @@ class Identifiers:
         return rpy, sigs, res.json()
 
     def sign(self, name, ser):
+        """Sign an already-built KERI event or reply with an identifier keeper."""
         hab = self.get(name)
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=ser.raw)
@@ -245,6 +271,7 @@ class Identifiers:
         return sigs
 
     def members(self, name):
+        """Return multisig member state for a group identifier."""
         res = self.client.get(f"/identifiers/{name}/members")
         return res.json()
 
@@ -260,7 +287,7 @@ class Identifiers:
 
     @staticmethod
     def makeLocScheme(url, *, eid=None, scheme=None, stamp=None):
-        """Construct the signed `/loc/scheme` reply payload for an endpoint."""
+        """Construct the signed ``/loc/scheme`` reply payload for an endpoint."""
         splits = urlsplit(url)
         data = dict(
             eid=eid,
