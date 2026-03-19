@@ -88,5 +88,37 @@ Initial target scenarios:
 - delegation
 - credential issuance and presentation
 
-The first concrete implementation slice should start in
-`test_provisioning_and_identifiers.py`.
+Current Phase 2 shape:
+
+- `test_provisioning_and_identifiers.py`
+  - provisioning/connect
+  - single-sig lifecycle
+  - schema OOBI resolution
+  - witnessed identifier OOBI coverage
+  - single-sig rotation
+  - self-issued credential smoke
+- `test_multisig.py`
+  - 2-of-2 multisig lifecycle
+- `test_challenges.py`
+  - challenge/response workflow
+- `test_delegation.py`
+  - single-sig to single-sig delegation
+  - single-sig to multisig delegation
+  - multisig to single-sig delegation
+  - multisig to multisig delegation
+- `test_credentials.py`
+  - single-sig grant/admit presentation path
+
+The shared helper module in `tests/integration/helpers.py` intentionally mirrors
+the workflow substance used in the SignifyTS integration utilities: witness-backed
+identifiers by default for OOBI-dependent scenarios, explicit waits around
+`addEndRole` before querying OOBIs, exact role-specific OOBI usage instead of
+"best available" fallbacks, and reusable multisig choreography helpers instead
+of per-test ad hoc polling.
+
+Another subtle harness rule lives in `tests/integration/conftest.py`: witness
+config and KERIA config are intentionally written into different `Configer`
+paths because the underlying services read different bases. If that pathing
+drifts, the stack may still boot while silently publishing broken endpoint
+metadata, which then shows up later as empty agent OOBIs or stalled multistep
+workflows.
