@@ -49,11 +49,11 @@ class Challenges:
             words(list): list of challenge words to check for
         """
 
-        json = dict(
+        body = dict(
             words=words
         )
 
-        res = self.client.post(f"/challenges_verify/{source}", json=json)
+        res = self.client.post(f"/challenges_verify/{source}", json=body)
         return res.json()
 
     def responded(self, source, said):
@@ -67,9 +67,9 @@ class Challenges:
             bool: True means successful
 
         """
-        json = dict(
+        body = dict(
             said=said
         )
 
-        self.client.put(f"/challenges_verify/{source}", json=json)
+        self.client.put(f"/challenges_verify/{source}", json=body)
         return True

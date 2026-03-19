@@ -30,14 +30,14 @@ class Oobis:
 
     def resolve(self, oobi, alias=None):
 
-        json = dict(
+        body = dict(
             url=oobi
         )
 
         if alias is not None:
-            json["oobialias"] = alias
+            body["oobialias"] = alias
 
-        res = self.client.post("/oobis", json=json)
+        res = self.client.post("/oobis", json=body)
         return res.json()
 
 
@@ -57,17 +57,17 @@ class KeyStates:
         return res.json()
 
     def query(self, pre, sn=None, anchor=None):
-        json = dict(
+        body = dict(
             pre=pre
         )
 
         if sn is not None:
-            json["sn"] = sn
+            body["sn"] = sn
 
         if anchor is not None:
-            json["anchor"] = anchor
+            body["anchor"] = anchor
 
-        res = self.client.post(f"/queries", json=json)
+        res = self.client.post(f"/queries", json=body)
         return res.json()
 
 
@@ -80,6 +80,5 @@ class KeyEvents:
     def get(self, pre):
         res = self.client.get(f"/events?pre={pre}")
         return res.json()
-
 
 
