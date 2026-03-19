@@ -9,7 +9,7 @@ from signify.core import httping
 
 
 class Notifications:
-    """ Domain class for accessing Endpoint Role Authorizations """
+    """Resource wrapper for listing, marking, and deleting notifications."""
 
     def __init__(self, client: SignifyClient):
         self.client = client

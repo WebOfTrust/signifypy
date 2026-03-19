@@ -8,7 +8,7 @@ from signify.app.clienting import SignifyClient
 
 
 class Contacts:
-    """ Domain class for accessing Endpoint Role Authorizations """
+    """Resource wrapper for listing resolved contact records."""
 
     def __init__(self, client: SignifyClient):
         self.client = client
@@ -31,4 +31,3 @@ class Contacts:
 
         contacts = res.json()
         return dict(start=0, end=len(contacts), total=len(contacts), contacts=contacts)
-

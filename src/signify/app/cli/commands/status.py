@@ -1,9 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""
-KERI
-keri.kli.commands module
-
-"""
+"""CLI command for printing the current status of one local Signify AID."""
 import argparse
 import sys
 
@@ -34,9 +30,7 @@ def handler(args):
 
 
 def status(tymth, tock=0.0, **opts):
-    """ Command line status handler
-
-    """
+    """Connect to KERIA, load one identifier by alias, and print its status."""
     _ = (yield tock)
     args = opts["args"]
     alias = args.alias
@@ -46,6 +40,7 @@ def status(tymth, tock=0.0, **opts):
     tier = Tiers.low
 
     client = clienting.SignifyClient(passcode=bran, tier=tier, url=url)
+    client.connect()
     identifiers = client.identifiers()
 
     aid = identifiers.get(alias)
@@ -54,6 +49,7 @@ def status(tymth, tock=0.0, **opts):
 
 
 def printIdentifier(aid, label="Identifier"):
+    """Render a compact human-readable status block for one identifier."""
 
     state = aid["state"]
 
@@ -74,7 +70,7 @@ def printIdentifier(aid, label="Identifier"):
         group = aid["group"]
         accepted = True
         print("Group Identifier")
-        sys.stdout.write(f"    Local Indentifier:  {group['mhab']['prefix']} ")
+        sys.stdout.write(f"    Local Identifier:  {group['mhab']['prefix']} ")
         if accepted:
             print(f"{terming.Colors.OKGREEN}{terming.Symbols.CHECKMARK} Fully Signed{terming.Colors.ENDC}")
         else:
@@ -89,4 +85,3 @@ def printIdentifier(aid, label="Identifier"):
         print(f'\t{idx+1}. {key}')
 
     print()
-

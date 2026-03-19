@@ -81,33 +81,31 @@ class Identifiers:
 
         sigs = keeper.sign(serder.raw)
 
-        json = dict(
+        body = dict(
             name=name,
             icp=serder.ked,
             sigs=sigs,
             proxy=proxy)
-        json[algo] = keeper.params()
+        body[algo] = keeper.params()
 
         if 'states' in kwargs:
-            json['smids'] = [state['i'] for state in kwargs['states']]
+            body['smids'] = [state['i'] for state in kwargs['states']]
 
         if 'rstates' in kwargs:
-            json['rmids'] = [state['i'] for state in kwargs['rstates']]
+            body['rmids'] = [state['i'] for state in kwargs['rstates']]
 
         self.client.pidx = self.client.pidx + 1
 
-        res = self.client.post("/identifiers", json=json)
+        res = self.client.post("/identifiers", json=body)
         return serder, sigs, res.json()
 
     def update(self, name, typ, **kwas):
         if typ == "interact":
-            self.interact(name, **kwas)
+            return self.interact(name, **kwas)
         elif typ == "rotate":
-            self.rotate(name, **kwas)
+            return self.rotate(name, **kwas)
         else:
             raise kering.KeriError(f"{typ} invalid identifier update type, only 'rotate' or 'interact' allowed")
-
-        pass
 
     def delete(self, name):
         self.client.delete(f"/identifiers/{name}")
@@ -126,12 +124,12 @@ class Identifiers:
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=serder.raw)
 
-        json = dict(
+        body = dict(
             ixn=serder.ked,
             sigs=sigs)
-        json[keeper.algo] = keeper.params()
+        body[keeper.algo] = keeper.params()
 
-        res = self.client.post(f"/identifiers/{name}/events", json=json)
+        res = self.client.post(f"/identifiers/{name}/events", json=body)
         return serder, sigs, res.json()
 
     def rotate(self, name, *, transferable=True, nsith=None, toad=None, cuts=None, adds=None,
@@ -183,18 +181,18 @@ class Identifiers:
                                  data=data)
         sigs = keeper.sign(ser=serder.raw)
 
-        json = dict(
+        body = dict(
             rot=serder.ked,
             sigs=sigs)
-        json[keeper.algo] = keeper.params()
+        body[keeper.algo] = keeper.params()
 
         if states is not None:
-            json['smids'] = [state['i'] for state in states]
+            body['smids'] = [state['i'] for state in states]
 
         if rstates is not None:
-            json['rmids'] = [state['i'] for state in rstates]
+            body['rmids'] = [state['i'] for state in rstates]
 
-        res = self.client.post(f"/identifiers/{name}/events", json=json)
+        res = self.client.post(f"/identifiers/{name}/events", json=body)
         return serder, sigs, res.json()
 
     def addEndRole(self, name, *, role=Roles.agent, eid=None, stamp=None):
