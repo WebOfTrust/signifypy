@@ -5,6 +5,10 @@ This directory is the dedicated integration layer for SignifyPy.
 Its job is to prove real client workflows that sit above mock-heavy unit tests
 and below slow cross-repo doer/E2E coverage.
 
+It is also the replacement for the old manual `scripts/*.py` workflow demos.
+Those script entrypoints have been retired so the repo has one live-stack
+contract layer instead of a second, terminal-driven harness.
+
 ## Running
 
 These tests are opt-in. A plain `pytest` run should only execute the local unit
@@ -108,6 +112,13 @@ Current Phase 2 shape:
   - multisig to multisig delegation
 - `test_credentials.py`
   - single-sig grant/admit presentation path
+- `test_multisig_join.py`
+  - 4-party multisig join/inception and rotation path
+- `test_multisig_credentials.py`
+  - single-sig issuer to multisig holder issuance path
+  - multisig issuer to multisig holder remains staged behind one skipped test
+    while the pinned stack still stalls on second-member `/multisig/vcp`
+    anchor convergence
 
 The shared helper module in `tests/integration/helpers.py` intentionally mirrors
 the workflow substance used in the SignifyTS integration utilities: witness-backed
