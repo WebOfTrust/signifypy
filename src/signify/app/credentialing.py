@@ -20,13 +20,14 @@ CredentialTypes = CredentialTypeage(issued='issued', received='received')
 
 
 class Registries:
+    """Resource wrapper for registry lifecycle operations under one identifier."""
 
     def __init__(self, client: SignifyClient):
-        """ Create domain class for working with credentials for a single AID
+        """Create a registries resource bound to one Signify client.
 
-            Parameters:
-                client (SignifyClient): Signify client class for access resources on a KERIA service instance
-
+        Parameters:
+            client (SignifyClient): Signify client used to access KERIA registry
+                endpoints.
         """
         self.client = client
 
@@ -111,14 +112,14 @@ class Registries:
 
 
 class Credentials:
-    """ Domain class for accessing, presenting, issuing and revoking credentials """
+    """Resource wrapper for listing, exporting, issuing, and revoking credentials."""
 
     def __init__(self, client: SignifyClient):
-        """ Create domain class for working with credentials for a single AID
+        """Create a credentials resource bound to one Signify client.
 
-            Parameters:
-                client (SignifyClient): Signify client class for access resources on a KERIA service instance
-
+        Parameters:
+            client (SignifyClient): Signify client used to access KERIA credential
+                endpoints.
         """
         self.client = client
 
@@ -258,12 +259,14 @@ class Credentials:
 
 
 class Ipex:
+    """Resource wrapper for IPEX peer exchange message construction and submission."""
+
     def __init__(self, client: SignifyClient):
-        """ Create domain class for working with credentials for a single AID
+        """Create an IPEX resource bound to one Signify client.
 
-            Parameters:
-                client (SignifyClient): Signify client class for access resources on a KERIA service instance
-
+        Parameters:
+            client (SignifyClient): Signify client used to access KERIA IPEX
+                endpoints.
         """
         self.client = client
 

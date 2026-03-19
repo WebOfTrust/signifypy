@@ -1,7 +1,7 @@
 # -*- encoding: utf-8 -*-
 """
 SIGNIFY
-signify.app.exchanging module
+signify.peer.exchanging module
 
 """
 from keri.peer import exchanging
@@ -10,14 +10,14 @@ from signify.app.clienting import SignifyClient
 
 
 class Exchanges:
-    """ Domain class for performing operations on and with group multisig AIDs """
+    """Resource wrapper for peer exchange message creation and submission."""
 
     def __init__(self, client: SignifyClient):
-        """ Create domain class for working with credentials for a single AID
+        """Create an exchanges resource bound to one Signify client.
 
-            Parameters:
-                client (SignifyClient): Signify client class for access resources on a KERIA service instance
-
+        Parameters:
+            client (SignifyClient): Signify client used to access KERIA peer
+                exchange endpoints.
         """
         self.client = client
 

@@ -9,14 +9,14 @@ from signify.app.clienting import SignifyClient
 
 
 class Groups:
-    """ Domain class for performing operations on and with group multisig AIDs """
+    """Resource wrapper for multisig group coordination endpoints."""
 
     def __init__(self, client: SignifyClient):
-        """ Create domain class for working with credentials for a single AID
+        """Create a multisig group resource bound to one Signify client.
 
-            Parameters:
-                client (SignifyClient): Signify client class for access resources on a KERIA service instance
-
+        Parameters:
+            client (SignifyClient): Signify client used to access KERIA multisig
+                endpoints.
         """
         self.client = client
 

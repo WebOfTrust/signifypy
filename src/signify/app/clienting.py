@@ -21,7 +21,7 @@ from signify.signifying import SignifyState
 
 class SignifyClient:
     """
-    An edge signing client representing a delegator AID connected to the delegated agent in a KERA
+    An edge-signing client representing a controller AID connected to its delegated agent in a KERIA
     instance.
     """
 

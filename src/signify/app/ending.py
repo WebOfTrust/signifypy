@@ -8,7 +8,7 @@ from signify.app.clienting import SignifyClient
 
 
 class EndRoleAuthorizations:
-    """ Domain class for accessing Endpoint Role Authorizations """
+    """Resource wrapper for listing endpoint-role authorization records."""
 
     def __init__(self, client: SignifyClient):
         self.client = client
@@ -26,4 +26,3 @@ class EndRoleAuthorizations:
 
         res = self.client.get(path)
         return res.json()
-
