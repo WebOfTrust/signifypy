@@ -144,7 +144,7 @@ class Credentials:
             filter=filtr,
             sort=sort,
             skip=skip,
-            limt=limit
+            limit=limit
         )
 
         res = self.client.post(f"/credentials/query", json=json)
@@ -285,7 +285,7 @@ class Ipex:
             kwa['dig'] = agree.said
 
         grant, gsigs, atc = exchanges.createExchangeMessage(sender=hab, route="/ipex/grant",
-                                                            payload=data, embeds=embeds, recipient=recp, dt=dt)
+                                                            payload=data, embeds=embeds, recipient=recp, dt=dt, **kwa)
 
         return grant, gsigs, atc
 

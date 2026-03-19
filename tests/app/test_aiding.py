@@ -203,11 +203,12 @@ def test_aiding_update_interact():
 
     from signify.app.aiding import Identifiers
     ids = Identifiers(client=mock_client)  # type: ignore
-    expect(ids, times=1).interact('aid1')
+    expect(ids, times=1).interact('aid1').thenReturn(('serder', ['sig'], {'op': 'interact'}))
 
-    ids.update(name='aid1', typ='interact')
+    out = ids.update(name='aid1', typ='interact')
 
     verify(ids).interact('aid1')
+    assert out == ('serder', ['sig'], {'op': 'interact'})
 
     verifyNoUnwantedInteractions()
     unstub()
@@ -223,11 +224,12 @@ def test_aiding_update_rotate():
 
     from signify.app.aiding import Identifiers
     ids = Identifiers(client=mock_client)  # type: ignore
-    expect(ids, times=1).rotate('aid1')
+    expect(ids, times=1).rotate('aid1').thenReturn(('serder', ['sig'], {'op': 'rotate'}))
 
-    ids.update(name='aid1', typ='rotate')
+    out = ids.update(name='aid1', typ='rotate')
 
     verify(ids).rotate('aid1')
+    assert out == ('serder', ['sig'], {'op': 'rotate'})
 
     verifyNoUnwantedInteractions()
     unstub()

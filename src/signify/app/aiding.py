@@ -101,13 +101,11 @@ class Identifiers:
 
     def update(self, name, typ, **kwas):
         if typ == "interact":
-            self.interact(name, **kwas)
+            return self.interact(name, **kwas)
         elif typ == "rotate":
-            self.rotate(name, **kwas)
+            return self.rotate(name, **kwas)
         else:
             raise kering.KeriError(f"{typ} invalid identifier update type, only 'rotate' or 'interact' allowed")
-
-        pass
 
     def delete(self, name):
         self.client.delete(f"/identifiers/{name}")

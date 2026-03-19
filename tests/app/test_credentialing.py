@@ -76,7 +76,7 @@ def test_credentials_list():
     mock_response = mock({'json': lambda: {}}, spec=Response, strict=True)
     expect(mock_client, times=1).post('/credentials/query',
                                       json={'filter': {'genre': 'horror'},
-                                            'sort': ['updside down'], 'skip': 10, 'limt': 10}).thenReturn(mock_response)
+                                            'sort': ['updside down'], 'skip': 10, 'limit': 10}).thenReturn(mock_response)
 
     from signify.app.credentialing import Credentials
     Credentials(client=mock_client).list(filtr={'genre': 'horror'}, sort=['updside down'], skip=10,
@@ -181,6 +181,7 @@ def test_ipex_grant():
     mock_acdc = {}
     mock_iss = {}
     mock_anc = {}
+    mock_agree = mock({'said': 'EAGREE123'}, strict=True)
     mock_grant = {}
     mock_gsigs = []
     mock_atc = ""
@@ -190,13 +191,14 @@ def test_ipex_grant():
                                                      'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose'},
                                             embeds={'acdc': {}, 'iss': {}, 'anc': {}},
                                             recipient='ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
-                                            dt=dt).thenReturn((mock_grant, mock_gsigs, mock_atc))
+                                            dt=dt,
+                                            dig='EAGREE123').thenReturn((mock_grant, mock_gsigs, mock_atc))
 
     ipex = credentialing.Ipex(mock_client)
     recp = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
 
     grant, gsigs, atc = ipex.grant(hab=mock_hab, recp=recp, message="this is a test", acdc=mock_acdc, iss=mock_iss,
-                                   anc=mock_anc, dt=dt)
+                                   anc=mock_anc, agree=mock_agree, dt=dt)
 
     assert grant == mock_grant
     assert gsigs == mock_gsigs
