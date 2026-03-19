@@ -10,10 +10,10 @@ import pytest
 from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, expect, ANY
 
 
-def test_signify_client_defaults():
+def test_signify_client_defaults(make_signify_client):
     from signify.app.clienting import SignifyClient
     patch(SignifyClient, 'connect', lambda: None)
-    client = SignifyClient(passcode='abcdefghijklmnop01234', url='http://example.com')
+    client = make_signify_client(url='http://example.com')
     client.connect()
 
     assert client.bran == 'abcdefghijklmnop01234'
@@ -41,17 +41,16 @@ def test_signify_client_bad_passcode_length():
         from signify.app.clienting import SignifyClient
         SignifyClient(passcode='too short')
 
-def test_signify_client_connect_no_delegation():
+def test_signify_client_connect_no_delegation(make_signify_client, make_mock_session):
     from signify.core import authing
     from keri.core.coring import Tiers
     mock_init_controller = mock(spec=authing.Controller, strict=True)
     expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
 
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client = make_signify_client()
 
     import requests
-    mock_session = mock(spec=requests.Session, strict=True)
+    mock_session = make_mock_session()
     expect(requests, times=1).Session().thenReturn(mock_session)
 
     from signify.signifying import SignifyState
@@ -90,19 +89,18 @@ def test_signify_client_connect_no_delegation():
     verifyNoUnwantedInteractions()
     unstub()
 
-def test_signify_client_connect_delegation():
+def test_signify_client_connect_delegation(make_signify_client, make_mock_session):
     # setup for client init
     from signify.core import authing
     from keri.core.coring import Tiers
     mock_init_controller = mock(spec=authing.Controller, strict=True)
     expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
 
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client = make_signify_client()
 
     # setup for client.connect()
     import requests
-    mock_session = mock(spec=requests.Session, strict=True)
+    mock_session = make_mock_session()
     expect(requests, times=1).Session().thenReturn(mock_session)
 
     from signify.signifying import SignifyState
@@ -140,9 +138,8 @@ def test_signify_client_connect_delegation():
     verifyNoUnwantedInteractions()
     unstub()
 
-def test_signify_client_connect_bad_scheme():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_connect_bad_scheme(make_signify_client):
+    client = make_signify_client()
 
     from keri.kering import ConfigurationError
     with pytest.raises(ConfigurationError, match='invalid scheme foo for SignifyClient'):
@@ -586,9 +583,8 @@ def test_signify_client_put_not_ok():
     verifyNoUnwantedInteractions()
     unstub()
 
-def test_signify_client_identifiers():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_identifiers(make_signify_client):
+    client = make_signify_client()
 
     out = client.identifiers()
 
@@ -596,9 +592,8 @@ def test_signify_client_identifiers():
     assert type(out) is Identifiers
     assert out.client == client
 
-def test_signify_client_operations():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_operations(make_signify_client):
+    client = make_signify_client()
 
     out = client.operations()
 
@@ -606,9 +601,8 @@ def test_signify_client_operations():
     assert type(out) is Operations
     assert out.client == client
 
-def test_signify_client_oobis():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_oobis(make_signify_client):
+    client = make_signify_client()
 
     out = client.oobis()
 
@@ -616,9 +610,8 @@ def test_signify_client_oobis():
     assert type(out) is Oobis
     assert out.client == client
 
-def test_signify_client_credentials():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_credentials(make_signify_client):
+    client = make_signify_client()
 
     out = client.credentials()
 
@@ -626,9 +619,8 @@ def test_signify_client_credentials():
     assert type(out) is Credentials
     assert out.client == client
 
-def test_signify_client_key_states():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_key_states(make_signify_client):
+    client = make_signify_client()
 
     out = client.keyStates()
 
@@ -636,9 +628,8 @@ def test_signify_client_key_states():
     assert type(out) is KeyStates
     assert out.client == client
 
-def test_signify_client_key_events():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_key_events(make_signify_client):
+    client = make_signify_client()
 
     out = client.keyEvents()
 
@@ -647,9 +638,8 @@ def test_signify_client_key_events():
     assert out.client == client
 
 
-def test_signify_client_escrows():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_escrows(make_signify_client):
+    client = make_signify_client()
 
     out = client.escrows()
 
@@ -658,9 +648,8 @@ def test_signify_client_escrows():
     assert out.client == client
 
 
-def test_signify_client_endroles():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_endroles(make_signify_client):
+    client = make_signify_client()
 
     out = client.endroles()
 
@@ -669,9 +658,8 @@ def test_signify_client_endroles():
     assert out.client == client
 
 
-def test_signify_client_notifications():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_notifications(make_signify_client):
+    client = make_signify_client()
 
     out = client.notifications()
 
@@ -680,9 +668,8 @@ def test_signify_client_notifications():
     assert out.client == client
 
 
-def test_signify_client_groups():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_groups(make_signify_client):
+    client = make_signify_client()
 
     out = client.groups()
 
@@ -691,12 +678,11 @@ def test_signify_client_groups():
     assert out.client == client
 
 
-def test_signify_client_delegations():
+def test_signify_client_delegations(make_signify_client):
     # The accessor test is small on purpose: parity is the point. If this
     # resource lookup disappears, the integration suite falls back toward raw
     # HTTP instead of exercising the real client surface.
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client = make_signify_client()
 
     out = client.delegations()
 
@@ -705,9 +691,8 @@ def test_signify_client_delegations():
     assert out.client == client
 
 
-def test_signify_client_registries():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_registries(make_signify_client):
+    client = make_signify_client()
 
     out = client.registries()
 
@@ -716,9 +701,8 @@ def test_signify_client_registries():
     assert out.client == client
 
 
-def test_signify_client_exchanges():
-    from signify.app.clienting import SignifyClient
-    client = SignifyClient(passcode='abcdefghijklmnop01234')
+def test_signify_client_exchanges(make_signify_client):
+    client = make_signify_client()
 
     out = client.exchanges()
 

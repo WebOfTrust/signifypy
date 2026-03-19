@@ -6,22 +6,19 @@ signify.app.test_grouping module
 Testing grouping with unit tests
 """
 
-from mockito import mock, verifyNoUnwantedInteractions, unstub, expect
+import pytest
+from mockito import mock, expect
+
+pytestmark = pytest.mark.usefixtures("mockito_clean")
 
 
-def test_grouping_get_request():
-    from signify.app.clienting import SignifyClient
-    mock_client = mock(spec=SignifyClient, strict=True)
-
-    from signify.core import keeping
-    mock_manager = mock(spec=keeping.Manager, strict=True)
-    mock_client.manager = mock_manager  # type: ignore
+def test_grouping_get_request(make_mock_client_with_manager, make_mock_response):
+    mock_client, _ = make_mock_client_with_manager()
 
     from signify.app.grouping import Groups
     groups = Groups(client=mock_client)  # type: ignore
 
-    from requests import Response
-    mock_response = mock({'headers': {'content-range': 'aids 0-10/2'}}, spec=Response, strict=True)
+    mock_response = make_mock_response({'headers': {'content-range': 'aids 0-10/2'}})
     expect(mock_client, times=1).get('/multisig/request/EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4').thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn(
         [{'d': "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"}]
@@ -31,22 +28,11 @@ def test_grouping_get_request():
     assert len(res) == 1
     assert res[0]['d'] == "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
 
-    verifyNoUnwantedInteractions()
-    unstub()
-
-
-def test_grouping_send_request():
-    from signify.app.clienting import SignifyClient
-    mock_client = mock(spec=SignifyClient, strict=True)
-
-    from signify.core import keeping
-    mock_manager = mock(spec=keeping.Manager, strict=True)
-    mock_client.manager = mock_manager  # type: ignore
+def test_grouping_send_request(make_mock_client_with_manager, make_mock_response):
+    mock_client, _ = make_mock_client_with_manager()
 
     from signify.app.grouping import Groups
     groups = Groups(client=mock_client)  # type: ignore
-
-    from requests import Response
 
     mock_exn = {}
     mock_sigs = ['sig']
@@ -58,7 +44,7 @@ def test_grouping_send_request():
         'atc': mock_atc.decode("utf-8")
     }
 
-    mock_response = mock({'headers': {'content-range': 'aids 0-10/2'}}, spec=Response, strict=True)
+    mock_response = make_mock_response({'headers': {'content-range': 'aids 0-10/2'}})
     expect(mock_client, times=1).post(
         '/identifiers/test/multisig/request',
         json=body).thenReturn(mock_response)
@@ -71,22 +57,12 @@ def test_grouping_send_request():
     assert res['t'] == 'exn'
     assert res['d'] == "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
 
-    verifyNoUnwantedInteractions()
-    unstub()
-
-
-def test_grouping_join():
-    from signify.app.clienting import SignifyClient
-    mock_client = mock(spec=SignifyClient, strict=True)
-
-    from signify.core import keeping
-    mock_manager = mock(spec=keeping.Manager, strict=True)
-    mock_client.manager = mock_manager  # type: ignore
+def test_grouping_join(make_mock_client_with_manager, make_mock_response):
+    mock_client, _ = make_mock_client_with_manager()
 
     from signify.app.grouping import Groups
     groups = Groups(client=mock_client)  # type: ignore
 
-    from requests import Response
     from keri.core.serdering import SerderKERI
     mock_rot = mock({'ked': {}}, spec=SerderKERI, strict=True)
     mock_sigs = ['sig']
@@ -102,7 +78,7 @@ def test_grouping_join():
         'rmids': mock_rmids
     }
 
-    mock_response = mock({'headers': {'content-range': 'aids 0-10/2'}}, spec=Response, strict=True)
+    mock_response = make_mock_response({'headers': {'content-range': 'aids 0-10/2'}})
     expect(mock_client, times=1).post(
         '/identifiers/test/multisig/join',
         json=body).thenReturn(mock_response)
@@ -115,10 +91,6 @@ def test_grouping_join():
                       smids=mock_smids, rmids=mock_rmids)
     assert res['t'] == 'op'
     assert res['d'] == "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
-
-    verifyNoUnwantedInteractions()
-    unstub()
-
 
 
 

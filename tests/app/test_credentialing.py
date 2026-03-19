@@ -8,24 +8,19 @@ Testing credentialing with unit tests
 from keri.core import eventing, coring
 from keri.peer import exchanging
 from keri.vdr import eventing as veventing
-from mockito import mock, unstub, verify, verifyNoUnwantedInteractions, expect, ANY
+from mockito import mock, verify, expect, ANY
 
 from signify.app import credentialing
 
 
-def test_registries():
-    from signify.app.clienting import SignifyClient
-    mock_client = mock(spec=SignifyClient, strict=True)
+def test_registries(make_mock_client_with_manager, make_mock_response):
+    mock_client, mock_manager = make_mock_client_with_manager()
 
     from signify.app.aiding import Identifiers
     mock_ids = mock(spec=Identifiers, strict=True)
 
     from signify.core import keeping
-    mock_manager = mock(spec=keeping.Manager, strict=True)
-    mock_client.manager = mock_manager  # type: ignore
-
-    from requests import Response
-    mock_response = mock({'json': lambda: {}}, spec=Response, strict=True)
+    mock_response = make_mock_response({'json': lambda: {}})
     mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
                 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
     name = "aid1"
@@ -65,15 +60,11 @@ def test_registries():
                    b'yju_uCzuSvgG4"}-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAABENns5-voIbnRMADUO'
                    b'so7HDiQ9ZS_AfU8BfgGLHEW54H1')
 
-    unstub()
-
-
-def test_credentials_list():
+def test_credentials_list(make_mock_response):
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
-    from requests import Response
-    mock_response = mock({'json': lambda: {}}, spec=Response, strict=True)
+    mock_response = make_mock_response({'json': lambda: {}})
     expect(mock_client, times=1).post('/credentials/query',
                                       json={'filter': {'genre': 'horror'},
                                             'sort': ['updside down'], 'skip': 10, 'limit': 10}).thenReturn(mock_response)
@@ -84,16 +75,11 @@ def test_credentials_list():
 
     verify(mock_response, times=1).json()
 
-    verifyNoUnwantedInteractions()
-    unstub()
-
-
-def test_credentials_export():
+def test_credentials_export(make_mock_response):
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
-    from requests import Response
-    mock_response = mock({'content': 'things I found'}, spec=Response, strict=True)
+    mock_response = make_mock_response({'content': 'things I found'})
     expect(mock_client, times=1).get('/credentials/a_said',
                                      headers={'accept': 'application/json+cesr'}).thenReturn(mock_response)
 
@@ -102,18 +88,10 @@ def test_credentials_export():
 
     assert out == 'things I found'
 
-    verifyNoUnwantedInteractions()
-    unstub()
-
-
-def test_credentials_create():
-    from signify.app.clienting import SignifyClient
-    mock_client = mock(spec=SignifyClient, strict=True)
+def test_credentials_create(make_mock_client_with_manager, make_mock_response):
+    mock_client, mock_manager = make_mock_client_with_manager()
 
     from signify.core import keeping
-    mock_manager = mock(spec=keeping.Manager, strict=True)
-    mock_client.manager = mock_manager  # type: ignore
-
     mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose', 'name': 'aid1',
                 'state': {'s': '1', 'd': "ABCDEFG"}}
     mock_registry = {'regk': "EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF",
@@ -125,8 +103,7 @@ def test_credentials_create():
     mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
     expect(mock_manager, times=2).get(aid=mock_hab).thenReturn(mock_keeper)
     expect(mock_keeper, times=2).sign(ser=ANY()).thenReturn(['a signature'])
-    from requests import Response
-    mock_response = mock({}, spec=Response, strict=True)
+    mock_response = make_mock_response({})
     expect(mock_response, times=1).json().thenReturn({'v': 'ACDC10JSON00014c_'})
 
     sad = {'v': 'ACDC10JSON00014c_', 'd': '',
@@ -165,10 +142,6 @@ def test_credentials_create():
     assert ixn.said == "EC5KxyucpxnOpIpHe2QUPs9YeH1yGvkALg8NcWLYFe6a"
     assert op == {'v': 'ACDC10JSON00014c_'}
 
-    verifyNoUnwantedInteractions()
-    unstub()
-
-
 def test_ipex_grant():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
@@ -203,9 +176,6 @@ def test_ipex_grant():
     assert grant == mock_grant
     assert gsigs == mock_gsigs
     assert atc == mock_atc
-
-    unstub()
-
 
 def test_ipex_admit():
     from signify.app.clienting import SignifyClient
@@ -242,7 +212,6 @@ def test_ipex_admit():
     assert gsigs == mock_gsigs
     assert atc == mock_atc
 
-    unstub()
 
 
 def test_submit_admit():
@@ -266,7 +235,6 @@ def test_submit_admit():
 
     assert rep == dict(b='c')
 
-    unstub()
 
 
 def test_submit_grant():
@@ -289,5 +257,3 @@ def test_submit_grant():
     rep = ipex.submitGrant("aid1", exn=mock_admit, sigs=mock_gsigs, atc=mock_end, recp=recp)
 
     assert rep == dict(b='c')
-
-    unstub()

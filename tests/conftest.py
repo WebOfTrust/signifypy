@@ -22,7 +22,10 @@ from keri.core import coring, eventing, serdering, Salter, scheming
 from keri.db import basing
 from keri.help import helping
 from keri.vdr import credentialing, verifying
+from mockito import mock, unstub, verifyNoUnwantedInteractions
 from pysodium import randombytes, crypto_sign_SEEDBYTES
+
+TEST_PASSCODE = "abcdefghijklmnop01234"
 
 
 def pytest_addoption(parser):
@@ -56,6 +59,69 @@ def pytest_collection_modifyitems(config, items):
     if deselected:
         config.hook.pytest_deselected(items=deselected)
         items[:] = selected
+
+
+@pytest.fixture(autouse=True)
+def mockito_teardown():
+    """Always clear mockito state between tests, even when a test forgets."""
+    yield
+    unstub()
+
+
+@pytest.fixture()
+def mockito_clean():
+    """Opt-in helper for tests that want strict no-unexpected-interactions checks."""
+    yield
+    verifyNoUnwantedInteractions()
+
+
+@pytest.fixture()
+def make_signify_client():
+    """Build a real SignifyClient with the shared default test passcode."""
+    from signify.app.clienting import SignifyClient
+
+    def factory(**kwargs):
+        return SignifyClient(passcode=TEST_PASSCODE, **kwargs)
+
+    return factory
+
+
+@pytest.fixture()
+def make_mock_session():
+    """Build a strict mock requests.Session."""
+    import requests
+
+    def factory():
+        return mock(spec=requests.Session, strict=True)
+
+    return factory
+
+
+@pytest.fixture()
+def make_mock_response():
+    """Build a strict mock requests.Response with caller-supplied attributes."""
+    from requests import Response
+
+    def factory(attrs=None):
+        attrs = {} if attrs is None else attrs
+        return mock(attrs, spec=Response, strict=True)
+
+    return factory
+
+
+@pytest.fixture()
+def make_mock_client_with_manager():
+    """Build a strict mock SignifyClient already wired to a strict mock manager."""
+    from signify.app.clienting import SignifyClient
+    from signify.core import keeping
+
+    def factory():
+        mock_client = mock(spec=SignifyClient, strict=True)
+        mock_manager = mock(spec=keeping.Manager, strict=True)
+        mock_client.manager = mock_manager  # type: ignore
+        return mock_client, mock_manager
+
+    return factory
 
 
 @pytest.fixture()
