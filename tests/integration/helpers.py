@@ -14,6 +14,7 @@ import secrets
 import string
 import time
 
+import requests
 from keri.app import signing as app_signing
 from keri.app.keeping import Algos
 from keri.core import coring, eventing, serdering
@@ -45,7 +46,35 @@ def alias(prefix: str) -> str:
     return f"{prefix}-{secrets.token_hex(4)}"
 
 
-def connect_client(live_stack) -> SignifyClient:
+def controller_boot_data(client: SignifyClient) -> dict:
+    """Build the explicit boot payload used by manual-controller tests."""
+    evt, siger = client.ctrl.event()
+    return dict(
+        icp=evt.ked,
+        sig=siger.qb64,
+        stem=client.ctrl.stem,
+        pidx=1,
+        tier=client.ctrl.tier,
+    )
+
+
+def boot_client_manually(client: SignifyClient, live_stack) -> dict:
+    """Boot a controller by posting the inception payload directly to KERIA."""
+    response = requests.post(
+        f"{live_stack['keria_boot_url']}/boot",
+        json=controller_boot_data(client),
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def connect_client(
+    live_stack,
+    *,
+    passcode: str | None = None,
+    boot_mode: str = "client",
+) -> SignifyClient:
     """Boot and connect a brand-new Signify client against the live stack.
 
     This helper owns the full controller bootstrap path used by the live tests:
@@ -53,12 +82,17 @@ def connect_client(live_stack) -> SignifyClient:
     delegation relationship is present before returning the client.
     """
     client = SignifyClient(
-        passcode=random_passcode(),
+        passcode=passcode or random_passcode(),
         tier=Tiers.low,
         url=live_stack["keria_admin_url"],
         boot_url=live_stack["keria_boot_url"],
     )
-    body = client.boot()
+    if boot_mode == "client":
+        body = client.boot()
+    elif boot_mode == "manual":
+        body = boot_client_manually(client, live_stack)
+    else:
+        raise ValueError(f"unsupported boot_mode={boot_mode}")
     assert isinstance(body, dict)
     client.connect()
     assert client.agent is not None
@@ -107,6 +141,36 @@ def wait_for_notification(
     raise TimeoutError(f"timed out waiting for notification route {route}")
 
 
+def wait_for_any_notification(
+    clients: list[SignifyClient],
+    route: str,
+    *,
+    timeout: float = 120.0,
+    mark_read: bool = True,
+) -> tuple[SignifyClient, dict]:
+    """Wait until any client in a set receives the requested notification route."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        for client in clients:
+            notes = [
+                note
+                for note in client.notifications().list()["notes"]
+                if note["a"].get("r") == route and note.get("r") is False
+            ]
+            if notes:
+                if mark_read:
+                    for note in notes:
+                        client.notifications().markAsRead(note["i"])
+                return client, notes[-1]
+        time.sleep(0.5)
+    raise TimeoutError(f"timed out waiting for notification route {route} on any client")
+
+
+def notification_routes(client: SignifyClient) -> list[str]:
+    """Return current notification routes for read-path assertions."""
+    return [note["a"].get("r") for note in client.notifications().list()["notes"]]
+
+
 def wait_for_contact_alias(client: SignifyClient, contact_alias: str, *, timeout: float = 60.0) -> dict:
     """Poll the contact list until the requested alias becomes visible."""
     deadline = time.time() + timeout
@@ -117,6 +181,11 @@ def wait_for_contact_alias(client: SignifyClient, contact_alias: str, *, timeout
                 return contact
         time.sleep(0.5)
     raise TimeoutError(f"timed out waiting for contact alias {contact_alias}")
+
+
+def contact_aliases(client: SignifyClient) -> set[str]:
+    """Return the current visible contact aliases."""
+    return {contact.get("alias") for contact in client.contacts().list()["contacts"]}
 
 
 def wait_for_credential(client: SignifyClient, said: str, *, timeout: float = 120.0) -> dict:
@@ -267,6 +336,13 @@ def exchange_agent_oobis(
     exchange_identifier_oobis(client_a, name_a, client_b, name_b, role="agent")
 
 
+def exchange_agent_oobis_among(participants: list[tuple[SignifyClient, str]]) -> None:
+    """Exchange agent OOBIs pairwise across an ordered participant list."""
+    for index, (source_client, source_name) in enumerate(participants):
+        for target_client, target_name in participants[index + 1 :]:
+            exchange_agent_oobis(source_client, source_name, target_client, target_name)
+
+
 def create_identifier(
     client: SignifyClient,
     name: str,
@@ -347,6 +423,11 @@ def query_key_state(
     operation = client.keyStates().query(pre=pre, sn=sn, anchor=anchor)
     result = wait_for_operation(client, operation)
     return _normalize_state(result["response"])
+
+
+def list_key_states(client: SignifyClient, prefixes: list[str]) -> list[dict]:
+    """Fetch key states in order for simple list/read assertions."""
+    return [_normalize_state(client.keyStates().get(prefix)) for prefix in prefixes]
 
 
 def _normalize_state(state_or_states):
@@ -539,6 +620,58 @@ def create_multisig_group(
     return group_a, group_b
 
 
+def create_multisig_group_n(
+    participants: list[tuple[SignifyClient, str]],
+    group_name: str,
+    *,
+    isith: int | str | list[str] | None = None,
+    nsith: int | str | list[str] | None = None,
+    delpre: str | None = None,
+    wits: list[str] | None = None,
+) -> list[dict]:
+    """Create one multisig group across an ordered participant list."""
+    if len(participants) < 2:
+        raise ValueError("multisig groups require at least two participants")
+
+    participant_prefixes = [
+        client.identifiers().get(member_name)["prefix"]
+        for client, member_name in participants
+    ]
+    threshold = len(participants)
+    initiator_client, initiator_member_name = participants[0]
+    operations: list[tuple[SignifyClient, dict]] = []
+    operation, _ = start_multisig_incept(
+        initiator_client,
+        group_name=group_name,
+        local_member_name=initiator_member_name,
+        participants=participant_prefixes,
+        isith=threshold if isith is None else isith,
+        nsith=threshold if nsith is None else nsith,
+        toad=len(wits or []),
+        wits=wits,
+        delpre=delpre,
+    )
+    operations.append((initiator_client, operation))
+    for client, member_name in participants[1:]:
+        operations.append(
+            (
+                client,
+                accept_multisig_incept(
+                    client,
+                    group_name=group_name,
+                    local_member_name=member_name,
+                ),
+            )
+        )
+
+    for client, operation in operations:
+        wait_for_operation(client, operation)
+
+    groups = [client.identifiers().get(group_name) for client, _ in participants]
+    assert len({group["prefix"] for group in groups}) == 1
+    return groups
+
+
 def assert_multisig_members(
     client: SignifyClient,
     group_name: str,
@@ -708,6 +841,51 @@ def expose_multisig_agent_oobi(
     return oobi_a
 
 
+def expose_multisig_agent_oobi_n(
+    participants: list[tuple[SignifyClient, str]],
+    group_name: str,
+) -> str:
+    """Expose a multisig agent OOBI for an ordered participant list."""
+    if len(participants) < 2:
+        raise ValueError("multisig groups require at least two participants")
+
+    initiator_client, initiator_member_name = participants[0]
+    expected_eids = expected_multisig_agent_eids(initiator_client, group_name)
+    stamp = helping.nowIso8601()
+    operations: list[tuple[SignifyClient, dict]] = []
+    operations.extend(
+        (initiator_client, operation)
+        for operation in add_multisig_agent_endroles(
+            initiator_client,
+            member_name=initiator_member_name,
+            group_name=group_name,
+            stamp=stamp,
+            is_initiator=True,
+        )
+    )
+    for client, member_name in participants[1:]:
+        operations.extend(
+            (client, operation)
+            for operation in add_multisig_agent_endroles(
+                client,
+                member_name=member_name,
+                group_name=group_name,
+                stamp=stamp,
+            )
+        )
+
+    for client, operation in operations:
+        wait_for_operation(client, operation)
+
+    oobis = []
+    for client, _ in participants:
+        wait_for_group_agent_endroles(client, group_name, expected_eids=expected_eids)
+        oobis.append(wait_for_identifier_oobi(client, group_name, role="agent")[0])
+
+    assert len(set(oobis)) == 1
+    return oobis[0]
+
+
 def start_multisig_rotation(
     client: SignifyClient,
     *,
@@ -840,6 +1018,63 @@ def rotate_multisig_group(
     return group_a, group_b
 
 
+def rotate_multisig_group_n(
+    participants: list[tuple[SignifyClient, str]],
+    group_name: str,
+) -> list[dict]:
+    """Rotate every member AID and then rotate the multisig group itself."""
+    if len(participants) < 2:
+        raise ValueError("multisig groups require at least two participants")
+
+    rotated_members = [
+        (client, member_name, rotate_identifier(client, member_name))
+        for client, member_name in participants
+    ]
+    ordered_prefixes = [member["prefix"] for _, _, member in rotated_members]
+    state_maps: list[dict[str, dict]] = []
+    for client, _, local_member in rotated_members:
+        state_map: dict[str, dict] = {}
+        for _, _, member in rotated_members:
+            if member["prefix"] == local_member["prefix"]:
+                state_map[member["prefix"]] = member["state"]
+            else:
+                state_map[member["prefix"]] = query_key_state(client, member["prefix"], sn=member["state"]["s"])
+        state_maps.append(state_map)
+
+    initiator_client, initiator_member_name, _ = rotated_members[0]
+    operations: list[tuple[SignifyClient, dict]] = [
+        (
+            initiator_client,
+            start_multisig_rotation(
+                initiator_client,
+                member_name=initiator_member_name,
+                group_name=group_name,
+                states=[state_maps[0][prefix] for prefix in ordered_prefixes],
+            ),
+        )
+    ]
+    for (client, member_name, _), state_map in zip(rotated_members[1:], state_maps[1:]):
+        operations.append(
+            (
+                client,
+                accept_multisig_rotation(
+                    client,
+                    member_name=member_name,
+                    group_name=group_name,
+                    participant_states=state_map,
+                ),
+            )
+        )
+
+    for client, operation in operations:
+        wait_for_operation(client, operation)
+
+    groups = [client.identifiers().get(group_name) for client, _, _ in rotated_members]
+    assert len({group["state"]["s"] for group in groups}) == 1
+    assert len({group["state"]["d"] for group in groups}) == 1
+    return groups
+
+
 def approve_single_delegation(
     client: SignifyClient,
     delegator_name: str,
@@ -932,6 +1167,13 @@ def create_registry(client: SignifyClient, issuer_name: str, registry_name: str)
     return issuer_hab, registry
 
 
+def rename_registry(client: SignifyClient, issuer_name: str, registry_name: str, new_name: str) -> dict:
+    """Rename a registry and return the refreshed renamed registry view."""
+    issuer_hab = client.identifiers().get(issuer_name)
+    client.registries().rename(issuer_hab, registry_name, new_name)
+    return client.registries().get(issuer_name, new_name)
+
+
 def issue_credential(
     client: SignifyClient,
     *,
@@ -997,6 +1239,156 @@ def send_credential_grant(
     client.ipex().submitGrant(issuer_name, exn=grant, sigs=grant_sigs, atc=atc, recp=[recipient])
 
 
+def create_multisig_registry(
+    client: SignifyClient,
+    *,
+    local_member_name: str,
+    group_name: str,
+    other_member_prefixes: list[str],
+    registry_name: str,
+    nonce: str | None = None,
+    is_initiator: bool = False,
+) -> tuple[dict, dict]:
+    """Create a registry for a multisig issuer and fan out `/multisig/vcp`."""
+    if not is_initiator:
+        wait_for_notification(client, "/multisig/vcp")
+
+    local_member = client.identifiers().get(local_member_name)
+    group_hab = client.identifiers().get(group_name)
+    vcp, anc, sigs, operation = client.registries().create(
+        hab=group_hab,
+        registryName=registry_name,
+        nonce=nonce,
+    )
+    client.exchanges().send(
+        local_member_name,
+        "registry",
+        sender=local_member,
+        route="/multisig/vcp",
+        payload=dict(gid=group_hab["prefix"]),
+        embeds=dict(
+            vcp=vcp.raw,
+            anc=_messagize(anc, sigs),
+        ),
+        recipients=other_member_prefixes,
+    )
+    return wait_for_operation(client, operation), client.registries().get(group_name, registry_name)
+
+
+def issue_multisig_credential(
+    client: SignifyClient,
+    *,
+    local_member_name: str,
+    group_name: str,
+    other_member_prefixes: list[str],
+    registry_name: str,
+    recipient: str,
+    data: dict,
+    schema: str = SCHEMA_SAID,
+    timestamp: str | None = None,
+    is_initiator: bool = False,
+):
+    """Issue a multisig credential and fan out `/multisig/iss` to peers."""
+    if not is_initiator:
+        wait_for_notification(client, "/multisig/iss")
+
+    local_member = client.identifiers().get(local_member_name)
+    group_hab = client.identifiers().get(group_name)
+    registry = client.registries().get(group_name, registry_name)
+    creder, iserder, anc, sigs, operation = client.credentials().create(
+        group_hab,
+        registry=registry,
+        data=data,
+        schema=schema,
+        recipient=recipient,
+        timestamp=timestamp or helping.nowIso8601(),
+    )
+    client.exchanges().send(
+        local_member_name,
+        "multisig",
+        sender=local_member,
+        route="/multisig/iss",
+        payload=dict(gid=group_hab["prefix"]),
+        embeds=dict(
+            acdc=app_signing.serialize(
+                creder,
+                coring.Prefixer(qb64=iserder.pre),
+                coring.Seqner(sn=iserder.sn),
+                coring.Saider(qb64=iserder.said),
+            ),
+            iss=client.registries().serialize(iserder, anc),
+            anc=_messagize(anc, sigs),
+        ),
+        recipients=other_member_prefixes,
+    )
+    wait_for_operation(client, operation)
+    return creder, iserder, anc, sigs
+
+
+def send_multisig_credential_grant(
+    client: SignifyClient,
+    *,
+    local_member_name: str,
+    group_name: str,
+    other_member_prefixes: list[str],
+    recipient: str,
+    creder,
+    iserder,
+    anc,
+    sigs: list[str],
+    is_initiator: bool = False,
+) -> dict:
+    """Submit a multisig grant and mirror it to peer members via `/multisig/exn`."""
+    if not is_initiator:
+        wait_for_notification(client, "/multisig/exn")
+
+    local_member = client.identifiers().get(local_member_name)
+    group_hab = client.identifiers().get(group_name)
+    prefixer = coring.Prefixer(qb64=iserder.pre)
+    seqner = coring.Seqner(sn=iserder.sn)
+    grant, grant_sigs, atc = client.ipex().grant(
+        group_hab,
+        recp=recipient,
+        message="",
+        acdc=app_signing.serialize(creder, prefixer, seqner, coring.Saider(qb64=iserder.said)),
+        iss=client.registries().serialize(iserder, anc),
+        anc=eventing.messagize(
+            serder=anc,
+            sigers=[csigning.Siger(qb64=sig) for sig in sigs],
+        ),
+        dt=helping.nowIso8601(),
+    )
+    result = client.ipex().submitGrant(group_name, exn=grant, sigs=grant_sigs, atc=atc, recp=[recipient])
+    seal = eventing.SealEvent(
+        i=group_hab["prefix"],
+        s=group_hab["state"]["ee"]["s"],
+        d=group_hab["state"]["ee"]["d"],
+    )
+    grant_ims = eventing.messagize(
+        serder=grant,
+        sigers=[csigning.Siger(qb64=sig) for sig in grant_sigs],
+        seal=seal,
+    )
+    grant_ims.extend(atc.encode("utf-8"))
+    exn, exn_sigs, exn_atc = client.exchanges().createExchangeMessage(
+        sender=local_member,
+        route="/multisig/exn",
+        payload=dict(gid=group_hab["prefix"]),
+        embeds=dict(exn=grant_ims),
+    )
+    client.exchanges().sendFromEvents(
+        local_member_name,
+        "multisig",
+        exn=exn,
+        sigs=exn_sigs,
+        atc=exn_atc,
+        recipients=other_member_prefixes,
+    )
+    if isinstance(result, dict) and "done" in result:
+        return wait_for_operation(client, result)
+    return result
+
+
 def submit_admit(
     client: SignifyClient,
     *,
@@ -1021,3 +1413,53 @@ def submit_admit(
         helping.nowIso8601(),
     )
     client.ipex().submitAdmit(holder_name, exn=admit, sigs=sigs, atc=atc, recp=[issuer_prefix])
+
+
+def submit_multisig_admit(
+    client: SignifyClient,
+    *,
+    local_member_name: str,
+    group_name: str,
+    other_member_prefixes: list[str],
+    issuer_prefix: str,
+    notification: dict,
+) -> dict:
+    """Submit a multisig admit and mirror it to peer members via `/multisig/exn`."""
+    local_member = client.identifiers().get(local_member_name)
+    group_hab = client.identifiers().get(group_name)
+    admit, sigs, atc = client.ipex().admit(
+        group_hab,
+        "",
+        notification["a"]["d"],
+        issuer_prefix,
+        helping.nowIso8601(),
+    )
+    result = client.ipex().submitAdmit(group_name, exn=admit, sigs=sigs, atc=atc, recp=[issuer_prefix])
+    seal = eventing.SealEvent(
+        i=group_hab["prefix"],
+        s=group_hab["state"]["ee"]["s"],
+        d=group_hab["state"]["ee"]["d"],
+    )
+    admit_ims = eventing.messagize(
+        serder=admit,
+        sigers=[csigning.Siger(qb64=sig) for sig in sigs],
+        seal=seal,
+    )
+    admit_ims.extend(atc.encode("utf-8"))
+    exn, exn_sigs, exn_atc = client.exchanges().createExchangeMessage(
+        sender=local_member,
+        route="/multisig/exn",
+        payload=dict(gid=group_hab["prefix"]),
+        embeds=dict(exn=admit_ims),
+    )
+    client.exchanges().sendFromEvents(
+        local_member_name,
+        "multisig",
+        exn=exn,
+        sigs=exn_sigs,
+        atc=exn_atc,
+        recipients=other_member_prefixes,
+    )
+    if isinstance(result, dict) and "done" in result:
+        return wait_for_operation(client, result)
+    return result

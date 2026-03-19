@@ -471,7 +471,7 @@ def client_factory(live_stack):
     """
     from tests.integration.helpers import connect_client
 
-    def factory():
-        return connect_client(live_stack)
+    def factory(**kwargs):
+        return connect_client(live_stack, **kwargs)
 
     return factory

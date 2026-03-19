@@ -11,6 +11,8 @@ from .helpers import (
     create_registry,
     exchange_agent_oobis,
     issue_credential,
+    notification_routes,
+    rename_registry,
     resolve_oobi,
     send_credential_grant,
     submit_admit,
@@ -65,18 +67,39 @@ def test_credential_presentation_grant_admit(client_factory):
     )
 
     grant_note = wait_for_notification(holder_client, "/exn/ipex/grant")
+    assert "/exn/ipex/grant" in notification_routes(holder_client)
     submit_admit(
         holder_client,
         holder_name=holder_name,
         issuer_prefix=issuer["prefix"],
         notification=grant_note,
     )
+    admit_note = wait_for_notification(issuer_client, "/exn/ipex/admit")
 
     received = wait_for_credential(holder_client, creder.said)
     exported = holder_client.credentials().export(creder.said)
+    received_for_holder = holder_client.credentials().list(filtr={"-a-i": holder["prefix"]})
 
     assert received["sad"]["d"] == creder.said
     assert received["sad"]["i"] == issuer["prefix"]
     assert received["sad"]["a"]["i"] == holder["prefix"]
     assert received["sad"]["s"] == SCHEMA_SAID
+    assert admit_note["a"]["r"] == "/exn/ipex/admit"
+    assert any(credential["sad"]["d"] == creder.said for credential in received_for_holder)
     assert exported
+
+
+def test_registry_rename_read_path(client_factory):
+    # This absorbs the old `rename_registry.py` script into the live suite.
+    client = client_factory()
+    issuer_name = alias("issuer")
+    original_name = alias("registry")
+    renamed_name = alias("registry-renamed")
+
+    create_identifier(client, issuer_name, wits=TEST_WITNESS_AIDS)
+    _, registry = create_registry(client, issuer_name, original_name)
+    renamed = rename_registry(client, issuer_name, original_name, renamed_name)
+
+    assert registry["name"] == original_name
+    assert renamed["name"] == renamed_name
+    assert renamed["regk"] == registry["regk"]

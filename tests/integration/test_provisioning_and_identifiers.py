@@ -10,7 +10,9 @@ from keri.help import helping
 from .constants import SCHEMA_OOBI, SCHEMA_SAID, TEST_WITNESS_AIDS
 from .helpers import (
     alias,
+    contact_aliases,
     create_identifier,
+    list_key_states,
     resolve_agent_oobi,
     resolve_oobi,
     rotate_identifier,
@@ -20,6 +22,12 @@ from .helpers import (
 
 
 pytestmark = pytest.mark.integration
+
+ADDITIONAL_SCHEMA_OOBIS = {
+    "legal-entity": "http://127.0.0.1:7723/oobi/ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY",
+    "ecr-auth": "http://127.0.0.1:7723/oobi/EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g",
+    "ecr": "http://127.0.0.1:7723/oobi/EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw",
+}
 
 
 def test_provision_agent_and_connect(client_factory):
@@ -33,6 +41,17 @@ def test_provision_agent_and_connect(client_factory):
     assert client.agent.delpre == client.controller
     assert client.session is not None
     assert client.session.auth is not None
+
+
+def test_manual_agent_boot_and_connect(client_factory):
+    # This absorbs the old `init_agent.py` manual-boot path without requiring
+    # an operator to paste an inception event into a terminal.
+    client = client_factory(passcode="manualbootpath0000001", boot_mode="manual")
+
+    assert client.controller == client.ctrl.pre
+    assert client.agent.pre
+    assert client.agent.delpre == client.controller
+    assert client.session is not None
 
 
 def test_single_sig_identifier_lifecycle_smoke(client_factory):
@@ -65,6 +84,11 @@ def test_schema_oobi_resolution_smoke(client_factory):
 
     assert result["done"] is True
     assert result["metadata"]["oobi"] == SCHEMA_OOBI
+
+    for alias_name, oobi in ADDITIONAL_SCHEMA_OOBIS.items():
+        extra = resolve_oobi(client, oobi, alias=alias_name)
+        assert extra["done"] is True
+        assert extra["metadata"]["oobi"] == oobi
 
 
 def test_witnessed_identifier_agent_oobi_resolution(client_factory):
@@ -99,6 +123,32 @@ def test_witnessed_identifier_agent_oobi_resolution(client_factory):
     assert contact_a["id"] == hab_b["prefix"]
     assert contact_b["alias"] == name_a
     assert contact_b["id"] == hab_a["prefix"]
+
+
+def test_contact_and_key_state_read_paths(client_factory):
+    # This replaces the old `list_contacts.py` and `list_kevers.py` scripts
+    # with assertions on the same observable state after a real OOBI exchange.
+    client_a = client_factory()
+    client_b = client_factory()
+    name_a = alias("contact-a")
+    name_b = alias("contact-b")
+
+    hab_a = create_identifier(client_a, name_a, wits=TEST_WITNESS_AIDS)
+    hab_b = create_identifier(client_b, name_b, wits=TEST_WITNESS_AIDS)
+    resolve_agent_oobi(client_a, name_a, client_b, alias=name_a)
+    resolve_agent_oobi(client_b, name_b, client_a, alias=name_b)
+
+    wait_for_contact_alias(client_a, name_b)
+    wait_for_contact_alias(client_b, name_a)
+    states_a = list_key_states(client_a, [hab_b["prefix"]])
+    states_b = list_key_states(client_b, [hab_a["prefix"]])
+
+    assert name_b in contact_aliases(client_a)
+    assert name_a in contact_aliases(client_b)
+    assert states_a[0]["i"] == hab_b["prefix"]
+    assert states_b[0]["i"] == hab_a["prefix"]
+    assert states_a[0]["b"] == TEST_WITNESS_AIDS
+    assert states_b[0]["b"] == TEST_WITNESS_AIDS
 
 
 def test_single_sig_rotation_smoke(client_factory):
