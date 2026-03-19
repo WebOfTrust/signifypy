@@ -35,16 +35,30 @@ class Exchanges:
             dig (str): Optional qb64 SAID of exchange message reverse chain
 
         Returns:
-            dict: operation response from KERIA
+            tuple|list[tuple]: one `(exn, sigs, response)` tuple for a single
+            recipient, or one tuple per recipient when a broadcast fan-out is
+            requested.
 
         """
+        if not recipients:
+            raise ValueError("recipients must not be empty")
 
-        exn, sigs, atc = self.createExchangeMessage(sender, route, payload, embeds, dig=dig)
-        json = self.sendFromEvents(name, topic, exn=exn, sigs=sigs, atc=atc, recipients=recipients)
+        results = []
+        for recipient in recipients:
+            exn, sigs, atc = self.createExchangeMessage(
+                sender,
+                route,
+                payload,
+                embeds,
+                recipient=recipient,
+                dig=dig,
+            )
+            json = self.sendFromEvents(name, topic, exn=exn, sigs=sigs, atc=atc, recipients=[recipient])
+            results.append((exn, sigs, json))
 
-        return exn, sigs, json
+        return results[0] if len(results) == 1 else results
 
-    def createExchangeMessage(self, sender, route, payload, embeds, dig=None, dt=None):
+    def createExchangeMessage(self, sender, route, payload, embeds, recipient=None, dig=None, dt=None):
         """  Create exn message from parameters and return Serder with signatures and additional attachments.
 
         Parameters:
@@ -52,6 +66,7 @@ class Exchanges:
             route (str):  exn route field
             payload (dict): payload of the exn message
             embeds (dict): map of label to bytes of encoded KERI event to embed in exn
+            recipient (str): Optional qb64 recipient to mirror TS peer exchange semantics
             dig (str): Optional qb64 SAID of exchange message reverse chain
             dt (str): Iso formatted date string
 
@@ -66,6 +81,7 @@ class Exchanges:
         exn, atc = exchanging.exchange(route=route,
                                        payload=payload,
                                        sender=sender["prefix"],
+                                       recipient=recipient,
                                        embeds=embeds,
                                        dig=dig,
                                        date=dt)

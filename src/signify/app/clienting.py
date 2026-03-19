@@ -1,8 +1,8 @@
 # -*- encoding: utf-8 -*-
-"""
-Signify
-signify.app.clienting module
+"""HTTP client and resource access layer for SignifyPy.
 
+`SignifyClient` owns the controller-to-agent relationship and exposes the
+resource wrappers used throughout the test harness.
 """
 from dataclasses import asdict
 from urllib.parse import urlparse, urljoin, urlsplit
@@ -301,6 +301,11 @@ class SignifyClient:
     def groups(self):
         from signify.app.grouping import Groups
         return Groups(client=self)
+
+    def delegations(self):
+        """Return the delegation resource for delegated-identifier approval."""
+        from signify.app.delegating import Delegations
+        return Delegations(client=self)
 
     def registries(self):
         from signify.app.credentialing import Registries

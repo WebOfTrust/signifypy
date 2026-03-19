@@ -6,6 +6,7 @@ signify.app.aiding module
 """
 from dataclasses import asdict
 from math import ceil
+from urllib.parse import urlsplit
 
 from keri import kering
 from keri.app.keeping import Algos
@@ -197,6 +198,13 @@ class Identifiers:
         return serder, sigs, res.json()
 
     def addEndRole(self, name, *, role=Roles.agent, eid=None, stamp=None):
+        """Publish an endpoint-role authorization reply for an identifier.
+
+        This is the authorization half of endpoint publication: it asserts that
+        `eid` is allowed to serve `role` for the identifier named by `name`.
+        In OOBI-heavy flows this record must exist before any role-specific OOBI
+        becomes available.
+        """
         hab = self.get(name)
         pre = hab["prefix"]
 
@@ -208,6 +216,26 @@ class Identifiers:
             sigs=sigs)
 
         res = self.client.post(f"/identifiers/{name}/endroles", json=asdict(rpy_msg))
+        return rpy, sigs, res.json()
+
+    def addLocScheme(self, name, url, *, eid=None, scheme=None, stamp=None):
+        """Publish a location-scheme reply for an identifier-scoped endpoint.
+
+        `addEndRole` authorizes *who* may act in a role; `addLocScheme`
+        publishes *where* that endpoint lives. Signify relies on the pair of
+        `/end/role/add` and `/loc/scheme` replies when a workflow needs a
+        controller, agent, or witness OOBI to resolve into a usable endpoint.
+        """
+        hab = self.get(name)
+
+        rpy = self.makeLocScheme(url=url, eid=eid, scheme=scheme, stamp=stamp)
+        keeper = self.client.manager.get(aid=hab)
+        sigs = keeper.sign(ser=rpy.raw)
+        rpy_msg = api.ReplyMessage(
+            rpy=rpy.ked,
+            sigs=sigs)
+
+        res = self.client.post(f"/identifiers/{name}/locschemes", json=asdict(rpy_msg))
         return rpy, sigs, res.json()
 
     def sign(self, name, ser):
@@ -223,9 +251,21 @@ class Identifiers:
 
     @staticmethod
     def makeEndRole(pre, role=Roles.agent, eid=None, stamp=None):
+        """Construct the signed `/end/role/add` reply payload for an AID."""
         data = dict(cid=pre, role=role)
         if eid is not None:
             data['eid'] = eid
 
         route = "/end/role/add"
         return eventing.reply(route=route, data=data, stamp=stamp)
+
+    @staticmethod
+    def makeLocScheme(url, *, eid=None, scheme=None, stamp=None):
+        """Construct the signed `/loc/scheme` reply payload for an endpoint."""
+        splits = urlsplit(url)
+        data = dict(
+            eid=eid,
+            scheme=scheme if scheme is not None else splits.scheme,
+            url=url,
+        )
+        return eventing.reply(route="/loc/scheme", data=data, stamp=stamp)

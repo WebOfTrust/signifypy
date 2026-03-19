@@ -285,7 +285,7 @@ class Ipex:
             kwa['dig'] = agree.said
 
         grant, gsigs, atc = exchanges.createExchangeMessage(sender=hab, route="/ipex/grant",
-                                                            payload=data, embeds=embeds, dt=dt)
+                                                            payload=data, embeds=embeds, recipient=recp, dt=dt)
 
         return grant, gsigs, atc
 
@@ -314,7 +314,7 @@ class Ipex:
         res = self.client.post(f"/identifiers/{name}/ipex/grant", json=body)
         return res.json()
 
-    def admit(self, hab, message, grant, dt=None):
+    def admit(self, hab, message, grant, recp, dt=None):
         if not grant:
             raise ValueError(f"invalid grant={grant}")
 
@@ -324,7 +324,7 @@ class Ipex:
         )
 
         admit, asigs, atc = exchanges.createExchangeMessage(sender=hab, route="/ipex/admit",
-                                                            payload=data, embeds=None, dt=dt, dig=grant)
+                                                            payload=data, embeds=None, recipient=recp, dt=dt, dig=grant)
 
         return admit, asigs, atc
 
