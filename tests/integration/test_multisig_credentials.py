@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from keri.core import coring
 from keri.help import helping
 
 from .constants import SCHEMA_OOBI, SCHEMA_SAID, TEST_WITNESS_AIDS
@@ -17,6 +18,10 @@ from .helpers import (
     issue_credential,
     issue_multisig_credential,
     resolve_oobi,
+    wait_for_issued_credential,
+    wait_for_multisig_registry_convergence,
+    wait_for_multisig_request,
+    wait_for_operation,
 )
 
 
@@ -83,7 +88,6 @@ def test_single_sig_issuer_to_multisig_holder_credential_issue(client_factory):
     assert any(credential["sad"]["d"] == creder.said for credential in issued)
 
 
-@pytest.mark.skip(reason="pinned live stack still stalls on second-member multisig /vcp anchor convergence")
 def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
     # This replaces the old multisig issuer scripts with the stable contract we
     # can protect today: group registry inception plus converged credential
@@ -146,24 +150,37 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
     resolve_oobi(issuer_client_a, holder_group_oobi, alias=holder_group_name)
     resolve_oobi(holder_client_a, issuer_group_oobi, alias=issuer_group_name)
 
-    create_multisig_registry(
+    registry_nonce = coring.randomNonce()
+    registry_operation_a, registry_meta_a = create_multisig_registry(
         issuer_client_a,
         local_member_name=issuer_member_a_name,
         group_name=issuer_group_name,
         other_member_prefixes=[issuer_member_b["prefix"]],
         registry_name=registry_name,
+        nonce=registry_nonce,
         is_initiator=True,
     )
-    _, registry = create_multisig_registry(
+    _, registry_request_b = wait_for_multisig_request(issuer_client_b, "/multisig/vcp")
+    registry_operation_b, registry_meta_b = create_multisig_registry(
         issuer_client_b,
         local_member_name=issuer_member_b_name,
         group_name=issuer_group_name,
         other_member_prefixes=[issuer_member_a["prefix"]],
+        registry_name=registry_name,
+        nonce=registry_nonce,
+        request=registry_request_b,
+    )
+    wait_for_operation(issuer_client_a, registry_operation_a)
+    wait_for_operation(issuer_client_b, registry_operation_b)
+    registry_a, registry_b = wait_for_multisig_registry_convergence(
+        issuer_client_a,
+        issuer_client_b,
+        group_name=issuer_group_name,
         registry_name=registry_name,
     )
 
     timestamp = helping.nowIso8601()
-    creder_a, iserder_a, anc_a, sigs_a = issue_multisig_credential(
+    creder_a, iserder_a, anc_a, sigs_a, credential_operation_a, _ = issue_multisig_credential(
         issuer_client_a,
         local_member_name=issuer_member_a_name,
         group_name=issuer_group_name,
@@ -174,7 +191,8 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
         timestamp=timestamp,
         is_initiator=True,
     )
-    creder_b, _, _, _ = issue_multisig_credential(
+    _, issuance_request_b = wait_for_multisig_request(issuer_client_b, "/multisig/iss")
+    creder_b, _, _, _, credential_operation_b, issuance_request_b = issue_multisig_credential(
         issuer_client_b,
         local_member_name=issuer_member_b_name,
         group_name=issuer_group_name,
@@ -183,14 +201,37 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
         recipient=holder_group_a["prefix"],
         data={"LEI": "5493001KJTIIGC8Y1R17"},
         timestamp=timestamp,
+        request=issuance_request_b,
     )
+    wait_for_operation(issuer_client_a, credential_operation_a)
+    wait_for_operation(issuer_client_b, credential_operation_b)
+    issued_a = wait_for_issued_credential(issuer_client_a, issuer_group_a["prefix"], creder_a.said)
+    issued_b = wait_for_issued_credential(issuer_client_b, issuer_group_b["prefix"], creder_a.said)
 
-    issued = issuer_client_a.credentials().list(filtr={"-i": issuer_group_a["prefix"]})
-
-    assert registry["name"] == registry_name
+    assert registry_meta_a["name"] == registry_name
+    assert registry_meta_b["name"] == registry_name
+    assert registry_meta_a["group_prefix"] == issuer_group_a["prefix"]
+    assert registry_meta_b["group_prefix"] == issuer_group_b["prefix"]
+    assert registry_meta_a["vcp_said"] == registry_meta_b["vcp_said"]
+    # Multisig registry join must reuse the initiator's exact embedded VCP and
+    # anchoring interaction event so every member converges on one anchor SAID.
+    assert registry_request_b[0]["exn"]["e"]["vcp"] == registry_meta_a["vcp"].ked
+    assert registry_request_b[0]["exn"]["e"]["anc"] == registry_meta_a["anc"].ked
     assert issuer_group_a["prefix"] == issuer_group_b["prefix"]
     assert holder_group_a["prefix"] == holder_group_b["prefix"]
+    assert registry_a["name"] == registry_name
+    assert registry_b["name"] == registry_name
+    assert registry_a["regk"] == registry_b["regk"]
+    assert registry_a["state"] == registry_b["state"]
+    # The same "mirror the initiator payload" rule applies to multisig
+    # issuance: all members must join the same credential, issuance TEL event,
+    # and anchoring interaction event.
+    assert issuance_request_b[0]["exn"]["e"]["acdc"] == creder_a.sad
+    assert issuance_request_b[0]["exn"]["e"]["iss"] == iserder_a.sad
+    assert issuance_request_b[0]["exn"]["e"]["anc"] == anc_a.sad
     assert creder_a.said == creder_b.said
+    assert creder_a.sad["d"] == iserder_a.ked["i"]
     assert creder_a.sad["i"] == issuer_group_a["prefix"]
     assert creder_a.sad["a"]["i"] == holder_group_a["prefix"]
-    assert any(credential["sad"]["d"] == creder_a.said for credential in issued)
+    assert issued_a["sad"]["d"] == creder_a.said
+    assert issued_b["sad"]["d"] == creder_a.said

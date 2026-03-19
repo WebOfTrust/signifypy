@@ -200,6 +200,69 @@ def wait_for_credential(client: SignifyClient, said: str, *, timeout: float = 12
     raise TimeoutError(f"timed out waiting for credential {said}")
 
 
+def wait_for_multisig_request(
+    client: SignifyClient,
+    route: str,
+    *,
+    timeout: float = 120.0,
+) -> tuple[dict, list[dict]]:
+    """Wait for a multisig notification and return the stored request payload.
+
+    This is useful for registry/issuance diagnostics on the non-initiator path:
+    we can prove the join signal arrived and inspect the embedded payload before
+    deciding whether local reconstruction drifted from the peer proposal.
+    """
+    note = wait_for_notification(client, route, timeout=timeout)
+    return note, client.groups().get_request(note["a"]["d"])
+
+
+def wait_for_issued_credential(
+    client: SignifyClient,
+    issuer_prefix: str,
+    said: str,
+    *,
+    timeout: float = 120.0,
+) -> dict:
+    """Poll issued-credential visibility until the expected SAID appears."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        credentials = client.credentials().list(filtr={"-i": issuer_prefix})
+        for credential in credentials:
+            if credential["sad"]["d"] == said:
+                return credential
+        time.sleep(1.0)
+    raise TimeoutError(
+        f"timed out waiting for issued credential {said} from issuer {issuer_prefix}"
+    )
+
+
+def wait_for_multisig_registry_convergence(
+    client_a: SignifyClient,
+    client_b: SignifyClient,
+    *,
+    group_name: str,
+    registry_name: str,
+    timeout: float = 120.0,
+) -> tuple[dict, dict]:
+    """Poll both members until one multisig registry view converges on both sides."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            registry_a = client_a.registries().get(group_name, registry_name)
+            registry_b = client_b.registries().get(group_name, registry_name)
+        except HTTPError:
+            time.sleep(0.5)
+            continue
+
+        if registry_a["regk"] == registry_b["regk"] and registry_a["state"] == registry_b["state"]:
+            return registry_a, registry_b
+        time.sleep(0.5)
+
+    raise TimeoutError(
+        f"timed out waiting for multisig registry {registry_name} to converge for {group_name}"
+    )
+
+
 def resolve_oobi(client: SignifyClient, oobi: str, alias: str | None = None) -> dict:
     """Resolve an OOBI and wait for the corresponding operation to complete.
 
@@ -1305,18 +1368,43 @@ def create_multisig_registry(
     registry_name: str,
     nonce: str | None = None,
     is_initiator: bool = False,
+    request: list[dict] | None = None,
 ) -> tuple[dict, dict]:
-    """Create a registry for a multisig issuer and fan out `/multisig/vcp`."""
-    if not is_initiator:
-        wait_for_notification(client, "/multisig/vcp")
+    """Start multisig registry creation and fan out `/multisig/vcp`.
+
+    The caller owns the convergence phase. This mirrors the SignifyTS helper
+    shape: stage every participant's registry operation first, then wait for
+    all operations and finally verify cross-member registry convergence.
+
+    On the non-initiator path, the incoming `/multisig/vcp` embeds are the
+    canonical proposal. The joiner signs and submits that exact embedded VCP
+    and anchoring interaction event instead of reconstructing a fresh local
+    anchor candidate.
+    """
+    if not is_initiator and request is None:
+        _, request = wait_for_multisig_request(client, "/multisig/vcp")
 
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
-    vcp, anc, sigs, operation = client.registries().create(
-        hab=group_hab,
-        registryName=registry_name,
-        nonce=nonce,
-    )
+    if request is not None:
+        proposal = request[0]["exn"]["e"]
+        vcp = serdering.SerderKERI(sad=proposal["vcp"])
+        anc = serdering.SerderKERI(sad=proposal["anc"])
+        keeper = client.manager.get(aid=group_hab)
+        sigs = keeper.sign(ser=anc.raw)
+        operation = client.registries().create_from_events(
+            hab=group_hab,
+            registryName=registry_name,
+            vcp=vcp.ked,
+            ixn=anc.ked,
+            sigs=sigs,
+        )
+    else:
+        vcp, anc, sigs, operation = client.registries().create(
+            hab=group_hab,
+            registryName=registry_name,
+            nonce=nonce,
+        )
     client.exchanges().send(
         local_member_name,
         "registry",
@@ -1329,7 +1417,15 @@ def create_multisig_registry(
         ),
         recipients=other_member_prefixes,
     )
-    return wait_for_operation(client, operation), client.registries().get(group_name, registry_name)
+    return operation, {
+        "name": registry_name,
+        "group_prefix": group_hab["prefix"],
+        "vcp_said": vcp.said,
+        "anc_said": anc.said,
+        "vcp": vcp,
+        "anc": anc,
+        "request": request,
+    }
 
 
 def issue_multisig_credential(
@@ -1344,22 +1440,47 @@ def issue_multisig_credential(
     schema: str = SCHEMA_SAID,
     timestamp: str | None = None,
     is_initiator: bool = False,
+    request: list[dict] | None = None,
 ):
-    """Issue a multisig credential and fan out `/multisig/iss` to peers."""
-    if not is_initiator:
-        wait_for_notification(client, "/multisig/iss")
+    """Start multisig credential issuance and fan out `/multisig/iss`.
+
+    The caller owns the convergence phase so both members can stage their local
+    issuance operations before waiting for completion and asserting one shared
+    credential SAID.
+
+    On the non-initiator path, the incoming `/multisig/iss` embeds are the
+    canonical proposal. The joiner signs and submits that exact credential
+    issuance payload, including the same anchoring interaction event.
+    """
+    if not is_initiator and request is None:
+        _, request = wait_for_multisig_request(client, "/multisig/iss")
 
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
     registry = client.registries().get(group_name, registry_name)
-    creder, iserder, anc, sigs, operation = client.credentials().create(
-        group_hab,
-        registry=registry,
-        data=data,
-        schema=schema,
-        recipient=recipient,
-        timestamp=timestamp or helping.nowIso8601(),
-    )
+    if request is not None:
+        proposal = request[0]["exn"]["e"]
+        creder = serdering.SerderACDC(sad=proposal["acdc"])
+        iserder = serdering.SerderKERI(sad=proposal["iss"])
+        anc = serdering.SerderKERI(sad=proposal["anc"])
+        keeper = client.manager.get(aid=group_hab)
+        sigs = keeper.sign(ser=anc.raw)
+        operation = client.credentials().create_from_events(
+            hab=group_hab,
+            creder=creder.sad,
+            iss=iserder.sad,
+            anc=anc.sad,
+            sigs=sigs,
+        ).json()
+    else:
+        creder, iserder, anc, sigs, operation = client.credentials().create(
+            group_hab,
+            registry=registry,
+            data=data,
+            schema=schema,
+            recipient=recipient,
+            timestamp=timestamp or helping.nowIso8601(),
+        )
     client.exchanges().send(
         local_member_name,
         "multisig",
@@ -1378,8 +1499,7 @@ def issue_multisig_credential(
         ),
         recipients=other_member_prefixes,
     )
-    wait_for_operation(client, operation)
-    return creder, iserder, anc, sigs
+    return creder, iserder, anc, sigs, operation, request
 
 
 def send_multisig_credential_grant(

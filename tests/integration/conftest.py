@@ -5,13 +5,14 @@ starts a local witness-demo topology, KERIA, and the vLEI helper server inside
 pytest-owned temp state so tests can exercise real SignifyPy workflows without
 mutating a developer's global `~/.keri`.
 
-This module assumes that the following repositories are cloned in the same containing directory
-SignifyPy is cloned to:
+This module assumes that the following repositories are cloned in the same
+containing directory SignifyPy is cloned to:
     - KERIA
     - VLEI
     - KERIpy
 
-The test fixtures in this file use Python's subprocess.
+The test fixtures in this file use Python subprocesses and file-backed harness
+entrypoints under `tests/integration/_services`.
 
 The important constraint is that different services read config from
 different `Configer` bases:
@@ -30,7 +31,6 @@ import json
 import os
 import socket
 import subprocess
-import textwrap
 import time
 from pathlib import Path
 
@@ -44,8 +44,10 @@ from tests.integration.constants import (
     WITNESS_CONFIG_IURLS,
 )
 
-# The following directories are used when running each command or library in an isolated virtualenv below
+# The following directories are used when running each command or library in an
+# isolated virtualenv below.
 SIGNIFYPY_ROOT = Path(__file__).resolve().parents[2]
+INTEGRATION_ROOT = Path(__file__).resolve().parent
 SOURCE_ROOT = SIGNIFYPY_ROOT.parent
 KERIPY_ROOT = SOURCE_ROOT / "keripy"
 KERIA_ROOT = SOURCE_ROOT / "keria"
@@ -56,122 +58,10 @@ VLEI_PYTHON = VLEI_ROOT / "venv" / "bin" / "python"
 
 KERIPY_WITNESS_CONFIG_DIR = KERIPY_ROOT / "scripts" / "keri" / "cf" / "main"
 WITNESS_CONFIG_NAMES = ("wan", "wil", "wes")
-
-# Keep the witness launcher inline so the fixture controls ports, isolated
-# state, and teardown without depending on an external shell demo process.
-# Important: this must mirror `kli witness demo` closely enough to preserve the
-# canonical demo witness AIDs and load config from `.../keri/cf/main/...`.
-WITNESS_SERVER_SCRIPT = textwrap.dedent(
-    """
-    import signal
-    import falcon
-    from hio.base import doing
-    from keri import help
-    from keri.app import habbing, indirecting, configing
-    from keri.core import Salter
-
-    CONFIG_DIR = {config_dir!r}
-    WITNESSES = [
-        ("wan", b"wann-the-witness", 5632, 5642),
-        ("wil", b"will-the-witness", 5633, 5643),
-        ("wes", b"wess-the-witness", 5634, 5644),
-    ]
-
-    help.ogler.level = 20
-    # GitHub-hosted runners can reject listeners bound to all interfaces.
-    # Force the witness demo topology onto loopback so the live harness matches
-    # the 127.0.0.1 URLs the tests already use.
-    _create_http_server = indirecting.createHttpServer
-    def create_loopback_http_server(host, port, app, keypath=None, certpath=None, cafilepath=None):
-        return _create_http_server("127.0.0.1", port, app, keypath, certpath, cafilepath)
-    indirecting.createHttpServer = create_loopback_http_server
-
-    class NoopQueryEnd:
-        def __init__(self, hab):
-            self.hab = hab
-
-        def on_get(self, req, rep):
-            raise falcon.HTTPNotFound(description="witness query endpoint disabled for this SignifyPy harness")
-
-    # KERIpy 1.2.12 opens the same LMDB-backed Reger twice when setupWitness
-    # constructs QueryEnd in-process on Linux. Phase 1 does not use the witness
-    # /query endpoint, so replace it with a minimal no-op endpoint instead of
-    # taking on a deeper local fork of the witness bootstrap logic.
-    indirecting.QueryEnd = NoopQueryEnd
-
-    doers = []
-    for name, salt, tcp_port, http_port in WITNESSES:
-        cf = configing.Configer(name=name, headDirPath=CONFIG_DIR, temp=False, reopen=True, clear=False)
-        hby = habbing.Habery(
-            name=name,
-            salt=Salter(raw=salt).qb64,
-            temp=False,
-            cf=cf,
-            headDirPath=CONFIG_DIR,
-        )
-        # The current SignifyPy integration slice only needs witness HTTP
-        # endpoints. Disabling the witness TCP listener keeps the harness off
-        # all-interface socket paths that can fail on hosted runners without
-        # patching deeper hio internals.
-        doers.extend(indirecting.setupWitness(alias=name, hby=hby, tcpPort=None, httpPort=http_port))
-
-    doist = doing.Doist(limit=0.0, tock=0.03125, real=True)
-    doist.doers = doers
-    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
-    try:
-        doist.do()
-    except KeyboardInterrupt:
-        pass
-    """
-)
-
-# Launch KERIA with the same demo topology the shell scripts expect, but under
-# pytest-owned temp state so reruns stay isolated and cheap.
-KERIA_SERVER_SCRIPT = textwrap.dedent(
-    """
-    import signal
-    from keria.app import agenting
-
-    config = agenting.KERIAServerConfig(
-        name="keria",
-        base="",
-        adminPort=3901,
-        httpPort=3902,
-        bootPort=3903,
-        configFile="demo-witness-oobis",
-        configDir={config_dir!r},
-        logLevel="INFO",
-    )
-
-    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
-    try:
-        agenting.runAgency(config=config, temp=False)
-    except KeyboardInterrupt:
-        pass
-    """
-)
-
-
-VLEI_SERVER_SCRIPT = textwrap.dedent(
-    """
-    import signal
-    from vlei.server import launch, VLEIConfig
-
-    config = VLEIConfig(
-        http=7723,
-        schemaDir={schema_dir!r},
-        credDir={cred_dir!r},
-        oobiDir={oobi_dir!r},
-        logLevel="INFO",
-    )
-
-    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt()))
-    try:
-        launch(config)
-    except KeyboardInterrupt:
-        pass
-    """
-)
+SERVICE_SCRIPTS_ROOT = INTEGRATION_ROOT / "_services"
+WITNESS_SERVER_SCRIPT = SERVICE_SCRIPTS_ROOT / "witness_server.py"
+KERIA_SERVER_SCRIPT = SERVICE_SCRIPTS_ROOT / "keria_server.py"
+VLEI_SERVER_SCRIPT = SERVICE_SCRIPTS_ROOT / "vlei_server.py"
 
 
 def _require_python(path: Path, name: str) -> str:
@@ -184,7 +74,7 @@ def _require_python(path: Path, name: str) -> str:
 def _write_canonical_witness_configs(config_root: Path) -> None:
     """Copy canonical witness-demo configs into the exact path witnesses read.
 
-    Witness startup in the inline launcher uses `Configer(..., base="main")`,
+    Witness startup in the harness launcher uses `Configer(..., base="main")`,
     so these files have to live under `keri/cf/main`. Keeping the canonical
     `wan`/`wil`/`wes` files here preserves the SignifyTS witness AIDs and the
     corresponding witness OOBIs expected by the tests.
@@ -406,7 +296,7 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory):
         # Witnesses must come up first because KERIA resolves the configured
         # witness introduction OOBIs at startup.
         witness = subprocess.Popen(
-            [witness_python, "-u", "-c", WITNESS_SERVER_SCRIPT.format(config_dir=str(config_root))],
+            [witness_python, "-u", str(WITNESS_SERVER_SCRIPT), "--config-dir", str(config_root)],
             cwd=SIGNIFYPY_ROOT,
             env=witness_env,
             stdout=witness_log,
@@ -420,7 +310,7 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory):
         # KERIA comes next so client boot/connect and OOBI routes are ready
         # before any test creates identifiers.
         keria = subprocess.Popen(
-            [keria_python, "-u", "-c", KERIA_SERVER_SCRIPT.format(config_dir=str(config_root))],
+            [keria_python, "-u", str(KERIA_SERVER_SCRIPT), "--config-dir", str(config_root)],
             cwd=SIGNIFYPY_ROOT,
             env=keria_env,
             stdout=keria_log,
@@ -437,12 +327,13 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory):
             [
                 vlei_python,
                 "-u",
-                "-c",
-                VLEI_SERVER_SCRIPT.format(
-                    schema_dir=str(VLEI_ROOT / "schema" / "acdc"),
-                    cred_dir=str(VLEI_ROOT / "samples" / "acdc"),
-                    oobi_dir=str(VLEI_ROOT / "samples" / "oobis"),
-                ),
+                str(VLEI_SERVER_SCRIPT),
+                "--schema-dir",
+                str(VLEI_ROOT / "schema" / "acdc"),
+                "--cred-dir",
+                str(VLEI_ROOT / "samples" / "acdc"),
+                "--oobi-dir",
+                str(VLEI_ROOT / "samples" / "oobis"),
             ],
             cwd=SIGNIFYPY_ROOT,
             env=vlei_env,
