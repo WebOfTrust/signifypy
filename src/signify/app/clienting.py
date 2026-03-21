@@ -223,7 +223,7 @@ class SignifyClient:
         for event in client:
             yield event
 
-    def delete(self, path, params=None, headers=None):
+    def delete(self, path, params=None, headers=None, body=None):
         """Issue an authenticated ``DELETE`` request relative to the client base URL."""
         url = urljoin(self.base, path)
 
@@ -233,6 +233,9 @@ class SignifyClient:
 
         if headers is not None:
             kwargs["headers"] = headers
+
+        if body is not None:
+            kwargs["json"] = body
 
         res = self.session.delete(url, **kwargs)
         if not res.ok:

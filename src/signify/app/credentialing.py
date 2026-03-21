@@ -53,7 +53,11 @@ class Registries:
 
         cnfg = []
         if noBackers:
-            cnfg.append(TraitDex.NoRegistrarBackers)
+            # Registry VDR inception still keys on the historical `NB` trait
+            # code on this stack. Using `NRB` here silently produces a
+            # backer-capable registry, which later changes issuance/revocation
+            # event types from `iss/rev` to `bis/brv`.
+            cnfg.append(TraitDex.NoBackers)
         if estOnly:
             cnfg.append(TraitDex.EstOnly)
 
@@ -177,6 +181,16 @@ class Credentials:
         res = self.client.get(f"/credentials/{said}", headers=headers)
         return res.content
 
+    def get(self, said):
+        """Fetch one credential in JSON form, including its current TEL status."""
+        res = self.client.get(f"/credentials/{said}")
+        return res.json()
+
+    def state(self, registry_said, credential_said):
+        """Fetch one credential TEL state record under a registry."""
+        res = self.client.get(f"/registries/{registry_said}/{credential_said}")
+        return res.json()
+
     def create(self, hab, registry, data, schema, recipient=None, edges=None, rules=None, private=False,
                timestamp=None):
         """Create and submit a credential issuance request.
@@ -263,6 +277,59 @@ class Credentials:
         name = hab["name"]
 
         return self.client.post(f"/identifiers/{name}/credentials", json=body)
+
+    def revoke(self, name, said, timestamp=None):
+        """Create and submit a credential revocation request.
+
+        Returns:
+            tuple: ``(rserder, anc, sigs, operation)`` for the locally created
+            TEL revocation event, its anchoring interaction, its signatures,
+            and the KERIA operation payload.
+        """
+        hab = self.client.identifiers().get(name)
+        pre = hab["prefix"]
+        dt = timestamp or helping.nowIso8601()
+
+        credential = self.get(said)
+        sad = credential["sad"]
+        status = credential["status"]
+
+        if "ri" in sad and sad["ri"] is not None:
+            registry_said = sad["ri"]
+        elif "rd" in sad and sad["rd"] is not None:
+            registry_said = sad["rd"]
+        else:
+            raise ValueError("credential is missing registry reference ri/rd")
+
+        rserder = eventing.revoke(
+            vcdig=said,
+            regk=registry_said,
+            dig=status["d"],
+            dt=dt,
+        )
+
+        state = hab["state"]
+        sn = int(state["s"], 16)
+        dig = state["d"]
+        anchor = dict(i=rserder.ked["i"], s=rserder.ked["s"], d=rserder.said)
+        anc = interact(pre, sn=sn + 1, data=[anchor], dig=dig)
+
+        keeper = self.client.manager.get(aid=hab)
+        sigs = keeper.sign(ser=anc.raw)
+
+        body = dict(
+            rev=rserder.ked,
+            ixn=anc.ked,
+            sigs=sigs,
+        )
+        body[keeper.algo] = keeper.params()
+
+        operation = self.client.delete(
+            f"/identifiers/{name}/credentials/{said}",
+            body=body,
+        ).json()
+
+        return rserder, anc, sigs, operation
 
 
 class Ipex:

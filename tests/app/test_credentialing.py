@@ -60,6 +60,59 @@ def test_registries(make_mock_client_with_manager, make_mock_response):
                    b'yju_uCzuSvgG4"}-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAABENns5-voIbnRMADUO'
                    b'so7HDiQ9ZS_AfU8BfgGLHEW54H1')
 
+
+def test_registries_create_uses_nb_trait_for_backerless_registry():
+    """Backerless registry inception must use the VDR `NB` trait code.
+
+    This looks small, but it is the difference between a true no-backer
+    registry and a backer-capable one. When the wrong trait code is used, the
+    live stack silently issues `bis/brv` events instead of `iss/rev`, and
+    later revoke coverage fails for the wrong reason.
+    """
+
+    class DummyResponse:
+        def json(self):
+            return {}
+
+    class DummyKeeper:
+        algo = "salty"
+
+        @staticmethod
+        def params():
+            return {"keeper": "params"}
+
+        @staticmethod
+        def sign(ser):
+            return ["a signature"]
+
+    class DummyManager:
+        @staticmethod
+        def get(aid):
+            return DummyKeeper()
+
+    class DummyClient:
+        def __init__(self):
+            self.manager = DummyManager()
+            self.last_post = None
+
+        def post(self, path, json):
+            self.last_post = (path, json)
+            return DummyResponse()
+
+    hab = {
+        "prefix": "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose",
+        "name": "aid1",
+        "state": {"s": "1", "d": "ABCDEFG"},
+    }
+
+    client = DummyClient()
+    credentialing.Registries(client=client).create(hab=hab, registryName="reg1")
+
+    assert client.last_post is not None
+    path, body = client.last_post
+    assert path == "/identifiers/aid1/registries"
+    assert body["vcp"]["c"] == ["NB"]
+
 def test_credentials_list(make_mock_response):
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
