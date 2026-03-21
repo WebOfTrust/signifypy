@@ -1,8 +1,11 @@
 # -*- encoding: utf-8 -*-
-"""
-SIGNIFY
-signify.app.credentialing module
+"""Credential, registry, and IPEX workflow helpers for SignifyPy.
 
+This module covers three tightly related request families:
+
+- credential registry lifecycle
+- credential issuance and export
+- IPEX grant and admit message construction/submission
 """
 from collections import namedtuple
 
@@ -32,17 +35,29 @@ class Registries:
         self.client = client
 
     def get(self, name, registryName):
+        """Fetch one credential registry under an identifier alias."""
         res = self.client.get(f"/identifiers/{name}/registries/{registryName}")
         return res.json()
 
     def create(self, hab, registryName, noBackers=True, estOnly=False, baks=None, toad=0, nonce=None):
+        """Create and submit a new credential registry inception request.
+
+        Returns:
+            tuple: ``(vcp, anc, sigs, operation)`` for the locally created
+            registry inception event, its anchoring interaction, its
+            signatures, and the KERIA operation payload.
+        """
         baks = baks if baks is not None else []
 
         pre = hab["prefix"]
 
         cnfg = []
         if noBackers:
-            cnfg.append(TraitDex.NoRegistrarBackers)
+            # Registry VDR inception still keys on the historical `NB` trait
+            # code on this stack. Using `NRB` here silently produces a
+            # backer-capable registry, which later changes issuance/revocation
+            # event types from `iss/rev` to `bis/brv`.
+            cnfg.append(TraitDex.NoBackers)
         if estOnly:
             cnfg.append(TraitDex.EstOnly)
 
@@ -70,6 +85,7 @@ class Registries:
         return regser, serder, sigs, op
 
     def create_from_events(self, hab, registryName, vcp, ixn, sigs):
+        """Submit a registry creation request from prebuilt local events."""
         body = dict(
             name=registryName,
             vcp=vcp,
@@ -85,6 +101,7 @@ class Registries:
 
     @staticmethod
     def serialize(serder, anc):
+        """Serialize a registry event plus its anchoring attachment group."""
         seqner = coring.Seqner(sn=anc.sn)
         couple = seqner.qb64b + anc.said.encode("utf-8")
         atc = bytearray()
@@ -105,6 +122,7 @@ class Registries:
         return msg
 
     def rename(self, hab, registryName, newName):
+        """Rename a registry alias under an existing identifier."""
         name = hab["name"]
         body = dict(name=newName)
         resp = self.client.put(path=f"/identifiers/{name}/registries/{registryName}", json=body)
@@ -124,7 +142,7 @@ class Credentials:
         self.client = client
 
     def list(self, filtr=None, sort=None, skip=None, limit=None):
-        """
+        """Query credentials stored by the remote agent.
 
         Parameters:
             filtr (dict): Credential filter dict
@@ -134,7 +152,6 @@ class Credentials:
 
         Returns:
             list: list of dicts representing the listed credentials
-
         """
         filtr = filtr if filtr is not None else {}
         sort = sort if sort is not None else []
@@ -152,36 +169,47 @@ class Credentials:
         return res.json()
 
     def export(self, said):
-        """
+        """Export one credential in CESR JSON form.
 
         Parameters:
             said (str): SAID of credential to export
         Returns:
             credential (bytes): exported credential
-
         """
         headers = dict(accept="application/json+cesr")
 
         res = self.client.get(f"/credentials/{said}", headers=headers)
         return res.content
 
+    def get(self, said):
+        """Fetch one credential in JSON form, including its current TEL status."""
+        res = self.client.get(f"/credentials/{said}")
+        return res.json()
+
+    def state(self, registry_said, credential_said):
+        """Fetch one credential TEL state record under a registry."""
+        res = self.client.get(f"/registries/{registry_said}/{credential_said}")
+        return res.json()
+
     def create(self, hab, registry, data, schema, recipient=None, edges=None, rules=None, private=False,
                timestamp=None):
-        """ Create and submit a credential
+        """Create and submit a credential issuance request.
 
         Parameters:
-            hab:
-            registry:
-            data:
-            schema:
-            recipient:
-            edges:
-            rules:
-            private:
-            timestamp:
+            hab (dict): Identifier habitat state used as the issuer.
+            registry (dict): Registry state under which the credential is issued.
+            data (dict): Credential subject attributes.
+            schema (str): SAID of the credential schema.
+            recipient (str | None): Optional recipient AID.
+            edges (dict | None): Optional source edges for chained credentials.
+            rules (dict | None): Optional issuance rules block.
+            private (bool): Whether to issue a privacy-preserving credential.
+            timestamp (str | None): Optional issuance timestamp override.
 
         Returns:
-
+            tuple: ``(creder, iserder, anc, sigs, operation)`` for the
+            credential, issuance event, anchoring interaction, signatures, and
+            KERIA operation payload.
         """
         pre = hab["prefix"]
 
@@ -230,32 +258,78 @@ class Credentials:
 
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=anc.raw)
-        # KERIA validates signatures over both the anchoring interaction event
-        # and the credential itself during issuance.
-        csigs = keeper.sign(ser=creder.raw)
 
         res = self.create_from_events(hab=hab, creder=creder.sad, iss=iserder.sad, anc=anc.sad,
-                                      sigs=sigs, csigs=csigs)
+                                      sigs=sigs)
 
         return creder, iserder, anc, sigs, res.json()
 
-    def create_from_events(self, hab, creder, iss, anc, sigs, csigs=None, path=None):
+    def create_from_events(self, hab, creder, iss, anc, sigs):
+        """Submit a credential issuance request from prebuilt local events."""
         body = dict(
             acdc=creder,
             iss=iss,
             ixn=anc,
             sigs=sigs
         )
-        if csigs is not None:
-            body["csigs"] = csigs
-        # KERIA expects a CESR path even for the root credential payload; the
-        # empty path is the contract used in KERIA's own endpoint tests.
-        body["path"] = path if path is not None else coring.Pather(path=[]).qb64
         keeper = self.client.manager.get(aid=hab)
         body[keeper.algo] = keeper.params()
         name = hab["name"]
 
         return self.client.post(f"/identifiers/{name}/credentials", json=body)
+
+    def revoke(self, name, said, timestamp=None):
+        """Create and submit a credential revocation request.
+
+        Returns:
+            tuple: ``(rserder, anc, sigs, operation)`` for the locally created
+            TEL revocation event, its anchoring interaction, its signatures,
+            and the KERIA operation payload.
+        """
+        hab = self.client.identifiers().get(name)
+        pre = hab["prefix"]
+        dt = timestamp or helping.nowIso8601()
+
+        credential = self.get(said)
+        sad = credential["sad"]
+        status = credential["status"]
+
+        if "ri" in sad and sad["ri"] is not None:
+            registry_said = sad["ri"]
+        elif "rd" in sad and sad["rd"] is not None:
+            registry_said = sad["rd"]
+        else:
+            raise ValueError("credential is missing registry reference ri/rd")
+
+        rserder = eventing.revoke(
+            vcdig=said,
+            regk=registry_said,
+            dig=status["d"],
+            dt=dt,
+        )
+
+        state = hab["state"]
+        sn = int(state["s"], 16)
+        dig = state["d"]
+        anchor = dict(i=rserder.ked["i"], s=rserder.ked["s"], d=rserder.said)
+        anc = interact(pre, sn=sn + 1, data=[anchor], dig=dig)
+
+        keeper = self.client.manager.get(aid=hab)
+        sigs = keeper.sign(ser=anc.raw)
+
+        body = dict(
+            rev=rserder.ked,
+            ixn=anc.ked,
+            sigs=sigs,
+        )
+        body[keeper.algo] = keeper.params()
+
+        operation = self.client.delete(
+            f"/identifiers/{name}/credentials/{said}",
+            body=body,
+        ).json()
+
+        return rserder, anc, sigs, operation
 
 
 class Ipex:
@@ -271,6 +345,12 @@ class Ipex:
         self.client = client
 
     def grant(self, hab, recp, message, acdc, iss, anc, agree=None, dt=None):
+        """Create an IPEX grant exchange message for a recipient.
+
+        Returns:
+            tuple: ``(exn, sigs, atc)`` for the grant exchange message, its
+            signatures, and any attachment material.
+        """
         exchanges = self.client.exchanges()
         data = dict(
             m=message,
@@ -293,7 +373,7 @@ class Ipex:
         return grant, gsigs, atc
 
     def submitGrant(self, name, exn, sigs, atc, recp):
-        """  Send precreated grant message to recipients
+        """Send a precreated IPEX grant exchange to recipients.
 
         Parameters:
             name (str): human readable identifier alias to send from
@@ -304,7 +384,6 @@ class Ipex:
 
         Returns:
             dict: operation response from KERIA
-
         """
 
         body = dict(
@@ -318,6 +397,7 @@ class Ipex:
         return res.json()
 
     def admit(self, hab, message, grant, recp, dt=None):
+        """Create an IPEX admit exchange that references an existing grant."""
         if not grant:
             raise ValueError(f"invalid grant={grant}")
 
@@ -332,7 +412,7 @@ class Ipex:
         return admit, asigs, atc
 
     def submitAdmit(self, name, exn, sigs, atc, recp):
-        """  Send precreated exn message to recipients
+        """Send a precreated IPEX admit exchange to recipients.
 
         Parameters:
             name (str): human readable identifier alias to send from
@@ -342,7 +422,6 @@ class Ipex:
 
         Returns:
             dict: operation response from KERIA
-
         """
 
         body = dict(

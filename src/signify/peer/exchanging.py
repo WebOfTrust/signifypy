@@ -1,8 +1,8 @@
 # -*- encoding: utf-8 -*-
-"""
-SIGNIFY
-signify.peer.exchanging module
+"""Peer exchange message helpers for SignifyPy.
 
+This module owns the app-level ``exn`` transport used by challenges,
+multisig coordination, and IPEX grant/admit workflows.
 """
 from keri.peer import exchanging
 
@@ -118,14 +118,13 @@ class Exchanges:
         return res.json()
 
     def get(self, said):
-        """
+        """Fetch one stored exchange message by SAID.
 
         Parameters:
             said (str): qb64 SAID of the exn message to retrieve
 
         Returns:
             dict: exn message
-
         """
 
         res = self.client.get(f"/exchanges/{said}")

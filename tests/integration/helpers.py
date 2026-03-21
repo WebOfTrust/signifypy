@@ -13,6 +13,7 @@ from __future__ import annotations
 import secrets
 import string
 import time
+import json
 
 import requests
 from keri.app import signing as app_signing
@@ -198,6 +199,177 @@ def wait_for_credential(client: SignifyClient, said: str, *, timeout: float = 12
                 return credential
         time.sleep(1.0)
     raise TimeoutError(f"timed out waiting for credential {said}")
+
+
+def wait_for_multisig_request(
+    client: SignifyClient,
+    route: str,
+    *,
+    timeout: float = 120.0,
+) -> tuple[dict, list[dict]]:
+    """Wait for a multisig notification and return the stored request payload.
+
+    This is useful for registry/issuance diagnostics on the non-initiator path:
+    we can prove the join signal arrived and inspect the embedded payload before
+    deciding whether local reconstruction drifted from the peer proposal.
+    """
+    note = wait_for_notification(client, route, timeout=timeout)
+    return note, client.groups().get_request(note["a"]["d"])
+
+
+def wait_for_issued_credential(
+    client: SignifyClient,
+    issuer_prefix: str,
+    said: str,
+    *,
+    timeout: float = 120.0,
+) -> dict:
+    """Poll issued-credential visibility until the expected SAID appears."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        credentials = client.credentials().list(filtr={"-i": issuer_prefix})
+        for credential in credentials:
+            if credential["sad"]["d"] == said:
+                return credential
+        time.sleep(1.0)
+    raise TimeoutError(
+        f"timed out waiting for issued credential {said} from issuer {issuer_prefix}"
+    )
+
+
+def wait_for_credential_state(
+    client: SignifyClient,
+    *,
+    registry_said: str,
+    credential_said: str,
+    expected_et: str | None = None,
+    expected_sn: str | None = None,
+    timeout: float = 120.0,
+) -> dict:
+    """Poll one credential TEL state until the expected revocation/issuance state is visible."""
+    deadline = time.time() + timeout
+    last_state = None
+    last_error = None
+    while time.time() < deadline:
+        try:
+            state = client.credentials().state(registry_said, credential_said)
+        except HTTPError as err:
+            last_error = str(err)
+            time.sleep(0.5)
+            continue
+
+        last_state = state
+        if expected_et is not None and state.get("et") != expected_et:
+            time.sleep(0.5)
+            continue
+        if expected_sn is not None and state.get("s") != expected_sn:
+            time.sleep(0.5)
+            continue
+        return state
+
+    raise TimeoutError(
+        f"timed out waiting for credential state {credential_said} in registry {registry_said}; "
+        f"expected_et={expected_et!r}; expected_sn={expected_sn!r}; "
+        f"last_error={last_error!r}; last_state={json.dumps(last_state, sort_keys=True) if last_state is not None else None}"
+    )
+
+
+def wait_for_multisig_credential_state_convergence(
+    client_a: SignifyClient,
+    client_b: SignifyClient,
+    *,
+    registry_said: str,
+    credential_said: str,
+    expected_et: str,
+    timeout: float = 120.0,
+) -> tuple[dict, dict]:
+    """Poll both issuer members until they expose one converged credential TEL state."""
+
+    def normalized_state(state: dict) -> dict:
+        normalized = dict(state)
+        normalized.pop("dt", None)
+        return normalized
+
+    deadline = time.time() + timeout
+    last_state_a = None
+    last_state_b = None
+    last_error = None
+    while time.time() < deadline:
+        try:
+            state_a = client_a.credentials().state(registry_said, credential_said)
+            state_b = client_b.credentials().state(registry_said, credential_said)
+        except HTTPError as err:
+            last_error = str(err)
+            time.sleep(0.5)
+            continue
+
+        last_state_a = state_a
+        last_state_b = state_b
+        if (
+            state_a.get("et") == expected_et
+            and state_b.get("et") == expected_et
+            and normalized_state(state_a) == normalized_state(state_b)
+        ):
+            return state_a, state_b
+        time.sleep(0.5)
+
+    raise TimeoutError(
+        "timed out waiting for multisig credential state convergence; "
+        f"registry_said={registry_said}; credential_said={credential_said}; expected_et={expected_et!r}; "
+        f"last_error={last_error!r}; "
+        f"state_a={json.dumps(last_state_a, sort_keys=True) if last_state_a is not None else None}; "
+        f"state_b={json.dumps(last_state_b, sort_keys=True) if last_state_b is not None else None}"
+    )
+
+
+def wait_for_multisig_registry_convergence(
+    client_a: SignifyClient,
+    client_b: SignifyClient,
+    *,
+    group_name: str,
+    registry_name: str,
+    timeout: float = 120.0,
+) -> tuple[dict, dict]:
+    """Poll both members until one multisig registry view converges on both sides."""
+    def normalized_state(registry: dict) -> dict:
+        """
+        Pops the datetime field out so that comparing two registry dicts for the same registry
+        will work. Only the datetime should be different between the two, during registry inception,
+        so popping it out allows straightforward comparison.
+        """
+        state = dict(registry["state"])
+        state.pop("dt", None)
+        return state
+
+    deadline = time.time() + timeout
+    last_registry_a = None
+    last_registry_b = None
+    last_error = None
+    while time.time() < deadline:
+        try:
+            registry_a = client_a.registries().get(group_name, registry_name)
+            registry_b = client_b.registries().get(group_name, registry_name)
+        except HTTPError as err:
+            last_error = str(err)
+            time.sleep(0.5)
+            continue
+
+        last_registry_a = registry_a
+        last_registry_b = registry_b
+        if (
+            registry_a["regk"] == registry_b["regk"]
+            and normalized_state(registry_a) == normalized_state(registry_b)
+        ):
+            return registry_a, registry_b
+        time.sleep(0.5)
+
+    raise TimeoutError(
+        "timed out waiting for multisig registry "
+        f"{registry_name} to converge for {group_name}; "
+        f"last_error={last_error!r}; "
+        f"registry_a={json.dumps(last_registry_a, sort_keys=True) if last_registry_a is not None else None}; "
+        f"registry_b={json.dumps(last_registry_b, sort_keys=True) if last_registry_b is not None else None}"
+    )
 
 
 def resolve_oobi(client: SignifyClient, oobi: str, alias: str | None = None) -> dict:
@@ -784,6 +956,53 @@ def add_multisig_agent_endroles(
     return operations
 
 
+def add_one_multisig_agent_endrole(
+    client: SignifyClient,
+    *,
+    member_name: str,
+    group_name: str,
+    eid: str,
+    stamp: str,
+    is_initiator: bool = False,
+    request: list[dict] | None = None,
+) -> tuple[serdering.SerderKERI, list[str], dict, list[dict] | None]:
+    """Publish one deterministic group `/multisig/rpy` proposal and mirror it to peers.
+
+    This helper exists for the focused replay regression. It intentionally
+    stages only one group end-role reply so the follower can assert that the
+    stored `/multisig/rpy` request payload is the exact reply participant A
+    proposed before participant B locally approves the same authorization.
+    """
+    if not is_initiator and request is None:
+        _, request = wait_for_multisig_request(client, "/multisig/rpy")
+
+    local_member = client.identifiers().get(member_name)
+    group_hab = client.identifiers().get(group_name)
+    members = client.identifiers().members(group_name)
+    recipients = [
+        entry["aid"]
+        for entry in members["signing"]
+        if entry["aid"] != local_member["prefix"]
+    ]
+
+    rpy, sigs, operation = client.identifiers().addEndRole(group_name, eid=eid, stamp=stamp)
+    seal = eventing.SealEvent(
+        i=group_hab["prefix"],
+        s=group_hab["state"]["ee"]["s"],
+        d=group_hab["state"]["ee"]["d"],
+    )
+    client.exchanges().send(
+        member_name,
+        "multisig",
+        sender=local_member,
+        route="/multisig/rpy",
+        payload=dict(gid=group_hab["prefix"]),
+        embeds=dict(rpy=_messagize(rpy, sigs, seal=seal)),
+        recipients=recipients,
+    )
+    return rpy, sigs, operation, request
+
+
 def expose_multisig_agent_oobi(
     client_a: SignifyClient,
     member_a_name: str,
@@ -933,13 +1152,7 @@ def accept_multisig_rotation(
     2. Rebuild the `states`/`rstates` inputs in the exact order carried by the
        exchange payload, using the freshly queried single-sig member states.
     3. Rotate the already-existing group locally with `identifiers().rotate(...)`
-       rather than `groups().join(...)`. `groups().join(...)` is only for the
-       "I do not have this group yet" path and KERIA rejects it once the alias
-       already exists.
     4. Send the participant's matching embedded rotation event back to the peer.
-
-    This mirrors the SignifyTS rotation choreography for an existing multisig
-    group rather than the separate "join a group later" flow.
     """
     member = client.identifiers().get(member_name)
     note = wait_for_notification(client, "/multisig/rot")
@@ -1016,6 +1229,69 @@ def rotate_multisig_group(
     group_b = client_b.identifiers().get(group_name)
     assert group_a["state"]["s"] == group_b["state"]["s"]
     return group_a, group_b
+
+
+def interact_multisig_group(
+    client_a: SignifyClient,
+    member_a_name: str,
+    client_b: SignifyClient,
+    member_b_name: str,
+    group_name: str,
+    *,
+    data: list[dict],
+) -> tuple[serdering.SerderKERI, serdering.SerderKERI, dict, dict]:
+    """Perform one existing-group multisig interaction across both members.
+
+    This is the generic multisig `/multisig/ixn` choreography similar to SignifyTS:
+    1. Member A authors the interaction on the existing group habitat.
+    2. Member A sends the messagized event to member B via `/multisig/ixn`.
+    3. Member B rebuilds the same interaction from the embedded payload and
+       submits its local matching approval.
+    4. Member B echoes the matching interaction back so member A's pending
+       group operation can converge too.
+
+    The helper returns both local serders plus the refreshed group views after
+    both long-running operations complete.
+    """
+    group = client_a.identifiers().get(group_name)
+    member_a = client_a.identifiers().get(member_a_name)
+    member_b = client_b.identifiers().get(member_b_name)
+    participants = [member_a["prefix"], member_b["prefix"]]
+
+    serder_a, sigs_a, operation_a = client_a.identifiers().interact(group_name, data=data)
+    client_a.exchanges().send(
+        member_a_name,
+        "multisig",
+        sender=member_a,
+        route="/multisig/ixn",
+        payload=dict(gid=group["prefix"], smids=participants, rmids=participants),
+        embeds=dict(ixn=_messagize(serder_a, sigs_a)),
+        recipients=[member_b["prefix"]],
+    )
+
+    note = wait_for_notification(client_b, "/multisig/ixn")
+    request = client_b.groups().get_request(note["a"]["d"])
+    request_data = request[0]["exn"]["e"]["ixn"]["a"]
+    # Rebuild the interaction from the received payload instead of local memory
+    # so both members prove they are converging on the same shared event data.
+    serder_b, sigs_b, operation_b = client_b.identifiers().interact(group_name, data=request_data)
+    client_b.exchanges().send(
+        member_b_name,
+        "multisig",
+        sender=member_b,
+        route="/multisig/ixn",
+        payload=dict(gid=group["prefix"], smids=participants, rmids=participants),
+        embeds=dict(ixn=_messagize(serder_b, sigs_b)),
+        recipients=[member_a["prefix"]],
+    )
+
+    wait_for_operation(client_a, operation_a)
+    wait_for_operation(client_b, operation_b)
+    group_a = client_a.identifiers().get(group_name)
+    group_b = client_b.identifiers().get(group_name)
+    assert group_a["state"]["s"] == group_b["state"]["s"]
+    assert group_a["state"]["d"] == group_b["state"]["d"]
+    return serder_a, serder_b, group_a, group_b
 
 
 def rotate_multisig_group_n(
@@ -1202,6 +1478,23 @@ def issue_credential(
     return creder, iserder, anc, sigs
 
 
+def revoke_credential(
+    client: SignifyClient,
+    *,
+    issuer_name: str,
+    credential_said: str,
+    timestamp: str | None = None,
+):
+    """Revoke one single-sig credential and wait for the local revoke operation."""
+    rserder, anc, sigs, operation = client.credentials().revoke(
+        issuer_name,
+        credential_said,
+        timestamp=timestamp,
+    )
+    wait_for_operation(client, operation)
+    return rserder, anc, sigs
+
+
 def send_credential_grant(
     client: SignifyClient,
     *,
@@ -1248,18 +1541,43 @@ def create_multisig_registry(
     registry_name: str,
     nonce: str | None = None,
     is_initiator: bool = False,
+    request: list[dict] | None = None,
 ) -> tuple[dict, dict]:
-    """Create a registry for a multisig issuer and fan out `/multisig/vcp`."""
-    if not is_initiator:
-        wait_for_notification(client, "/multisig/vcp")
+    """Start multisig registry creation and fan out `/multisig/vcp`.
+
+    The caller owns the convergence phase. This mirrors the SignifyTS helper
+    shape: stage every participant's registry operation first, then wait for
+    all operations and finally verify cross-member registry convergence.
+
+    On the non-initiator path, the incoming `/multisig/vcp` embeds are the
+    canonical proposal. The joiner signs and submits that exact embedded VCP
+    and anchoring interaction event instead of reconstructing a fresh local
+    anchor candidate.
+    """
+    if not is_initiator and request is None:
+        _, request = wait_for_multisig_request(client, "/multisig/vcp")
 
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
-    vcp, anc, sigs, operation = client.registries().create(
-        hab=group_hab,
-        registryName=registry_name,
-        nonce=nonce,
-    )
+    if request is not None:
+        proposal = request[0]["exn"]["e"]
+        vcp = serdering.SerderKERI(sad=proposal["vcp"])
+        anc = serdering.SerderKERI(sad=proposal["anc"])
+        keeper = client.manager.get(aid=group_hab)
+        sigs = keeper.sign(ser=anc.raw)
+        operation = client.registries().create_from_events(
+            hab=group_hab,
+            registryName=registry_name,
+            vcp=vcp.ked,
+            ixn=anc.ked,
+            sigs=sigs,
+        )
+    else:
+        vcp, anc, sigs, operation = client.registries().create(
+            hab=group_hab,
+            registryName=registry_name,
+            nonce=nonce,
+        )
     client.exchanges().send(
         local_member_name,
         "registry",
@@ -1272,7 +1590,15 @@ def create_multisig_registry(
         ),
         recipients=other_member_prefixes,
     )
-    return wait_for_operation(client, operation), client.registries().get(group_name, registry_name)
+    return operation, {
+        "name": registry_name,
+        "group_prefix": group_hab["prefix"],
+        "vcp_said": vcp.said,
+        "anc_said": anc.said,
+        "vcp": vcp,
+        "anc": anc,
+        "request": request,
+    }
 
 
 def issue_multisig_credential(
@@ -1287,22 +1613,47 @@ def issue_multisig_credential(
     schema: str = SCHEMA_SAID,
     timestamp: str | None = None,
     is_initiator: bool = False,
+    request: list[dict] | None = None,
 ):
-    """Issue a multisig credential and fan out `/multisig/iss` to peers."""
-    if not is_initiator:
-        wait_for_notification(client, "/multisig/iss")
+    """Start multisig credential issuance and fan out `/multisig/iss`.
+
+    The caller owns the convergence phase so both members can stage their local
+    issuance operations before waiting for completion and asserting one shared
+    credential SAID.
+
+    On the non-initiator path, the incoming `/multisig/iss` embeds are the
+    canonical proposal. The joiner signs and submits that exact credential
+    issuance payload, including the same anchoring interaction event.
+    """
+    if not is_initiator and request is None:
+        _, request = wait_for_multisig_request(client, "/multisig/iss")
 
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
     registry = client.registries().get(group_name, registry_name)
-    creder, iserder, anc, sigs, operation = client.credentials().create(
-        group_hab,
-        registry=registry,
-        data=data,
-        schema=schema,
-        recipient=recipient,
-        timestamp=timestamp or helping.nowIso8601(),
-    )
+    if request is not None:
+        proposal = request[0]["exn"]["e"]
+        creder = serdering.SerderACDC(sad=proposal["acdc"])
+        iserder = serdering.SerderKERI(sad=proposal["iss"])
+        anc = serdering.SerderKERI(sad=proposal["anc"])
+        keeper = client.manager.get(aid=group_hab)
+        sigs = keeper.sign(ser=anc.raw)
+        operation = client.credentials().create_from_events(
+            hab=group_hab,
+            creder=creder.sad,
+            iss=iserder.sad,
+            anc=anc.sad,
+            sigs=sigs,
+        ).json()
+    else:
+        creder, iserder, anc, sigs, operation = client.credentials().create(
+            group_hab,
+            registry=registry,
+            data=data,
+            schema=schema,
+            recipient=recipient,
+            timestamp=timestamp or helping.nowIso8601(),
+        )
     client.exchanges().send(
         local_member_name,
         "multisig",
@@ -1321,8 +1672,54 @@ def issue_multisig_credential(
         ),
         recipients=other_member_prefixes,
     )
-    wait_for_operation(client, operation)
-    return creder, iserder, anc, sigs
+    return creder, iserder, anc, sigs, operation, request
+
+
+def revoke_multisig_credential(
+    client: SignifyClient,
+    *,
+    local_member_name: str,
+    group_name: str,
+    other_member_prefixes: list[str],
+    credential_said: str,
+    timestamp: str,
+    is_initiator: bool = False,
+    request: list[dict] | None = None,
+):
+    """Start multisig credential revocation and fan out `/multisig/rev`.
+
+    The caller owns the convergence phase. This helper mirrors the existing
+    staged multisig issuance choreography: both members submit local revocation
+    approval first, then the test waits operations and asserts one converged
+    credential TEL state.
+
+    On the non-initiator path, the stored `/multisig/rev` request is returned
+    so the test can assert that participant B is joining the exact `rev` and
+    `anc` proposal participant A sent.
+    """
+    if not is_initiator and request is None:
+        _, request = wait_for_multisig_request(client, "/multisig/rev")
+
+    local_member = client.identifiers().get(local_member_name)
+    group_hab = client.identifiers().get(group_name)
+    rserder, anc, sigs, operation = client.credentials().revoke(
+        group_name,
+        credential_said,
+        timestamp=timestamp,
+    )
+    client.exchanges().send(
+        local_member_name,
+        "multisig",
+        sender=local_member,
+        route="/multisig/rev",
+        payload=dict(gid=group_hab["prefix"], said=credential_said),
+        embeds=dict(
+            rev=rserder.raw,
+            anc=_messagize(anc, sigs),
+        ),
+        recipients=other_member_prefixes,
+    )
+    return rserder, anc, sigs, operation, request
 
 
 def send_multisig_credential_grant(

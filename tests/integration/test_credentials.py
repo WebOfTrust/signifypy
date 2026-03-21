@@ -13,10 +13,12 @@ from .helpers import (
     issue_credential,
     notification_routes,
     rename_registry,
+    revoke_credential,
     resolve_oobi,
     send_credential_grant,
     submit_admit,
     wait_for_credential,
+    wait_for_credential_state,
     wait_for_notification,
 )
 
@@ -103,3 +105,47 @@ def test_registry_rename_read_path(client_factory):
     assert registry["name"] == original_name
     assert renamed["name"] == renamed_name
     assert renamed["regk"] == registry["regk"]
+
+
+def test_single_sig_credential_revocation(client_factory):
+    # This isolates the new SignifyPy revoke/state surface from multisig
+    # choreography. One issuer creates, issues, and then revokes a credential,
+    # and the test proves the credential TEL state converges to `rev`.
+    issuer_client = client_factory()
+    holder_client = client_factory()
+    issuer_name = alias("issuer")
+    holder_name = alias("holder")
+    registry_name = alias("registry")
+
+    issuer = create_identifier(issuer_client, issuer_name, wits=TEST_WITNESS_AIDS)
+    holder = create_identifier(holder_client, holder_name, wits=TEST_WITNESS_AIDS)
+    exchange_agent_oobis(issuer_client, issuer_name, holder_client, holder_name)
+    resolve_oobi(issuer_client, SCHEMA_OOBI, alias="schema")
+    resolve_oobi(holder_client, SCHEMA_OOBI, alias="schema")
+
+    _, registry = create_registry(issuer_client, issuer_name, registry_name)
+    creder, _, _, _ = issue_credential(
+        issuer_client,
+        issuer_name=issuer_name,
+        registry_name=registry_name,
+        recipient=holder["prefix"],
+        data={"LEI": "5493001KJTIIGC8Y1R17"},
+    )
+    revoke_credential(
+        issuer_client,
+        issuer_name=issuer_name,
+        credential_said=creder.said,
+    )
+    revoked = wait_for_credential_state(
+        issuer_client,
+        registry_said=registry["regk"],
+        credential_said=creder.said,
+        expected_et="rev",
+    )
+
+    fetched = issuer_client.credentials().get(creder.said)
+
+    assert issuer["prefix"] == fetched["sad"]["i"]
+    assert fetched["sad"]["d"] == creder.said
+    assert revoked["et"] == "rev"
+    assert revoked["s"] == "1"

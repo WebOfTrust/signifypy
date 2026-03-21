@@ -1,9 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""
-SIGNIFY
-signify.app.grouping module
-
-"""
+"""Multisig group coordination helpers for SignifyPy."""
 
 from signify.app.clienting import SignifyClient
 
@@ -59,19 +55,18 @@ class Groups:
         return res.json()
 
     def join(self, name, rot, sigs, gid, smids, rmids):
-        """
+        """Submit a multisig join approval using a received proposal event.
 
         Parameters:
-            name:
-            rot:
-            sigs:
-            gid:
-            smids:
-            rmids:
+            name (str): Local member alias submitting the join approval.
+            rot (SerderKERI): Embedded proposal event being approved.
+            sigs (list): Signatures over the embedded event.
+            gid (str): Group identifier prefix.
+            smids (list[str]): Signing member AIDs.
+            rmids (list[str]): Rotating member AIDs.
 
         Returns:
-            dict: Operation
-
+            dict: Operation payload returned by KERIA.
         """
 
         body = dict(

@@ -1,9 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""
-SIGNIFY
-signify.app.contacting module
-
-"""
+"""Contact lookup helpers for SignifyPy."""
 from signify.app.clienting import SignifyClient
 
 
@@ -11,18 +7,18 @@ class Contacts:
     """Resource wrapper for listing resolved contact records."""
 
     def __init__(self, client: SignifyClient):
+        """Create a contact resource bound to one Signify client."""
         self.client = client
 
     def list(self, start=0, end=24):
-        """ Returns list of notifications
+        """List resolved contacts currently known to the remote agent.
 
         Parameters:
-            start (int): start index of list of notifications, defaults to 0
-            end (int): end index of list of notifications, defaults to 24
+            start (int): Inclusive start offset for the requested window.
+            end (int): Inclusive end offset for the requested window.
 
         Returns:
-            dict: data with start, end, total and notes of list result
-
+            dict: Window metadata and the returned contact records.
         """
         headers = dict(Range=f"contacts={start}-{end}")
         res = self.client.get(f"/contacts", headers=headers)

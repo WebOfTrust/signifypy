@@ -1,8 +1,10 @@
 # -*- encoding: utf-8 -*-
-"""HTTP client and resource access layer for SignifyPy.
+"""Client bootstrap, transport, and resource access for SignifyPy.
 
-`SignifyClient` owns the controller-to-agent relationship and exposes the
-resource wrappers used throughout the test harness.
+``SignifyClient`` owns the controller-to-agent relationship with KERIA. It
+boots and connects the remote agent, restores local controller state, signs
+HTTP requests, and exposes the resource wrappers that implement the maintained
+request families documented in the feature guide.
 """
 from dataclasses import asdict
 from urllib.parse import urlparse, urljoin, urlsplit
@@ -20,10 +22,7 @@ from signify.signifying import SignifyState
 
 
 class SignifyClient:
-    """
-    An edge-signing client representing a controller AID connected to its delegated agent in a KERIA
-    instance.
-    """
+    """Edge-signing client bound to one controller AID and delegated agent."""
 
     def __init__(self, passcode, url=None, boot_url=None, tier=Tiers.low, extern_modules=None):
         """
@@ -74,10 +73,7 @@ class SignifyClient:
         self.boot_url = boot_url
 
     def boot(self) -> dict:
-        """
-        Call a KERIA server to create an Agent that is delegated to by this AID to be its authorized
-        agent.
-        """
+        """Create the remote cloud agent delegated to this controller AID."""
         evt, siger = self.ctrl.event()
         agent_boot = api.AgentBoot(
             icp=evt.ked,
@@ -96,9 +92,11 @@ class SignifyClient:
         return body
 
     def connect(self, url=None):
-        """
-        Approve the delegation from this SignifyClient's Controller AID to the agent AID assigned by
-        the remote KERIA server to this Signify controller.
+        """Connect to KERIA, restore state, and finish first-connect delegation.
+
+        On initial connection this method also approves the controller-to-agent
+        delegation before installing the authenticated request hooks used by all
+        later resource calls.
         """
         url = self.url if url is None else url
         up = urlparse(url)
@@ -129,31 +127,38 @@ class SignifyClient:
         self.session.hooks = dict(response=self.authn.verify)
 
     def approveDelegation(self):
+        """Approve the controller-to-agent delegation with a signed ixn event."""
         serder, sigs = self.ctrl.approveDelegation(self.agent)
         data = dict(ixn=serder.ked, sigs=sigs)
         self.put(path=f"/agent/{self.controller}?type=ixn", json=data)
 
     def rotate(self, nbran, aids):
+        """Rotate the controller commitment and persist the new agent binding."""
         data = self.ctrl.rotate(nbran=nbran, aids=aids)
         self.put(path=f"/agent/{self.controller}", json=data)
 
     @property
     def controller(self):
+        """Return the controller AID prefix."""
         return self.ctrl.pre
 
     @property
     def icp(self):
+        """Return the controller inception serder."""
         return self.ctrl.serder
 
     @property
     def salter(self):
+        """Return the controller salter used by the local key manager."""
         return self.ctrl.salter
 
     @property
     def manager(self):
+        """Return the active local key manager."""
         return self.mgr
 
     def states(self):
+        """Fetch the current controller/agent state bundle from KERIA."""
         caid = self.ctrl.pre
         res = self.session.get(url=urljoin(self.base, f"/agent/{caid}"))
         if res.status_code == 404:
@@ -168,17 +173,20 @@ class SignifyClient:
         return state
 
     def _save_old_salt(self, salt):
+        """Persist the previous controller salt during passcode rotation flows."""
         caid = self.ctrl.pre
         body = dict(salt=salt)
         res = self.put(f"/salt/{caid}", json=body)
         return res.status_code == 204
 
     def _delete_old_salt(self):
+        """Delete the previously persisted controller salt after rotation."""
         caid = self.ctrl.pre
         res = self.delete(f"/salt/{caid}")
         return res.status_code == 204
 
     def get(self, path, params=None, headers=None, body=None):
+        """Issue an authenticated ``GET`` request relative to the client base URL."""
         url = urljoin(self.base, path)
 
         kwargs = dict()
@@ -198,6 +206,7 @@ class SignifyClient:
         return res
 
     def stream(self, path, params=None, headers=None, body=None):
+        """Open a server-sent-event stream against an authenticated endpoint."""
         url = urljoin(self.base, path)
 
         kwargs = dict()
@@ -214,7 +223,8 @@ class SignifyClient:
         for event in client:
             yield event
 
-    def delete(self, path, params=None, headers=None):
+    def delete(self, path, params=None, headers=None, body=None):
+        """Issue an authenticated ``DELETE`` request relative to the client base URL."""
         url = urljoin(self.base, path)
 
         kwargs = dict()
@@ -224,6 +234,9 @@ class SignifyClient:
         if headers is not None:
             kwargs["headers"] = headers
 
+        if body is not None:
+            kwargs["json"] = body
+
         res = self.session.delete(url, **kwargs)
         if not res.ok:
             self.raiseForStatus(res)
@@ -231,6 +244,7 @@ class SignifyClient:
         return res
 
     def post(self, path, json, params=None, headers=None):
+        """Issue an authenticated ``POST`` request relative to the client base URL."""
         url = urljoin(self.base, path)
 
         kwargs = dict(json=json)
@@ -247,6 +261,7 @@ class SignifyClient:
         return res
 
     def put(self, path, json, params=None, headers=None):
+        """Issue an authenticated ``PUT`` request relative to the client base URL."""
         url = urljoin(self.base, path)
 
         kwargs = dict(json=json)
@@ -263,42 +278,52 @@ class SignifyClient:
         return res
 
     def identifiers(self):
+        """Return the identifier lifecycle resource wrapper."""
         from signify.app.aiding import Identifiers
         return Identifiers(client=self)
 
     def operations(self):
+        """Return the long-running operation polling resource wrapper."""
         from signify.app.coring import Operations
         return Operations(client=self)
 
     def oobis(self):
+        """Return the OOBI resolution and retrieval resource wrapper."""
         from signify.app.coring import Oobis
         return Oobis(client=self)
 
     def credentials(self):
+        """Return the credential query and issuance resource wrapper."""
         from signify.app.credentialing import Credentials
         return Credentials(client=self)
 
     def keyStates(self):
+        """Return the key-state read and query resource wrapper."""
         from signify.app.coring import KeyStates
         return KeyStates(client=self)
 
     def keyEvents(self):
+        """Return the key-event read resource wrapper."""
         from signify.app.coring import KeyEvents
         return KeyEvents(client=self)
 
     def escrows(self):
+        """Return the escrow inspection resource wrapper."""
         from signify.app.escrowing import Escrows
         return Escrows(client=self)
 
     def endroles(self):
+        """Return the endpoint-role authorization read resource wrapper."""
         from signify.app.ending import EndRoleAuthorizations
         return EndRoleAuthorizations(client=self)
 
     def notifications(self):
+        """Return the notifications resource wrapper."""
         from signify.app.notifying import Notifications
         return Notifications(client=self)
 
     def groups(self):
+        """Return the multisig group coordination resource wrapper."""
         from signify.app.grouping import Groups
         return Groups(client=self)
 
@@ -308,27 +333,33 @@ class SignifyClient:
         return Delegations(client=self)
 
     def registries(self):
+        """Return the credential-registry lifecycle resource wrapper."""
         from signify.app.credentialing import Registries
         return Registries(client=self)
 
     def exchanges(self):
+        """Return the peer exchange transport resource wrapper."""
         from signify.peer.exchanging import Exchanges
         return Exchanges(client=self)
 
     def ipex(self):
+        """Return the IPEX grant/admit resource wrapper."""
         from signify.app.credentialing import Ipex
         return Ipex(client=self)
 
     def challenges(self):
+        """Return the challenge generation and verification resource wrapper."""
         from signify.app.challenging import Challenges
         return Challenges(client=self)
 
     def contacts(self):
+        """Return the contact read resource wrapper."""
         from signify.app.contacting import Contacts
         return Contacts(client=self)
 
     @staticmethod
     def raiseForStatus(res):
+        """Raise ``HTTPError`` with the best server-provided reason text."""
         try:
             body = res.json()
 
@@ -355,17 +386,15 @@ class SignifyClient:
 
 
 class SignifyAuth(AuthBase):
+    """Requests auth adapter that signs outbound Signify HTTP requests."""
 
     def __init__(self, authn):
-        """
-
-        Args:
-            authn(Authenticater): Provides request signing for AuthBase
-        """
+        """Create an auth adapter around a Signify ``Authenticater``."""
 
         self.authn = authn
 
     def __call__(self, req):
+        """Attach Signify headers and signatures to a prepared HTTP request."""
         headers = req.headers
         headers['Signify-Resource'] = self.authn.ctrl.pre
         headers['Signify-Timestamp'] = helping.nowIso8601()

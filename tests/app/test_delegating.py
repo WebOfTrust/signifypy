@@ -29,7 +29,7 @@ def test_delegations_approve():
     from keri.core import eventing
     mock_serder = mock({"ked": {"t": "ixn"}, "raw": b"ixn-bytes"}, strict=True)
     expect(eventing, times=1).interact(
-        "delegator-prefix",
+        pre="delegator-prefix",
         sn=1,
         data=[{"i": "delegate-prefix", "s": "0", "d": "delegate-prefix"}],
         dig="EANCHOR-DIGEST",

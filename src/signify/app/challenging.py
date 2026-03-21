@@ -1,9 +1,5 @@
 # -*- encoding: utf-8 -*-
-"""
-SIGNIFY
-signify.app.challenging module
-
-"""
+"""Challenge generation, response, and verification helpers for SignifyPy."""
 from signify.app.clienting import SignifyClient
 
 
@@ -20,11 +16,10 @@ class Challenges:
         self.client = client
 
     def generate(self):
-        """  Request 12 random word challenge phrase from server
+        """Request a random challenge phrase from the server.
 
         Returns:
-            list: array of 12 random words
-
+            list: Array of challenge words chosen by the remote agent.
         """
 
         res = self.client.get("/challenges")
@@ -32,6 +27,7 @@ class Challenges:
         return resp["words"]
 
     def respond(self, name, recp, words):
+        """Send a signed challenge response to one recipient via peer exchange."""
         hab = self.client.identifiers().get(name)
         exchanges = self.client.exchanges()
 
@@ -42,11 +38,11 @@ class Challenges:
         return res
 
     def verify(self, source, words):
-        """ Ask Agent to verify a given sender signed the provided words
+        """Ask the agent to verify that ``source`` signed the given words.
 
         Parameters:
-            source(str): qb64 AID of source of challenge response to check for
-            words(list): list of challenge words to check for
+            source (str): qb64 AID of the signer to verify.
+            words (list): Challenge words expected in the signed response.
         """
 
         body = dict(
@@ -57,15 +53,14 @@ class Challenges:
         return res.json()
 
     def responded(self, source, said):
-        """ Mark challenge response as signed and accepted
+        """Mark a challenge response as reviewed and accepted.
 
         Parameters:
             source (str): qb64 AID of signer
             said (str): qb64 AID of exn message representing the signed response
 
         Returns:
-            bool: True means successful
-
+            bool: ``True`` if the acceptance request was submitted.
         """
         body = dict(
             said=said
