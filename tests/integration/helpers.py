@@ -176,7 +176,7 @@ def wait_for_contact_alias(client: SignifyClient, contact_alias: str, *, timeout
     """Poll the contact list until the requested alias becomes visible."""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        contacts = client.contacts().list()["contacts"]
+        contacts = client.contacts().list()
         for contact in contacts:
             if contact.get("alias") == contact_alias:
                 return contact
@@ -186,7 +186,7 @@ def wait_for_contact_alias(client: SignifyClient, contact_alias: str, *, timeout
 
 def contact_aliases(client: SignifyClient) -> set[str]:
     """Return the current visible contact aliases."""
-    return {contact.get("alias") for contact in client.contacts().list()["contacts"]}
+    return {contact.get("alias") for contact in client.contacts().list()}
 
 
 def wait_for_credential(client: SignifyClient, said: str, *, timeout: float = 120.0) -> dict:

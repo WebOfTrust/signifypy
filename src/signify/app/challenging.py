@@ -15,25 +15,39 @@ class Challenges:
         """
         self.client = client
 
-    def generate(self):
+    def generate(self, strength=128):
         """Request a random challenge phrase from the server.
 
+        Parameters:
+            strength (int): BIP39 entropy strength, typically ``128`` or
+                ``256``.
+
         Returns:
-            list: Array of challenge words chosen by the remote agent.
+            dict: Challenge payload returned by the remote agent, usually with a
+            ``words`` list.
         """
+        res = self.client.get(f"/challenges?strength={strength}")
+        return res.json()
 
-        res = self.client.get("/challenges")
-        resp = res.json()
-        return resp["words"]
+    def respond(self, name, recipient=None, words=None, recp=None):
+        """Send a signed challenge response to one recipient via peer exchange.
 
-    def respond(self, name, recp, words):
-        """Send a signed challenge response to one recipient via peer exchange."""
+        ``recipient`` is the TS-compatible parameter name. ``recp`` remains as
+        a compatibility alias for older Python callers.
+        """
+        if recipient is None:
+            recipient = recp
+        if recipient is None:
+            raise ValueError("recipient is required")
+        if words is None:
+            raise ValueError("words are required")
+
         hab = self.client.identifiers().get(name)
         exchanges = self.client.exchanges()
 
         _, _, res = exchanges.send(name, "challenge", sender=hab, route="/challenge/response",
                                    payload=dict(words=words),
-                                   embeds=dict(), recipients=[recp])
+                                   embeds=dict(), recipients=[recipient])
 
         return res
 

@@ -18,13 +18,34 @@ def test_challenges_generate():
 
     from requests import Response
     mock_response = mock({}, spec=Response, strict=True)
-    expect(mock_client, times=1).get('/challenges').thenReturn(mock_response)
+    expect(mock_client, times=1).get('/challenges?strength=128').thenReturn(mock_response)
     expect(mock_response, times=1).json().thenReturn(
         {"words": ["word", "one", "two", "three"]}
     )
 
     out = chas.generate()
-    assert out == ["word", "one", "two", "three"]
+    assert out == {"words": ["word", "one", "two", "three"]}
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_challenges_generate_with_strength():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.app.challenging import Challenges
+    chas = Challenges(client=mock_client)  # type: ignore
+
+    from requests import Response
+    mock_response = mock({}, spec=Response, strict=True)
+    expect(mock_client, times=1).get('/challenges?strength=256').thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn(
+        {"words": ["one"] * 24}
+    )
+
+    out = chas.generate(256)
+    assert len(out["words"]) == 24
 
     verifyNoUnwantedInteractions()
     unstub()
@@ -92,6 +113,40 @@ def test_challenge_respond():
 
     mock_hab = {}
     name = "test"
+    recipient = "E123"
+    words = ["word", "one", "two", "three"]
+    from requests import Response
+    mock_response = mock({}, spec=Response, strict=True)
+    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
+    expect(mock_ids, times=1).get(name).thenReturn(mock_hab)
+    expect(mock_client, times=1).exchanges().thenReturn(mock_exc)
+    expect(mock_exc, times=1).send(name, "challenge", sender=mock_hab, route="/challenge/response",
+                                   payload=dict(words=words),
+                                   embeds=dict(),
+                                   recipients=[recipient]).thenReturn((None, None, mock_response))
+
+    out = chas.respond(name, recipient=recipient, words=words)
+    assert out == mock_response
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_challenge_respond_compat_recp_alias():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.app.aiding import Identifiers
+    mock_ids = Identifiers(client=mock_client)  # type: ignore
+
+    from signify.peer.exchanging import Exchanges
+    mock_exc = Exchanges(client=mock_client)  # type: ignore
+
+    from signify.app.challenging import Challenges
+    chas = Challenges(client=mock_client)  # type: ignore
+
+    mock_hab = {}
+    name = "test"
     recp = "E123"
     words = ["word", "one", "two", "three"]
     from requests import Response
@@ -104,7 +159,7 @@ def test_challenge_respond():
                                    embeds=dict(),
                                    recipients=[recp]).thenReturn((None, None, mock_response))
 
-    out = chas.respond(name, recp, words)
+    out = chas.respond(name, recp=recp, words=words)
     assert out == mock_response
 
     verifyNoUnwantedInteractions()
