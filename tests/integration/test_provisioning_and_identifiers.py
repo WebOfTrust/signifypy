@@ -151,6 +151,40 @@ def test_contact_and_key_state_read_paths(client_factory):
     assert states_b[0]["b"] == TEST_WITNESS_AIDS
 
 
+def test_contact_management_read_and_update_paths(client_factory):
+    # This locks down the modern contact wrapper shape after OOBI exchange:
+    # raw list(), get(prefix), and update(prefix, info).
+    client_a = client_factory()
+    client_b = client_factory()
+    name_a = alias("contact-manage-a")
+    name_b = alias("contact-manage-b")
+
+    hab_a = create_identifier(client_a, name_a, wits=TEST_WITNESS_AIDS)
+    hab_b = create_identifier(client_b, name_b, wits=TEST_WITNESS_AIDS)
+    resolve_agent_oobi(client_a, name_a, client_b, alias=name_a)
+    resolve_agent_oobi(client_b, name_b, client_a, alias=name_b)
+
+    wait_for_contact_alias(client_a, name_b)
+    wait_for_contact_alias(client_b, name_a)
+
+    contacts = client_a.contacts().list()
+    contact = client_a.contacts().get(hab_b["prefix"])
+    assert any(entry["id"] == hab_b["prefix"] for entry in contacts)
+    assert contact["id"] == hab_b["prefix"]
+    assert contact["alias"] == name_b
+
+    updated = client_a.contacts().update(
+        hab_b["prefix"],
+        {"company": "GLEIF", "location": "Denver"},
+    )
+    reread = client_a.contacts().get(hab_b["prefix"])
+
+    assert updated["id"] == hab_b["prefix"]
+    assert reread["company"] == "GLEIF"
+    assert reread["location"] == "Denver"
+    assert reread["alias"] == name_b
+
+
 def test_single_sig_rotation_smoke(client_factory):
     # Keep rotation coverage intentionally small here: one create, one rotate,
     # then assert sequence-number advancement on the same prefix.

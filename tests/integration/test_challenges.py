@@ -45,7 +45,8 @@ def test_challenge_response(client_factory):
     exchange_agent_oobis(client_a, name_a, client_b, name_b)
     contact = wait_for_contact_alias(client_a, name_b)
 
-    words = client_a.challenges().generate()
+    challenge = client_a.challenges().generate()
+    words = challenge["words"]
     assert len(words) == 12
     assert contact["alias"] == name_b
     assert contact["id"] == aid_b["prefix"]
