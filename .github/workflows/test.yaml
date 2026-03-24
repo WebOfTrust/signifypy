@@ -37,13 +37,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          # Cache pip's download/build artifacts, but not the project venv
-          # itself. The repo-local venv is cached separately below so we can
-          # key it off this project's dependency manifests.
           cache: pip
           cache-dependency-path: |
-            signifypy/requirements.txt
-            signifypy/setup.py
+            signifypy/pyproject.toml
+      - name: Stage 2.5 - Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.6.14"
       # This is needed so MacOS can find the libsodium library installed by Homebrew
       - name: Stage 3 - Prepare macOS linker paths
         if: matrix.os == 'macos-latest'
@@ -60,7 +60,7 @@ jobs:
           # Caching that directory avoids reinstalling the same environment on
           # every run while still invalidating on dependency metadata changes.
           path: signifypy/venv
-          key: ${{ runner.os }}-py${{ env.PYTHON_VERSION }}-unit-venv-${{ hashFiles('signifypy/requirements.txt', 'signifypy/setup.py') }}
+          key: ${{ runner.os }}-py${{ env.PYTHON_VERSION }}-unit-venv-${{ hashFiles('signifypy/pyproject.toml') }}
       - name: Stage 5 - Build unit virtualenv
         if: steps.cache-unit-venv.outputs.cache-hit != 'true'
         working-directory: signifypy
@@ -70,13 +70,12 @@ jobs:
         if: steps.cache-unit-venv.outputs.cache-hit != 'true'
         working-directory: signifypy
         run: |
-          ./venv/bin/python -m pip install --upgrade pip setuptools wheel
-          ./venv/bin/python -m pip install pytest mockito==1.4.0 pytest-cov codecov
-          ./venv/bin/python -m pip install -r requirements.txt
+          make sync
+          ./venv/bin/python -m pip install codecov
       - name: Stage 7 - Run fast tests
         working-directory: signifypy
         run: |
-          ./venv/bin/python -m pytest --cov=./ --cov-report=xml tests/app tests/core tests/peer
+          make test-ci PYTEST_ARGS="--cov=./ --cov-report=xml"
           ./venv/bin/python -m codecov
 
   integration:
@@ -128,14 +127,17 @@ jobs:
           # cache is cold or intentionally invalidated.
           cache: pip
           cache-dependency-path: |
-            signifypy/requirements.txt
-            signifypy/setup.py
+            signifypy/pyproject.toml
             signifypy/.github/constraints/integration.txt
             keripy/requirements.txt
             keripy/setup.py
             keria/pyproject.toml
             vLEI/requirements.txt
             vLEI/setup.py
+      - name: Stage 2.5 - Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.6.14"
 
       - name: Stage 3 - Install Ubuntu system packages
         run: |
@@ -155,7 +157,7 @@ jobs:
             signifypy/venv
             keria/venv
             vLEI/venv
-          key: ${{ runner.os }}-py${{ env.PYTHON_VERSION }}-live-venvs-${{ hashFiles('signifypy/requirements.txt', 'signifypy/setup.py', 'signifypy/.github/constraints/integration.txt', 'keripy/requirements.txt', 'keripy/setup.py', 'keria/pyproject.toml', 'vLEI/requirements.txt', 'vLEI/setup.py') }}
+          key: ${{ runner.os }}-py${{ env.PYTHON_VERSION }}-live-venvs-${{ hashFiles('signifypy/pyproject.toml', 'signifypy/.github/constraints/integration.txt', 'keripy/requirements.txt', 'keripy/setup.py', 'keria/pyproject.toml', 'vLEI/requirements.txt', 'vLEI/setup.py') }}
 
       - name: Stage 5 - Build live-stack virtualenvs
         if: steps.cache-live-venvs.outputs.cache-hit != 'true'
@@ -172,9 +174,8 @@ jobs:
           # and the launched services resolve against the same source version.
           ./venv/bin/python -m pip install --upgrade pip setuptools wheel
           ./venv/bin/python -m pip install -c .github/constraints/integration.txt hio==0.6.14
-          ./venv/bin/python -m pip install pytest mockito==1.4.0 pytest-cov codecov
           ./venv/bin/python -m pip install -c .github/constraints/integration.txt -e ../keripy
-          ./venv/bin/python -m pip install -c .github/constraints/integration.txt -r requirements.txt
+          make sync
 
       - name: Stage 7 - Install KERIA runtime
         if: steps.cache-live-venvs.outputs.cache-hit != 'true'
@@ -205,7 +206,7 @@ jobs:
           # live-stack service logs are easy to upload and inspect after
           # failures. The integration layer is opt-in locally; CI opts in
           # explicitly here.
-          ./venv/bin/python -m pytest -q --run-integration --basetemp=pytest-live tests/integration
+          make test-integration-ci PYTEST_ARGS="--basetemp=pytest-live"
 
       - name: Stage 10 - Upload integration logs
         if: always()

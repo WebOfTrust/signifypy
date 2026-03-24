@@ -15,6 +15,7 @@ from keri.core import serdering
 
 from .constants import TEST_WITNESS_AIDS
 from .helpers import (
+    POLL_INTERVAL,
     alias,
     create_identifier,
     exchange_agent_oobis,
@@ -67,7 +68,7 @@ def test_challenge_response(client_factory):
         contact = wait_for_contact_alias(client_a, name_b)
         if len(contact.get("challenges", [])) == 1:
             break
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
 
     assert contact["alias"] == name_b
     assert contact["id"] == aid_b["prefix"]

@@ -62,6 +62,7 @@ SERVICE_SCRIPTS_ROOT = INTEGRATION_ROOT / "_services"
 WITNESS_SERVER_SCRIPT = SERVICE_SCRIPTS_ROOT / "witness_server.py"
 KERIA_SERVER_SCRIPT = SERVICE_SCRIPTS_ROOT / "keria_server.py"
 VLEI_SERVER_SCRIPT = SERVICE_SCRIPTS_ROOT / "vlei_server.py"
+PORT_POLL_INTERVAL = float(os.getenv("SIGNIFYPY_INTEGRATION_PORT_POLL_INTERVAL", "0.1"))
 
 
 def _require_python(path: Path, name: str) -> str:
@@ -228,7 +229,7 @@ def _wait_for_port(
             sock.settimeout(0.5)
             if sock.connect_ex((host, port)) == 0:
                 return
-        time.sleep(0.25)
+        time.sleep(PORT_POLL_INTERVAL)
 
     raise TimeoutError(
         f"timed out waiting for {name} on {host}:{port}:\n"
