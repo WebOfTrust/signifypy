@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from .constants import SCHEMA_OOBI, SCHEMA_SAID, TEST_WITNESS_AIDS
+from .constants import SCHEMA_SAID, TEST_WITNESS_AIDS
 from .helpers import (
     alias,
     create_identifier,
@@ -14,7 +14,7 @@ from .helpers import (
     notification_routes,
     rename_registry,
     revoke_credential,
-    resolve_oobi,
+    resolve_schema_oobi,
     send_credential_grant,
     submit_admit,
     wait_for_credential,
@@ -27,6 +27,13 @@ pytestmark = pytest.mark.integration
 
 
 def test_credential_presentation_grant_admit(client_factory):
+    """Cover the single-sig IPEX grant/admit happy path end to end.
+
+    This is the baseline presentation contract for SignifyPy's live workflow
+    layer: one issuer issues a credential, transports it through IPEX grant,
+    the holder admits it, and both sides expose the expected post-exchange
+    state through maintained wrappers.
+    """
     # Workflow:
     # 1. Create witnessed issuer and holder identifiers and exchange the exact
     #    agent OOBIs the SignifyTS credential flows use.
@@ -45,8 +52,8 @@ def test_credential_presentation_grant_admit(client_factory):
     issuer = create_identifier(issuer_client, issuer_name, wits=TEST_WITNESS_AIDS)
     holder = create_identifier(holder_client, holder_name, wits=TEST_WITNESS_AIDS)
     exchange_agent_oobis(issuer_client, issuer_name, holder_client, holder_name)
-    resolve_oobi(issuer_client, SCHEMA_OOBI, alias="schema")
-    resolve_oobi(holder_client, SCHEMA_OOBI, alias="schema")
+    resolve_schema_oobi(issuer_client)
+    resolve_schema_oobi(holder_client)
 
     _, registry = create_registry(issuer_client, issuer_name, registry_name)
     assert registry["name"] == registry_name
@@ -92,6 +99,11 @@ def test_credential_presentation_grant_admit(client_factory):
 
 
 def test_registry_rename_read_path(client_factory):
+    """Preserve the old registry-rename script as one direct read-path contract.
+
+    The important invariant is that renaming changes the lookup name without
+    changing the underlying registry identifier.
+    """
     # This absorbs the old `rename_registry.py` script into the live suite.
     client = client_factory()
     issuer_name = alias("issuer")
@@ -108,6 +120,12 @@ def test_registry_rename_read_path(client_factory):
 
 
 def test_single_sig_credential_revocation(client_factory):
+    """Lock down single-sig credential revocation without multisig noise.
+
+    This test isolates the revoke/read-state contract so regressions in the
+    credential TEL surface can be diagnosed without also reasoning about
+    multisig proposal choreography.
+    """
     # This isolates the new SignifyPy revoke/state surface from multisig
     # choreography. One issuer creates, issues, and then revokes a credential,
     # and the test proves the credential TEL state converges to `rev`.
@@ -120,8 +138,8 @@ def test_single_sig_credential_revocation(client_factory):
     issuer = create_identifier(issuer_client, issuer_name, wits=TEST_WITNESS_AIDS)
     holder = create_identifier(holder_client, holder_name, wits=TEST_WITNESS_AIDS)
     exchange_agent_oobis(issuer_client, issuer_name, holder_client, holder_name)
-    resolve_oobi(issuer_client, SCHEMA_OOBI, alias="schema")
-    resolve_oobi(holder_client, SCHEMA_OOBI, alias="schema")
+    resolve_schema_oobi(issuer_client)
+    resolve_schema_oobi(holder_client)
 
     _, registry = create_registry(issuer_client, issuer_name, registry_name)
     creder, _, _, _ = issue_credential(

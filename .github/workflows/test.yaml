@@ -202,11 +202,14 @@ jobs:
       - name: Stage 9 - Run integration tests
         working-directory: signifypy
         run: |
-          # Store pytest temp output inside a non-hidden repo directory so the
-          # live-stack service logs are easy to upload and inspect after
-          # failures. The integration layer is opt-in locally; CI opts in
-          # explicitly here.
-          make test-integration-ci PYTEST_ARGS="--basetemp=pytest-live"
+          # Run the full live suite with explicit parallelism so the CI
+          # contract is visible in the workflow rather than hidden behind a
+          # Makefile default. Keep pytest temp output in a non-hidden repo
+          # directory so worker-local service logs are easy to upload and
+          # inspect after failures.
+          make test-integration-parallel-ci \
+            INTEGRATION_WORKERS=4 \
+            PYTEST_ARGS="--basetemp=pytest-live"
 
       - name: Stage 10 - Upload integration logs
         if: always()
@@ -215,5 +218,6 @@ jobs:
           # Preserve witness/KERIA/vLEI logs even on red runs so maintainers can
           # debug backend startup and runtime failures without rerunning locally.
           name: integration-live-stack-${{ github.run_id }}
-          path: signifypy/pytest-live
+          path: |
+            signifypy/pytest-live
           if-no-files-found: ignore

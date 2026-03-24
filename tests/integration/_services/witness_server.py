@@ -12,15 +12,18 @@ from keri.app import configing, habbing, indirecting
 from keri.core import Salter
 
 WITNESSES = (
-    ("wan", b"wann-the-witness", 5642),
-    ("wil", b"will-the-witness", 5643),
-    ("wes", b"wess-the-witness", 5644),
+    ("wan", b"wann-the-witness"),
+    ("wil", b"will-the-witness"),
+    ("wes", b"wess-the-witness"),
 )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config-dir", required=True, help="runtime config root")
+    parser.add_argument("--wan-port", required=True, type=int, help="wan witness HTTP port")
+    parser.add_argument("--wil-port", required=True, type=int, help="wil witness HTTP port")
+    parser.add_argument("--wes-port", required=True, type=int, help="wes witness HTTP port")
     return parser.parse_args()
 
 
@@ -60,12 +63,17 @@ def install_harness_patches() -> None:
 
 def main() -> None:
     args = parse_args()
+    witness_ports = {
+        "wan": args.wan_port,
+        "wil": args.wil_port,
+        "wes": args.wes_port,
+    }
 
     help.ogler.level = 20
     install_harness_patches()
 
     doers = []
-    for name, salt, http_port in WITNESSES:
+    for name, salt in WITNESSES:
         cf = configing.Configer(
             name=name,
             headDirPath=args.config_dir,
@@ -84,7 +92,14 @@ def main() -> None:
         # endpoints. Disabling the witness TCP listener keeps the harness off
         # all-interface socket paths that can fail on hosted runners without
         # patching deeper hio internals.
-        doers.extend(indirecting.setupWitness(alias=name, hby=hby, tcpPort=None, httpPort=http_port))
+        doers.extend(
+            indirecting.setupWitness(
+                alias=name,
+                hby=hby,
+                tcpPort=None,
+                httpPort=witness_ports[name],
+            )
+        )
 
     doist = doing.Doist(limit=0.0, tock=0.03125, real=True)
     doist.doers = doers

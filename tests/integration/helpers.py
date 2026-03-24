@@ -27,14 +27,10 @@ from requests import HTTPError
 
 from signify.app.clienting import SignifyClient
 from tests.integration.constants import (
-    SCHEMA_OOBI,
     SCHEMA_SAID,
     TEST_WITNESS_AIDS,
     WITNESS_AIDS,
-    WITNESS_OOBIS,
 )
-
-WITNESS_OOBI_BY_AID = dict(zip(WITNESS_AIDS, WITNESS_OOBIS))
 
 # The live stack runs entirely on localhost, so polling every 500-1000ms is
 # more conservative than necessary for most long-running op and notification
@@ -46,6 +42,8 @@ HEAVY_POLL_INTERVAL = float(
 )
 _UNSET = object()
 
+
+# Bootstrap and stack-derived lookup helpers
 
 def random_passcode() -> str:
     """Create a 21-character passcode suitable for booting a fresh client."""
@@ -92,6 +90,10 @@ def connect_client(
     This helper owns the full controller bootstrap path used by the live tests:
     boot the remote agent, connect the local controller, and assert the agent
     delegation relationship is present before returning the client.
+
+    The returned client also carries the active live-stack mapping on a private
+    attribute so later helpers can derive stack-local witness/schema OOBIs
+    without reaching back into pytest fixtures.
     """
     client = SignifyClient(
         passcode=passcode or random_passcode(),
@@ -108,7 +110,36 @@ def connect_client(
     assert isinstance(body, dict)
     client.connect()
     assert client.agent is not None
+    client._integration_live_stack = live_stack
     return client
+
+
+def _require_live_stack(client: SignifyClient) -> dict:
+    """Return the active live stack topology attached to a test client."""
+    live_stack = getattr(client, "_integration_live_stack", None)
+    if not isinstance(live_stack, dict):
+        raise RuntimeError("integration client is missing attached live stack topology")
+    return live_stack
+
+
+def witness_oobi_by_aid(client: SignifyClient) -> dict[str, str]:
+    """Return the current stack's witness OOBIs keyed by witness AID."""
+    return dict(zip(WITNESS_AIDS, _require_live_stack(client)["witness_oobis"]))
+
+
+def schema_oobi(client: SignifyClient) -> str:
+    """Return the current stack's primary schema OOBI."""
+    return _require_live_stack(client)["schema_oobi"]
+
+
+def additional_schema_oobis(client: SignifyClient) -> dict[str, str]:
+    """Return the current stack's additional sample schema OOBIs."""
+    return dict(_require_live_stack(client)["additional_schema_oobis"])
+
+
+def resolve_schema_oobi(client: SignifyClient, *, alias: str = "schema") -> dict:
+    """Resolve the current stack's primary schema OOBI."""
+    return resolve_oobi(client, schema_oobi(client), alias=alias)
 
 
 def _format_poll_value(value) -> str:
@@ -138,6 +169,10 @@ def poll_until(
     state. Centralizing the wait loop keeps timeout diagnostics consistent and
     makes it cheaper to strengthen weak transport waits into stronger state
     checks later.
+
+    Maintainer rule of thumb: prefer wrapping this in a domain-specific helper
+    over adding raw `time.sleep(...)` loops to tests. That keeps the wait
+    contract explicit and the timeout errors actionable.
     """
     deadline = time.monotonic() + timeout
     last_value = _UNSET
@@ -301,6 +336,9 @@ def wait_for_multisig_request(
     This is useful for registry/issuance diagnostics on the non-initiator path:
     we can prove the join signal arrived and inspect the embedded payload before
     deciding whether local reconstruction drifted from the peer proposal.
+
+    The notification is only the discovery mechanism. Success means the stored
+    request payload is retrievable and parseable through `groups().get_request`.
     """
     note = wait_for_notification(client, route, timeout=timeout)
     request = poll_until(
@@ -320,7 +358,12 @@ def wait_for_exchange_message(
     *,
     timeout: float = 120.0,
 ) -> tuple[dict, dict]:
-    """Wait for a notification and the corresponding stored exchange payload."""
+    """Wait for a notification and the corresponding stored exchange payload.
+
+    This is the exchange-message sibling of `wait_for_multisig_request(...)`:
+    the notification identifies *which* exchange matters, but the stronger
+    readiness condition is that the exchange itself is retrievable.
+    """
     note = wait_for_notification(client, route, timeout=timeout)
     exchange = poll_until(
         lambda: client.exchanges().get(note["a"]["d"]),
@@ -528,10 +571,11 @@ def ensure_witness_oobis(client: SignifyClient, wits: list[str]) -> None:
     if not isinstance(resolved, set):
         resolved = set()
 
+    witness_oobis = witness_oobi_by_aid(client)
     for witness in wits:
         if witness in resolved:
             continue
-        resolve_oobi(client, WITNESS_OOBI_BY_AID[witness], alias=f"wit-{witness[:6]}")
+        resolve_oobi(client, witness_oobis[witness], alias=f"wit-{witness[:6]}")
         resolved.add(witness)
 
     client._integration_witness_oobis_resolved = resolved
@@ -718,6 +762,8 @@ def _messagize(serder, sigs, *, seal=None):
     return eventing.messagize(serder=serder, sigers=sigers, seal=seal)
 
 
+# Identifier and multisig workflow helpers
+
 def _state_order(client: SignifyClient, member_names: list[str]) -> list[dict]:
     """Return member states in a stable caller-provided name order."""
     return [client.identifiers().get(name)["state"] for name in member_names]
@@ -886,7 +932,12 @@ def create_multisig_group_n(
     delpre: str | None = None,
     wits: list[str] | None = None,
 ) -> list[dict]:
-    """Create one multisig group across an ordered participant list."""
+    """Create one multisig group across an ordered participant list.
+
+    Participant order is part of the contract here, not just presentation.
+    Helpers and tests reuse this ordering for state lookup, peer exchange, and
+    later membership assertions.
+    """
     if len(participants) < 2:
         raise ValueError("multisig groups require at least two participants")
 
@@ -1147,7 +1198,12 @@ def expose_multisig_agent_oobi_n(
     participants: list[tuple[SignifyClient, str]],
     group_name: str,
 ) -> str:
-    """Expose a multisig agent OOBI for an ordered participant list."""
+    """Expose a multisig agent OOBI for an ordered participant list.
+
+    This is the N-party analogue of `expose_multisig_agent_oobi(...)`: publish
+    the required group end-role replies on every member, wait for multisig state convergence,
+    and return one verified shared OOBI string.
+    """
     if len(participants) < 2:
         raise ValueError("multisig groups require at least two participants")
 
@@ -1379,17 +1435,26 @@ def rotate_multisig_group_n(
     participants: list[tuple[SignifyClient, str]],
     group_name: str,
 ) -> list[dict]:
-    """Rotate every member AID and then rotate the multisig group itself."""
+    """Rotate every member AID and then rotate the multisig group itself.
+
+    Use this helper when the test cares about the converged N-party result more
+    than the mechanics of each intermediate participant step.
+    """
     if len(participants) < 2:
         raise ValueError("multisig groups require at least two participants")
 
+    # rotate single sig and create client tuples of
+    # (client, name, keystate)
     rotated_members = [
         (client, member_name, rotate_identifier(client, member_name))
         for client, member_name in participants
     ]
+
+    # refresh key state between all rotated members
     ordered_prefixes = [member["prefix"] for _, _, member in rotated_members]
     state_maps: list[dict[str, dict]] = []
     for client, _, local_member in rotated_members:
+        # store key states for smids and rmids later
         state_map: dict[str, dict] = {}
         for _, _, member in rotated_members:
             if member["prefix"] == local_member["prefix"]:
@@ -1398,6 +1463,7 @@ def rotate_multisig_group_n(
                 state_map[member["prefix"]] = query_key_state(client, member["prefix"], sn=member["state"]["s"])
         state_maps.append(state_map)
 
+    # get first member to initiate multisig
     initiator_client, initiator_member_name, _ = rotated_members[0]
     operations: list[tuple[SignifyClient, dict]] = [
         (
@@ -1410,6 +1476,7 @@ def rotate_multisig_group_n(
             ),
         )
     ]
+    # join multisig op with other members
     for (client, member_name, _), state_map in zip(rotated_members[1:], state_maps[1:]):
         operations.append(
             (
@@ -1423,6 +1490,7 @@ def rotate_multisig_group_n(
             )
         )
 
+    # wait for all members to complete the multisig op
     for client, operation in operations:
         wait_for_operation(client, operation)
 
@@ -1446,6 +1514,8 @@ def approve_single_delegation(
     serder, _, operation = client.delegations().approve(delegator_name, anchor)
     return serder, wait_for_operation(client, operation)
 
+
+# Delegation and credential workflow helpers
 
 def approve_multisig_delegation(
     client_a: SignifyClient,
@@ -1640,6 +1710,8 @@ def create_multisig_registry(
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
     if request is not None:
+        # The follower path intentionally reuses the stored proposal payload.
+        # That is the actual replay contract the multisig tests are protecting.
         proposal = request[0]["exn"]["e"]
         vcp = serdering.SerderKERI(sad=proposal["vcp"])
         anc = serdering.SerderKERI(sad=proposal["anc"])
@@ -1712,6 +1784,8 @@ def issue_multisig_credential(
     group_hab = client.identifiers().get(group_name)
     registry = client.registries().get(group_name, registry_name)
     if request is not None:
+        # As with `/multisig/vcp`, the follower path is only correct if it
+        # approves the stored proposal instead of reconstructing one locally.
         proposal = request[0]["exn"]["e"]
         creder = serdering.SerderACDC(sad=proposal["acdc"])
         iserder = serdering.SerderKERI(sad=proposal["iss"])
@@ -1782,6 +1856,8 @@ def revoke_multisig_credential(
 
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
+    # Revocation still begins with the local wrapper call; the regression
+    # assertion is that all members converge on one revoke event and TEL state.
     rserder, anc, sigs, operation = client.credentials().revoke(
         group_name,
         credential_said,
@@ -1815,7 +1891,12 @@ def send_multisig_credential_grant(
     sigs: list[str],
     is_initiator: bool = False,
 ) -> dict:
-    """Submit a multisig grant and mirror it to peer members via `/multisig/exn`."""
+    """Submit a multisig grant and mirror it to peer members via `/multisig/exn`.
+
+    The first member submits the real IPEX grant to the holder. The extra
+    `/multisig/exn` wrapper exists so peer members can record and approve that
+    exact grant message as part of the shared multisig workflow.
+    """
     if not is_initiator:
         wait_for_exchange_message(client, "/multisig/exn")
 
@@ -1901,7 +1982,12 @@ def submit_multisig_admit(
     issuer_prefix: str,
     notification: dict,
 ) -> dict:
-    """Submit a multisig admit and mirror it to peer members via `/multisig/exn`."""
+    """Submit a multisig admit and mirror it to peer members via `/multisig/exn`.
+
+    This mirrors `submit_admit(...)` for group workflows: submit the admit for
+    the shared group AID, then forward the exact admit message to peer members
+    so all participants observe the same group-side exchange.
+    """
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
     admit, sigs, atc = client.ipex().admit(

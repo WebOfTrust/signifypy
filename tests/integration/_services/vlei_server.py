@@ -13,13 +13,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--schema-dir", required=True, help="vLEI schema directory")
     parser.add_argument("--cred-dir", required=True, help="vLEI sample credential directory")
     parser.add_argument("--oobi-dir", required=True, help="vLEI sample OOBI directory")
+    parser.add_argument("--http-port", required=True, type=int, help="vLEI HTTP port")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     config = VLEIConfig(
-        http=7723,
+        http=args.http_port,
         schemaDir=args.schema_dir,
         credDir=args.cred_dir,
         oobiDir=args.oobi_dir,

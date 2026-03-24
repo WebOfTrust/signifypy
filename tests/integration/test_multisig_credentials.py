@@ -6,7 +6,7 @@ import pytest
 from keri.core import coring
 from keri.help import helping
 
-from .constants import SCHEMA_OOBI, SCHEMA_SAID, TEST_WITNESS_AIDS
+from .constants import SCHEMA_SAID, TEST_WITNESS_AIDS
 from .helpers import (
     alias,
     create_identifier,
@@ -19,6 +19,7 @@ from .helpers import (
     issue_multisig_credential,
     revoke_multisig_credential,
     resolve_oobi,
+    resolve_schema_oobi,
     wait_for_issued_credential,
     wait_for_multisig_credential_state_convergence,
     wait_for_multisig_registry_convergence,
@@ -31,12 +32,19 @@ pytestmark = pytest.mark.integration
 
 
 def _normalized_registry_state(registry: dict) -> dict:
+    """Strip timestamp-only churn before comparing registry state across members."""
     state = dict(registry["state"])
     state.pop("dt", None)
     return state
 
 
 def test_single_sig_issuer_to_multisig_holder_credential_issue(client_factory):
+    """Prove a single issuer can issue to one multisig holder group prefix.
+
+    This is the smallest believable bridge between single-sig issuance and
+    multisig receipt: build the holder group honestly, issue to the shared
+    group prefix, and assert the issuer can read back the resulting issuance.
+    """
     # This replaces the legacy single-issuer-to-multisig-holder scripts with
     # a truthful live contract: build the holder group, issue to the group
     # prefix, and assert the issuer can read the resulting issued credential.
@@ -57,9 +65,9 @@ def test_single_sig_issuer_to_multisig_holder_credential_issue(client_factory):
     exchange_agent_oobis(holder_client_a, holder_member_a_name, holder_client_b, holder_member_b_name)
     exchange_agent_oobis(issuer_client, issuer_name, holder_client_a, holder_member_a_name)
     exchange_agent_oobis(issuer_client, issuer_name, holder_client_b, holder_member_b_name)
-    resolve_oobi(issuer_client, SCHEMA_OOBI, alias="schema")
-    resolve_oobi(holder_client_a, SCHEMA_OOBI, alias="schema")
-    resolve_oobi(holder_client_b, SCHEMA_OOBI, alias="schema")
+    resolve_schema_oobi(issuer_client)
+    resolve_schema_oobi(holder_client_a)
+    resolve_schema_oobi(holder_client_b)
 
     holder_group_a, holder_group_b = create_multisig_group(
         holder_client_a,
@@ -97,6 +105,12 @@ def test_single_sig_issuer_to_multisig_holder_credential_issue(client_factory):
 
 
 def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
+    """Lock down the staged `/multisig/vcp` plus `/multisig/iss` follower replay contract.
+
+    The non-obvious contract is that participant B must join the initiator's
+    exact embedded proposal payloads rather than reconstructing "equivalent"
+    local events. This test exists to make that invariant explicit.
+    """
     # This is the canonical SignifyPy replay regression for `/multisig/vcp`
     # plus `/multisig/iss`.
     #
@@ -129,10 +143,10 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
 
     exchange_agent_oobis(issuer_client_a, issuer_member_a_name, issuer_client_b, issuer_member_b_name)
     exchange_agent_oobis(holder_client_a, holder_member_a_name, holder_client_b, holder_member_b_name)
-    resolve_oobi(issuer_client_a, SCHEMA_OOBI, alias="schema")
-    resolve_oobi(issuer_client_b, SCHEMA_OOBI, alias="schema")
-    resolve_oobi(holder_client_a, SCHEMA_OOBI, alias="schema")
-    resolve_oobi(holder_client_b, SCHEMA_OOBI, alias="schema")
+    resolve_schema_oobi(issuer_client_a)
+    resolve_schema_oobi(issuer_client_b)
+    resolve_schema_oobi(holder_client_a)
+    resolve_schema_oobi(holder_client_b)
 
     issuer_group_a, issuer_group_b = create_multisig_group(
         issuer_client_a,
@@ -168,6 +182,8 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
     resolve_oobi(holder_client_a, issuer_group_oobi, alias=issuer_group_name)
 
     registry_nonce = coring.randomNonce()
+    # Both members have to use the same registry nonce or they are not even
+    # attempting to converge on the same registry inception event.
     registry_operation_a, registry_meta_a = create_multisig_registry(
         issuer_client_a,
         local_member_name=issuer_member_a_name,
@@ -178,6 +194,7 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
         is_initiator=True,
     )
     _, registry_request_b = wait_for_multisig_request(issuer_client_b, "/multisig/vcp")
+    # Participant B joins the stored proposal, not a locally reconstructed one.
     registry_operation_b, registry_meta_b = create_multisig_registry(
         issuer_client_b,
         local_member_name=issuer_member_b_name,
@@ -189,6 +206,8 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
     )
     wait_for_operation(issuer_client_a, registry_operation_a)
     wait_for_operation(issuer_client_b, registry_operation_b)
+    # Operation completion is necessary but not sufficient; the real contract
+    # is that both members can read the same converged registry view.
     registry_a, registry_b = wait_for_multisig_registry_convergence(
         issuer_client_a,
         issuer_client_b,
@@ -209,6 +228,8 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
         is_initiator=True,
     )
     _, issuance_request_b = wait_for_multisig_request(issuer_client_b, "/multisig/iss")
+    # The follower must consume the initiator's stored issuance payload so the
+    # two members prove they are approving the same credential and TEL anchor.
     creder_b, _, _, _, credential_operation_b, issuance_request_b = issue_multisig_credential(
         issuer_client_b,
         local_member_name=issuer_member_b_name,
@@ -255,6 +276,12 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
 
 
 def test_multisig_issuer_credential_revocation(client_factory):
+    """Lock down the multisig follower replay contract for `/multisig/rev`.
+
+    The holder stays single-sig on purpose: the thing under test is whether the
+    second issuer member joins the same revocation proposal and anchor, not
+    whether holder-side multisig changes the transport shape.
+    """
     # This is the focused `/multisig/rev` replay regression for multisig
     # issuer credential revocation.
     #
@@ -279,9 +306,9 @@ def test_multisig_issuer_credential_revocation(client_factory):
 
     exchange_agent_oobis(issuer_client_a, issuer_member_a_name, issuer_client_b, issuer_member_b_name)
     exchange_agent_oobis(issuer_client_a, issuer_member_a_name, holder_client, holder_name)
-    resolve_oobi(issuer_client_a, SCHEMA_OOBI, alias="schema")
-    resolve_oobi(issuer_client_b, SCHEMA_OOBI, alias="schema")
-    resolve_oobi(holder_client, SCHEMA_OOBI, alias="schema")
+    resolve_schema_oobi(issuer_client_a)
+    resolve_schema_oobi(issuer_client_b)
+    resolve_schema_oobi(holder_client)
 
     issuer_group_a, issuer_group_b = create_multisig_group(
         issuer_client_a,
@@ -311,6 +338,8 @@ def test_multisig_issuer_credential_revocation(client_factory):
         is_initiator=True,
     )
     _, registry_request_b = wait_for_multisig_request(issuer_client_b, "/multisig/vcp")
+    # As in the issuance test above, the follower registry creation path has to
+    # join the stored proposal, or later revocation coverage becomes ambiguous.
     registry_operation_b, _ = create_multisig_registry(
         issuer_client_b,
         local_member_name=issuer_member_b_name,
@@ -342,6 +371,9 @@ def test_multisig_issuer_credential_revocation(client_factory):
         is_initiator=True,
     )
     _, issuance_request_b = wait_for_multisig_request(issuer_client_b, "/multisig/iss")
+    # Stage the credential on both issuer members before attempting revocation
+    # so the later `/multisig/rev` replay assertion has a real issued credential
+    # to converge on.
     _, _, _, _, credential_operation_b, issuance_request_b = issue_multisig_credential(
         issuer_client_b,
         local_member_name=issuer_member_b_name,
@@ -369,6 +401,8 @@ def test_multisig_issuer_credential_revocation(client_factory):
         is_initiator=True,
     )
     _, revoke_request_b = wait_for_multisig_request(issuer_client_b, "/multisig/rev")
+    # The revocation follower path is the actual regression target: member B
+    # must approve the same `rev` plus anchor payload that member A proposed.
     revoke_serder_b, revoke_anc_b, _, revoke_operation_b, revoke_request_b = revoke_multisig_credential(
         issuer_client_b,
         local_member_name=issuer_member_b_name,
