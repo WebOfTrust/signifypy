@@ -41,7 +41,13 @@ signify.app.delegating
 ----------------------
 
 .. automodule:: signify.app.delegating
-    :members:
+   :members:
+
+signify.app.exchanging
+----------------------
+
+.. automodule:: signify.app.exchanging
+   :members:
 
 signify.app.ending
 ------------------

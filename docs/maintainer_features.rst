@@ -103,7 +103,7 @@ Feature Inventory
      - Maintained for multisig request inspection, request fan-out, and join submission.
    * - Exchange requests
      - ``client.exchanges()``
-     - ``signify.peer.exchanging``
+     - ``signify.app.exchanging`` with ``signify.peer.exchanging`` as compatibility spine
      - Maintained for peer ``exn`` creation, send, fetch, and recipient-specific fan-out.
    * - OOBI and endpoint publication
      - ``client.oobis()``, ``client.endroles()``, ``client.identifiers().addEndRole()``, ``addLocScheme()``
@@ -374,7 +374,8 @@ Exchange and IPEX Requests
 --------------------------
 
 Implementation:
-``signify.peer.exchanging.Exchanges`` and
+``signify.app.exchanging.Exchanges`` (backed by
+``signify.peer.exchanging.Exchanges``) and
 ``signify.app.credentialing.Ipex``
 
 Routes:

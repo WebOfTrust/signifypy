@@ -198,7 +198,7 @@ def test_ipex_grant():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
-    from signify.peer.exchanging import Exchanges
+    from signify.app.exchanging import Exchanges
     mock_excs = mock(spec=Exchanges, strict=True)
 
     dt = "2023-09-25T16:01:37.000000+00:00"
@@ -233,7 +233,7 @@ def test_ipex_admit():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
-    from signify.peer.exchanging import Exchanges
+    from signify.app.exchanging import Exchanges
     mock_excs = mock(spec=Exchanges, strict=True)
 
     grant, _ = exchanging.exchange("/admit/grant", payload={}, sender="EEE")

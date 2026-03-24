@@ -338,8 +338,8 @@ class SignifyClient:
         return Registries(client=self)
 
     def exchanges(self):
-        """Return the peer exchange transport resource wrapper."""
-        from signify.peer.exchanging import Exchanges
+        """Return the exchange transport resource wrapper."""
+        from signify.app.exchanging import Exchanges
         return Exchanges(client=self)
 
     def ipex(self):

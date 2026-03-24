@@ -368,7 +368,8 @@ class Ipex:
             kwa['dig'] = agree.said
 
         grant, gsigs, atc = exchanges.createExchangeMessage(sender=hab, route="/ipex/grant",
-                                                            payload=data, embeds=embeds, recipient=recp, dt=dt, **kwa)
+                                                            payload=data, embeds=embeds, recipient=recp,
+                                                            dt=dt, **kwa)
 
         return grant, gsigs, atc
 
@@ -407,7 +408,8 @@ class Ipex:
         )
 
         admit, asigs, atc = exchanges.createExchangeMessage(sender=hab, route="/ipex/admit",
-                                                            payload=data, embeds=None, recipient=recp, dt=dt, dig=grant)
+                                                            payload=data, embeds=None, recipient=recp,
+                                                            dt=dt, dig=grant)
 
         return admit, asigs, atc
 

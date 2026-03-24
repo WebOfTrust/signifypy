@@ -706,7 +706,7 @@ def test_signify_client_exchanges(make_signify_client):
 
     out = client.exchanges()
 
-    from signify.peer.exchanging import Exchanges
+    from signify.app.exchanging import Exchanges
     assert type(out) is Exchanges
     assert out.client == client
 
