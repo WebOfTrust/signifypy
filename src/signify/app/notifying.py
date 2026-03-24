@@ -28,17 +28,21 @@ class Notifications:
 
         return dict(start=start, end=end, total=total, notes=res.json())
 
-    def markAsRead(self, nid):
-        """Mark one notification as read.
+    def mark(self, said):
+        """Mark one notification as read using the TS-compatible name.
 
         Parameters:
-            nid (str): qb64 SAID of notification to mark as read
+            said (str): qb64 SAID of notification to mark as read
 
         Returns:
             bool: ``True`` when KERIA accepts the update request.
         """
-        res = self.client.put(f"/notifications/{nid}", json={})
+        res = self.client.put(f"/notifications/{said}", json={})
         return res.status_code == 202
+
+    def markAsRead(self, nid):
+        """Compatibility alias for :meth:`mark`."""
+        return self.mark(nid)
 
     def delete(self, nid):
         """Delete one notification.
