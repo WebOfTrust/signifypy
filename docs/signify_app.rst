@@ -41,7 +41,13 @@ signify.app.delegating
 ----------------------
 
 .. automodule:: signify.app.delegating
-    :members:
+   :members:
+
+signify.app.exchanging
+----------------------
+
+.. automodule:: signify.app.exchanging
+   :members:
 
 signify.app.ending
 ------------------
@@ -59,6 +65,12 @@ signify.app.grouping
 --------------------
 
 .. automodule:: signify.app.grouping
+    :members:
+
+signify.app.schemas
+-------------------
+
+.. automodule:: signify.app.schemas
     :members:
 
 signify.app.notifying

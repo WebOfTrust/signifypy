@@ -76,11 +76,11 @@ Feature Inventory
    * - Registry requests
      - ``client.registries()``
      - ``signify.app.credentialing``
-     - Maintained for registry inception, serialization, readback, and rename.
+     - Maintained for registry list/read plus canonical parity write APIs, with explicit compatibility aliases for older SignifyPy callers.
    * - Schema requests
-     - ``client.oobis()``
-     - ``signify.app.coring``
-     - Supported as a workflow through schema OOBIs; there is not yet a dedicated ``schemas()`` wrapper.
+     - ``client.schemas()``, ``client.oobis()``
+     - ``signify.app.schemas``, ``signify.app.coring``
+     - Maintained as both a dedicated schema read wrapper and an OOBI-backed schema resolution workflow.
    * - Challenge requests
      - ``client.challenges()``
      - ``signify.app.challenging``
@@ -103,7 +103,7 @@ Feature Inventory
      - Maintained for multisig request inspection, request fan-out, and join submission.
    * - Exchange requests
      - ``client.exchanges()``
-     - ``signify.peer.exchanging``
+     - ``signify.app.exchanging`` with ``signify.peer.exchanging`` as compatibility spine
      - Maintained for peer ``exn`` creation, send, fetch, and recipient-specific fan-out.
    * - OOBI and endpoint publication
      - ``client.oobis()``, ``client.endroles()``, ``client.identifiers().addEndRole()``, ``addLocScheme()``
@@ -185,8 +185,22 @@ Registry Requests
 Implementation:
 ``signify.app.credentialing.Registries``
 
+Implemented surface today:
+
+- ``client.registries().list(name)``
+- ``client.registries().get(name, registryName)``
+- ``client.registries().create(name, registryName, *, noBackers=True, baks=None, toad=0, nonce=None)``
+- ``client.registries().createFromEvents(hab, name, registryName, vcp, ixn, sigs)``
+- ``client.registries().rename(name, registryName, newName)``
+- Compatibility aliases remain callable:
+
+  - ``create(hab, registryName, ...)``
+  - ``create_from_events(hab, registryName, vcp, ixn, sigs)``
+  - ``rename(hab, registryName, newName)``
+
 Routes:
 
+- ``GET /identifiers/{name}/registries``
 - ``GET /identifiers/{name}/registries/{registryName}``
 - ``POST /identifiers/{name}/registries``
 - ``PUT /identifiers/{name}/registries/{registryName}``
@@ -195,6 +209,11 @@ Responsibilities:
 
 - Construct registry inception events and their anchoring interactions.
 - Submit registry creation from locally built events.
+- Keep SignifyTS workflow behavior while preferring the established
+  KERIpy/KERIA/SignifyPy camelCase idiom for the maintained public write
+  surface.
+- Return ``RegistryResult`` from canonical registry creation paths, with
+  synchronous ``op()`` unwrapping for the operation payload.
 - Serialize issuance anchor attachments for downstream IPEX grant workflows.
 - Rename and re-read registries as part of the maintained read-path contract.
 
@@ -210,31 +229,34 @@ Schema Requests
 
 Current reality:
 
-- SignifyPy does not yet expose a dedicated ``client.schemas()`` accessor or a
-  ``signify.app.schemas`` module.
 - Schema support is still a maintained workflow because credential issuance and
   validation depend on resolving schema OOBIs into local state before issuing
   or admitting credentials.
 
 Implemented surface today:
 
+- ``client.schemas().get(said)``
+- ``client.schemas().list()``
 - ``client.oobis().resolve(schema_oobi, alias="schema")``
 
 Routes:
 
+- ``GET /schema``
+- ``GET /schema/{said}``
 - ``POST /oobis``
 
 Primary tests:
 
+- ``tests/app/test_schemas.py``
 - ``tests/integration/test_provisioning_and_identifiers.py``
 - ``tests/integration/test_credentials.py``
 - ``tests/integration/test_multisig_credentials.py``
 
 Maintainer note:
 
-Document schema support as an OOBI-backed workflow, not as a missing feature.
-The real gap is the absence of a dedicated schema resource wrapper, not the
-absence of schema behavior in the client.
+Document schema support in two layers: dedicated schema reads now exist, and
+OOBI-backed schema resolution remains the workflow that makes those reads
+useful in real credential flows.
 
 Challenge Requests
 ------------------
@@ -374,7 +396,8 @@ Exchange and IPEX Requests
 --------------------------
 
 Implementation:
-``signify.peer.exchanging.Exchanges`` and
+``signify.app.exchanging.Exchanges`` (backed by
+``signify.peer.exchanging.Exchanges``) and
 ``signify.app.credentialing.Ipex``
 
 Routes:
@@ -504,7 +527,6 @@ client. It should not be used to imply parity that does not exist.
 
 Notable current gaps:
 
-- no dedicated ``schemas()`` resource wrapper yet
 - no dedicated ``config()`` resource wrapper yet
 
 When those surfaces are added, update this guide and the API reference in the

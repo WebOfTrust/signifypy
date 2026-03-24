@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import signal
 
 
@@ -15,8 +16,19 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def configure_temp_log_root(config_dir: str) -> None:
+    """Point KERIA temp logging at this stack's runtime root before import."""
+    from hio.help import ogling
+
+    runtime_root = Path(config_dir).resolve().parent
+    temp_head_dir = runtime_root / "keria-tmp"
+    temp_head_dir.mkdir(parents=True, exist_ok=True)
+    ogling.Ogler.TempHeadDir = str(temp_head_dir)
+
+
 def main() -> None:
     args = parse_args()
+    configure_temp_log_root(args.config_dir)
     from keria.app import agenting
 
     config = agenting.KERIAServerConfig(

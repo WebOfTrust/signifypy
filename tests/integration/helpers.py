@@ -1585,9 +1585,8 @@ def create_registry(client: SignifyClient, issuer_name: str, registry_name: str)
     registry event, so callers almost always need the refreshed issuer habitat
     returned here before attempting credential issuance.
     """
-    issuer_hab = client.identifiers().get(issuer_name)
-    _, _, _, operation = client.registries().create(issuer_hab, registry_name)
-    wait_for_operation(client, operation)
+    result = client.registries().create(issuer_name, registry_name)
+    wait_for_operation(client, result.op())
     issuer_hab = client.identifiers().get(issuer_name)
     registry = client.registries().get(issuer_name, registry_name)
     return issuer_hab, registry
@@ -1595,8 +1594,7 @@ def create_registry(client: SignifyClient, issuer_name: str, registry_name: str)
 
 def rename_registry(client: SignifyClient, issuer_name: str, registry_name: str, new_name: str) -> dict:
     """Rename a registry and return the refreshed renamed registry view."""
-    issuer_hab = client.identifiers().get(issuer_name)
-    client.registries().rename(issuer_hab, registry_name, new_name)
+    client.registries().rename(issuer_name, registry_name, new_name)
     return client.registries().get(issuer_name, new_name)
 
 
@@ -1717,19 +1715,21 @@ def create_multisig_registry(
         anc = serdering.SerderKERI(sad=proposal["anc"])
         keeper = client.manager.get(aid=group_hab)
         sigs = keeper.sign(ser=anc.raw)
-        operation = client.registries().create_from_events(
+        result = client.registries().createFromEvents(
             hab=group_hab,
+            name=group_name,
             registryName=registry_name,
             vcp=vcp.ked,
             ixn=anc.ked,
             sigs=sigs,
         )
+        operation = result.op()
     else:
-        vcp, anc, sigs, operation = client.registries().create(
-            hab=group_hab,
-            registryName=registry_name,
-            nonce=nonce,
-        )
+        result = client.registries().create(group_name, registry_name, nonce=nonce)
+        vcp = result.regser
+        anc = result.serder
+        sigs = result.sigs
+        operation = result.op()
     client.exchanges().send(
         local_member_name,
         "registry",

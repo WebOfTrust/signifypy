@@ -9,7 +9,7 @@ This module covers three tightly related request families:
 """
 from collections import namedtuple
 
-from keri.core import coring, counting
+from keri.core import coring, counting, serdering
 from keri.core.eventing import TraitDex, interact
 from keri.help import helping
 from keri.vc import proving
@@ -22,8 +22,36 @@ CredentialTypeage = namedtuple("CredentialTypeage", 'issued received')
 CredentialTypes = CredentialTypeage(issued='issued', received='received')
 
 
+class RegistryResult:
+    """Write-path wrapper for registry creation results."""
+
+    def __init__(self, regser, serder, sigs, response):
+        self.regser = regser
+        self.serder = serder
+        self.sigs = sigs
+        self.response = response
+
+    def op(self):
+        """Return the decoded operation payload from the stored response."""
+        return self.response.json()
+
+
 class Registries:
-    """Resource wrapper for registry lifecycle operations under one identifier."""
+    """Resource wrapper for registry lifecycle operations under one identifier.
+
+    The canonical write surface follows the established KERIpy/KERIA/SignifyPy
+    camelCase style while preserving SignifyTS behavioral compatibility:
+
+    - ``create(name, registryName, ...)``
+    - ``createFromEvents(hab, name, registryName, vcp, ixn, sigs)``
+    - ``rename(name, registryName, newName)``
+
+    Compatibility forms remain callable for existing SignifyPy callers:
+
+    - ``create(hab, registryName, ...)``
+    - ``create_from_events(hab, registryName, vcp, ixn, sigs)``
+    - ``rename(hab, registryName, newName)``
+    """
 
     def __init__(self, client: SignifyClient):
         """Create a registries resource bound to one Signify client.
@@ -39,14 +67,61 @@ class Registries:
         res = self.client.get(f"/identifiers/{name}/registries/{registryName}")
         return res.json()
 
-    def create(self, hab, registryName, noBackers=True, estOnly=False, baks=None, toad=0, nonce=None):
+    def list(self, name):
+        """List credential registries under one identifier alias."""
+        res = self.client.get(f"/identifiers/{name}/registries")
+        return res.json()
+
+    def create(
+        self,
+        target,
+        registryName=None,
+        *,
+        noBackers=True,
+        estOnly=None,
+        baks=None,
+        toad=0,
+        nonce=None,
+    ):
         """Create and submit a new credential registry inception request.
 
-        Returns:
-            tuple: ``(vcp, anc, sigs, operation)`` for the locally created
-            registry inception event, its anchoring interaction, its
-            signatures, and the KERIA operation payload.
+        Canonical usage follows the ecosystem's established camelCase form:
+        ``create(name, registryName, *, noBackers=True, baks=None, toad=0, nonce=None)``.
+
+        Compatibility forms stay callable during the parity transition:
+        ``create(hab, registryName, ...)``. All forms return :class:`RegistryResult`.
         """
+        if isinstance(target, str):
+            name = target
+            if registryName is None:
+                raise TypeError("registryName is required")
+            hab = self.client.identifiers().get(name)
+            if estOnly is None:
+                state_traits = hab["state"].get("c", [])
+                estOnly = TraitDex.EstOnly in state_traits or "EO" in state_traits
+            if estOnly:
+                raise NotImplementedError("establishment only not implemented")
+        else:
+            hab = target
+            if registryName is None:
+                raise TypeError("registryName is required")
+            name = hab["name"]
+            if estOnly is None:
+                estOnly = False
+
+        return self._create_result(
+            hab=hab,
+            name=name,
+            registryName=registryName,
+            noBackers=noBackers,
+            estOnly=estOnly,
+            baks=baks,
+            toad=toad,
+            nonce=nonce,
+        )
+
+    def _create_result(self, *, hab, name, registryName, noBackers=True, estOnly=False, baks=None, toad=0, nonce=None):
+        """Build registry inception events locally and wrap the submission result."""
         baks = baks if baks is not None else []
 
         pre = hab["prefix"]
@@ -61,12 +136,14 @@ class Registries:
         if estOnly:
             cnfg.append(TraitDex.EstOnly)
 
-        regser = eventing.incept(pre,
-                                 baks=baks,
-                                 toad=toad,
-                                 nonce=nonce,
-                                 cnfg=cnfg,
-                                 code=coring.MtrDex.Blake3_256)
+        regser = eventing.incept(
+            pre,
+            baks=baks,
+            toad=toad,
+            nonce=nonce,
+            cnfg=cnfg,
+            code=coring.MtrDex.Blake3_256,
+        )
 
         state = hab["state"]
         sn = int(state["s"], 16)
@@ -80,12 +157,27 @@ class Registries:
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=serder.raw)
 
-        op = self.create_from_events(hab=hab, registryName=registryName, vcp=regser.ked, ixn=serder.ked, sigs=sigs)
+        response = self._submit_registry_events(
+            hab=hab,
+            name=name,
+            registryName=registryName,
+            vcp=regser.ked,
+            ixn=serder.ked,
+            sigs=sigs,
+        )
+        return RegistryResult(regser=regser, serder=serder, sigs=sigs, response=response)
 
-        return regser, serder, sigs, op
+    @staticmethod
+    def _serder_from_event(event):
+        """Normalize a registry or anchoring event into a SerderKERI."""
+        if hasattr(event, "ked"):
+            return serdering.SerderKERI(sad=event.ked)
+        if hasattr(event, "sad"):
+            return serdering.SerderKERI(sad=event.sad)
+        return serdering.SerderKERI(sad=event)
 
-    def create_from_events(self, hab, registryName, vcp, ixn, sigs):
-        """Submit a registry creation request from prebuilt local events."""
+    def _submit_registry_events(self, *, hab, name, registryName, vcp, ixn, sigs):
+        """Submit prebuilt registry inception material and return the raw response."""
         body = dict(
             name=registryName,
             vcp=vcp,
@@ -94,10 +186,38 @@ class Registries:
         )
         keeper = self.client.manager.get(aid=hab)
         body[keeper.algo] = keeper.params()
-        name = hab["name"]
 
-        resp = self.client.post(path=f"/identifiers/{name}/registries", json=body)
-        return resp.json()
+        return self.client.post(path=f"/identifiers/{name}/registries", json=body)
+
+    def create_from_events(self, hab, registryName, vcp, ixn, sigs):
+        """Compatibility wrapper returning the legacy operation JSON payload."""
+        return self.createFromEvents(
+            hab=hab,
+            name=hab["name"],
+            registryName=registryName,
+            vcp=vcp,
+            ixn=ixn,
+            sigs=sigs,
+        ).op()
+
+    def createFromEvents(self, hab, name, registryName, vcp, ixn, sigs):
+        """Submit a registry creation request from prebuilt local events.
+
+        Returns:
+            RegistryResult: Wrapper exposing the submitted event material and
+                the decoded operation payload through ``op()``.
+        """
+        regser = self._serder_from_event(vcp)
+        serder = self._serder_from_event(ixn)
+        response = self._submit_registry_events(
+            hab=hab,
+            name=name,
+            registryName=registryName,
+            vcp=regser.ked,
+            ixn=serder.ked,
+            sigs=sigs,
+        )
+        return RegistryResult(regser=regser, serder=serder, sigs=sigs, response=response)
 
     @staticmethod
     def serialize(serder, anc):
@@ -121,9 +241,14 @@ class Registries:
 
         return msg
 
-    def rename(self, hab, registryName, newName):
-        """Rename a registry alias under an existing identifier."""
-        name = hab["name"]
+    def rename(self, target, registryName, newName):
+        """Rename a registry alias under an existing identifier.
+
+        Parameters:
+            target (str | dict): Canonical identifier alias string or legacy
+                habitat dict carrying ``name``.
+        """
+        name = target if isinstance(target, str) else target["name"]
         body = dict(name=newName)
         resp = self.client.put(path=f"/identifiers/{name}/registries/{registryName}", json=body)
         return resp.json()
@@ -368,7 +493,8 @@ class Ipex:
             kwa['dig'] = agree.said
 
         grant, gsigs, atc = exchanges.createExchangeMessage(sender=hab, route="/ipex/grant",
-                                                            payload=data, embeds=embeds, recipient=recp, dt=dt, **kwa)
+                                                            payload=data, embeds=embeds, recipient=recp,
+                                                            dt=dt, **kwa)
 
         return grant, gsigs, atc
 
@@ -407,7 +533,8 @@ class Ipex:
         )
 
         admit, asigs, atc = exchanges.createExchangeMessage(sender=hab, route="/ipex/admit",
-                                                            payload=data, embeds=None, recipient=recp, dt=dt, dig=grant)
+                                                            payload=data, embeds=None, recipient=recp,
+                                                            dt=dt, dig=grant)
 
         return admit, asigs, atc
 

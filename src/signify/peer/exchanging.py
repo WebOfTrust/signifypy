@@ -58,23 +58,28 @@ class Exchanges:
 
         return results[0] if len(results) == 1 else results
 
-    def createExchangeMessage(self, sender, route, payload, embeds, recipient=None, dig=None, dt=None):
-        """  Create exn message from parameters and return Serder with signatures and additional attachments.
+    def createExchangeMessage(self, sender, route, payload, embeds, recipient=None, dig=None, dt=None, datetime=None):
+        """Create an ``exn`` message plus signatures and attachment material.
 
         Parameters:
             sender (dict): Identifier dict from identifiers.get
-            route (str):  exn route field
+            route (str): exn route field
             payload (dict): payload of the exn message
             embeds (dict): map of label to bytes of encoded KERI event to embed in exn
             recipient (str): Optional qb64 recipient to mirror TS peer exchange semantics
             dig (str): Optional qb64 SAID of exchange message reverse chain
-            dt (str): Iso formatted date string
+            dt (str): Canonical ISO formatted timestamp for the exn
+            datetime (str): Compatibility alias for ``dt``
 
         Returns:
-            (exn, sigs, atc): tuple of Serder, list, bytes of event, signatures over the event and any transposed
-                              attachments from embeds
+            tuple: ``(exn, sigs, atc)`` for the built exchange message, its
+            signatures, and attachment material.
 
         """
+        if dt is not None and datetime is not None and dt != datetime:
+            raise ValueError("dt and datetime must match when both are provided")
+
+        date = dt if dt is not None else datetime
 
         keeper = self.client.manager.get(sender)
 
@@ -84,7 +89,7 @@ class Exchanges:
                                        recipient=recipient,
                                        embeds=embeds,
                                        dig=dig,
-                                       date=dt)
+                                       date=date)
 
         sigs = keeper.sign(ser=exn.raw)
 

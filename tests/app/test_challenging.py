@@ -105,7 +105,7 @@ def test_challenge_respond():
     from signify.app.aiding import Identifiers
     mock_ids = Identifiers(client=mock_client)  # type: ignore
 
-    from signify.peer.exchanging import Exchanges
+    from signify.app.exchanging import Exchanges
     mock_exc = Exchanges(client=mock_client)  # type: ignore
 
     from signify.app.challenging import Challenges
@@ -139,7 +139,7 @@ def test_challenge_respond_compat_recp_alias():
     from signify.app.aiding import Identifiers
     mock_ids = Identifiers(client=mock_client)  # type: ignore
 
-    from signify.peer.exchanging import Exchanges
+    from signify.app.exchanging import Exchanges
     mock_exc = Exchanges(client=mock_client)  # type: ignore
 
     from signify.app.challenging import Challenges

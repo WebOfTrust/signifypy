@@ -62,6 +62,107 @@ def test_exchanges_get(mockHelpingNowIso8601, make_mock_response):
 
     assert out == {'content': 'an exn'}
 
+
+def test_create_exchange_message_uses_dt(make_mock_client_with_manager, monkeypatch):
+    mock_client, mock_manager = make_mock_client_with_manager()
+
+    from signify.core import keeping
+    sender = {'prefix': 'a_prefix', 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
+    mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=1).get(sender).thenReturn(mock_keeper)
+
+    captured = {}
+
+    class FakeSerder:
+        raw = b"raw exn"
+
+    def fake_exchange(*, route, payload, sender, recipient, embeds, dig, date):
+        captured["route"] = route
+        captured["payload"] = payload
+        captured["sender"] = sender
+        captured["recipient"] = recipient
+        captured["embeds"] = embeds
+        captured["dig"] = dig
+        captured["date"] = date
+        return FakeSerder(), bytearray(b"")
+
+    monkeypatch.setattr("signify.peer.exchanging.exchanging.exchange", fake_exchange)
+    expect(mock_keeper, times=1).sign(ser=b"raw exn").thenReturn(['a signature'])
+
+    from signify.peer.exchanging import Exchanges
+    exn, sigs, atc = Exchanges(client=mock_client).createExchangeMessage(  # type: ignore
+        sender=sender,
+        route="/ipex/admit",
+        payload={"a": "b"},
+        embeds={},
+        recipient="Eqbc123",
+        dt="2024-01-01T00:00:00+00:00",
+        dig="EDIG",
+    )
+
+    assert exn.raw == b"raw exn"
+    assert sigs == ['a signature']
+    assert atc == ""
+    assert captured == {
+        "route": "/ipex/admit",
+        "payload": {"a": "b"},
+        "sender": "a_prefix",
+        "recipient": "Eqbc123",
+        "embeds": {},
+        "dig": "EDIG",
+        "date": "2024-01-01T00:00:00+00:00",
+    }
+
+
+def test_create_exchange_message_accepts_datetime_compat_alias(make_mock_client_with_manager, monkeypatch):
+    mock_client, mock_manager = make_mock_client_with_manager()
+
+    from signify.core import keeping
+    sender = {'prefix': 'a_prefix', 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
+    mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=1).get(sender).thenReturn(mock_keeper)
+
+    captured = {}
+
+    class FakeSerder:
+        raw = b"raw exn"
+
+    def fake_exchange(*, route, payload, sender, recipient, embeds, dig, date):
+        captured["date"] = date
+        return FakeSerder(), bytearray(b"")
+
+    monkeypatch.setattr("signify.peer.exchanging.exchanging.exchange", fake_exchange)
+    expect(mock_keeper, times=1).sign(ser=b"raw exn").thenReturn(['a signature'])
+
+    from signify.peer.exchanging import Exchanges
+    _, sigs, atc = Exchanges(client=mock_client).createExchangeMessage(  # type: ignore
+        sender=sender,
+        route="/ipex/admit",
+        payload={"a": "b"},
+        embeds={},
+        datetime="2024-01-01T00:00:00+00:00",
+    )
+
+    assert sigs == ['a signature']
+    assert atc == ""
+    assert captured["date"] == "2024-01-01T00:00:00+00:00"
+
+
+def test_create_exchange_message_rejects_conflicting_dt_and_datetime(make_mock_client_with_manager):
+    mock_client, _ = make_mock_client_with_manager()
+
+    from signify.peer.exchanging import Exchanges
+
+    with pytest.raises(ValueError, match="dt and datetime must match"):
+        Exchanges(client=mock_client).createExchangeMessage(  # type: ignore
+            sender={'prefix': 'a_prefix'},
+            route="/ipex/admit",
+            payload={},
+            embeds={},
+            dt="2024-01-02T00:00:00+00:00",
+            datetime="2024-01-01T00:00:00+00:00",
+        )
+
 def test_exchanges_send_multiple_recipients(mockHelpingNowIso8601, make_mock_client_with_manager, make_mock_response):
     mock_client, mock_manager = make_mock_client_with_manager()
 
