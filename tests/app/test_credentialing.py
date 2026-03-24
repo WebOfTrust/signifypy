@@ -5,6 +5,7 @@ signify.app.test_credentialing module
 
 Testing credentialing with unit tests
 """
+import pytest
 from keri.core import eventing, coring
 from keri.peer import exchanging
 from keri.vdr import eventing as veventing
@@ -13,38 +14,101 @@ from mockito import mock, verify, expect, ANY
 from signify.app import credentialing
 
 
-def test_registries(make_mock_client_with_manager, make_mock_response):
+def test_registries_legacy_create_returns_registry_result(make_mock_client_with_manager, make_mock_response):
     mock_client, mock_manager = make_mock_client_with_manager()
-
-    from signify.app.aiding import Identifiers
-    mock_ids = mock(spec=Identifiers, strict=True)
-
     from signify.core import keeping
-    mock_response = make_mock_response({'json': lambda: {}})
+    mock_response = make_mock_response({})
     mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
                 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
-    name = "aid1"
     regName = "reg1"
-
-    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
-    expect(mock_ids, times=1).get(name).thenReturn(mock_hab)
 
     mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
     expect(mock_manager, times=2).get(aid=mock_hab).thenReturn(mock_keeper)
-    expect(mock_keeper, times=2).sign(ser=ANY()).thenReturn(['a signature'])
-    expect(mock_client, times=1).post(path=f"/identifiers/{name}/registries", json=ANY()).thenReturn(mock_response)
+    expect(mock_keeper, times=1).sign(ser=ANY()).thenReturn(['a signature'])
+    expect(mock_client, times=1).post(path="/identifiers/aid1/registries", json=ANY()).thenReturn(mock_response)
 
     from signify.app.credentialing import Registries
 
     registries = Registries(client=mock_client)
-    registries.create(hab=mock_hab, registryName=regName)
+    result = registries.create(mock_hab, regName)
 
-    expect(mock_client, times=1).get(f"/identifiers/{name}/registries/{regName}").thenReturn(mock_response)
+    assert isinstance(result, credentialing.RegistryResult)
+    assert result.regser.pre
+    assert result.serder.pre == mock_hab["prefix"]
+    assert result.sigs == ['a signature']
+    assert result.response == mock_response
+
+
+def test_registries_name_create_returns_registry_result(make_mock_client_with_manager, make_mock_response):
+    mock_client, mock_manager = make_mock_client_with_manager()
+
+    from signify.app.aiding import Identifiers
+    mock_ids = mock(spec=Identifiers, strict=True)
+    from signify.core import keeping
+
+    mock_response = make_mock_response({})
+    mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
+    regName = "reg1"
+
+    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
+    expect(mock_ids, times=1).get("aid1").thenReturn(mock_hab)
+    mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=2).get(aid=mock_hab).thenReturn(mock_keeper)
+    expect(mock_keeper, times=1).sign(ser=ANY()).thenReturn(['a signature'])
+    expect(mock_client, times=1).post(path="/identifiers/aid1/registries", json=ANY()).thenReturn(mock_response)
+
+    result = credentialing.Registries(client=mock_client).create(
+        "aid1",
+        regName,
+        nonce="A_NONCE",
+    )
+
+    assert isinstance(result, credentialing.RegistryResult)
+    assert result.regser.pre
+    assert result.serder.pre == mock_hab["prefix"]
+    assert result.sigs == ['a signature']
+    assert result.response == mock_response
+
+
+def test_registries_name_create_establishment_only_not_implemented(make_mock_client_with_manager):
+    mock_client, _ = make_mock_client_with_manager()
+
+    from signify.app.aiding import Identifiers
+    mock_ids = mock(spec=Identifiers, strict=True)
+    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
+    expect(mock_ids, times=1).get("aid1").thenReturn({
+        "prefix": "EPREFIX",
+        "name": "aid1",
+        "state": {"s": "1", "d": "ABCDEFG", "c": ["EO"]},
+    })
+
+    with pytest.raises(NotImplementedError, match="establishment only not implemented"):
+        credentialing.Registries(client=mock_client).create("aid1", "reg1")
+
+
+def test_registries_list_get_rename_and_serialize(make_mock_client_with_manager, make_mock_response):
+    mock_client, _ = make_mock_client_with_manager()
+    mock_response = make_mock_response({'json': lambda: {}})
+    mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
+    regName = "reg1"
+
+    registries = credentialing.Registries(client=mock_client)
+
+    expect(mock_client, times=1).get("/identifiers/aid1/registries").thenReturn(mock_response)
+    registries.list(name="aid1")
+
+    expect(mock_client, times=1).get("/identifiers/aid1/registries/reg1").thenReturn(mock_response)
     registries.get(name="aid1", registryName=regName)
 
-    (expect(mock_client, times=1).put(path=f"/identifiers/{name}/registries/{regName}", json={'name': 'test'})
+    (expect(mock_client, times=1).put(path="/identifiers/aid1/registries/reg1", json={'name': 'test'})
      .thenReturn(mock_response))
     registries.rename(mock_hab, regName, "test")
+
+    (expect(mock_client, times=1).put(path="/identifiers/aid1/registries/reg1", json={'name': 'again'})
+     .thenReturn(mock_response))
+    registries.rename("aid1", regName, "again")
 
     pre = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     dig = "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"
@@ -52,13 +116,88 @@ def test_registries(make_mock_client_with_manager, make_mock_response):
     serder = veventing.incept(pre=pre, nonce=nonce)
     anc = eventing.interact(pre=pre, dig=dig)
 
-    msg = Registries.serialize(serder, anc)
+    msg = credentialing.Registries.serialize(serder, anc)
     assert msg == (b'{"v":"KERI10JSON00010f_","t":"vcp","d":"EGaypC6sODRFyIuhdFzzFmBU'
                    b'4Xe5SNprALGbltnyHYSz","i":"EGaypC6sODRFyIuhdFzzFmBU4Xe5SNprALGbl'
                    b'tnyHYSz","ii":"ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose","s"'
                    b':"0","c":[],"bt":"0","b":[],"n":"ACb_3pGwW3uIjtOg4zRQ66I-SggMcmo'
                    b'yju_uCzuSvgG4"}-VAS-GAB0AAAAAAAAAAAAAAAAAAAAAABENns5-voIbnRMADUO'
                    b'so7HDiQ9ZS_AfU8BfgGLHEW54H1')
+
+
+def test_registry_result_op(make_mock_response):
+    mock_response = make_mock_response({"json": lambda: {}})
+    expect(mock_response, times=1).json().thenReturn({"done": True})
+
+    result = credentialing.RegistryResult(
+        regser="regser",
+        serder="serder",
+        sigs=["a signature"],
+        response=mock_response,
+    )
+
+    assert result.regser == "regser"
+    assert result.serder == "serder"
+    assert result.sigs == ["a signature"]
+    assert result.op() == {"done": True}
+
+
+def test_registries_createFromEvents_returns_registry_result(make_mock_client_with_manager, make_mock_response):
+    mock_client, mock_manager = make_mock_client_with_manager()
+
+    from signify.core import keeping
+    mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
+    mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=1).get(aid=mock_hab).thenReturn(mock_keeper)
+
+    mock_response = make_mock_response({})
+    expect(mock_client, times=1).post(path="/identifiers/aid1/registries", json=ANY()).thenReturn(mock_response)
+
+    vcp = veventing.incept(pre=mock_hab["prefix"], nonce="A_NONCE")
+    ixn = eventing.interact(pre=mock_hab["prefix"], dig="ABCDEFG")
+
+    result = credentialing.Registries(client=mock_client).createFromEvents(
+        hab=mock_hab,
+        name="aid1",
+        registryName="reg1",
+        vcp=vcp.ked,
+        ixn=ixn.ked,
+        sigs=["a signature"],
+    )
+
+    assert isinstance(result, credentialing.RegistryResult)
+    assert result.regser.said == vcp.said
+    assert result.serder.said == ixn.said
+    assert result.sigs == ["a signature"]
+    assert result.response == mock_response
+
+
+def test_registries_create_from_events_compat_returns_json(make_mock_client_with_manager, make_mock_response):
+    mock_client, mock_manager = make_mock_client_with_manager()
+
+    from signify.core import keeping
+    mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
+    mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=1).get(aid=mock_hab).thenReturn(mock_keeper)
+
+    mock_response = make_mock_response({})
+    expect(mock_client, times=1).post(path="/identifiers/aid1/registries", json=ANY()).thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn({"done": True})
+
+    vcp = veventing.incept(pre=mock_hab["prefix"], nonce="A_NONCE")
+    ixn = eventing.interact(pre=mock_hab["prefix"], dig="ABCDEFG")
+
+    result = credentialing.Registries(client=mock_client).create_from_events(
+        hab=mock_hab,
+        registryName="reg1",
+        vcp=vcp.ked,
+        ixn=ixn.ked,
+        sigs=["a signature"],
+    )
+
+    assert result == {"done": True}
 
 
 def test_registries_create_uses_nb_trait_for_backerless_registry():
@@ -106,7 +245,7 @@ def test_registries_create_uses_nb_trait_for_backerless_registry():
     }
 
     client = DummyClient()
-    credentialing.Registries(client=client).create(hab=hab, registryName="reg1")
+    credentialing.Registries(client=client).create(hab, "reg1")
 
     assert client.last_post is not None
     path, body = client.last_post

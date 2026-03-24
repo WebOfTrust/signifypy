@@ -337,6 +337,11 @@ class SignifyClient:
         from signify.app.credentialing import Registries
         return Registries(client=self)
 
+    def schemas(self):
+        """Return the schema read resource wrapper."""
+        from signify.app.schemas import Schemas
+        return Schemas(client=self)
+
     def exchanges(self):
         """Return the exchange transport resource wrapper."""
         from signify.app.exchanging import Exchanges

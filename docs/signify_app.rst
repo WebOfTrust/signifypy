@@ -67,6 +67,12 @@ signify.app.grouping
 .. automodule:: signify.app.grouping
     :members:
 
+signify.app.schemas
+-------------------
+
+.. automodule:: signify.app.schemas
+    :members:
+
 signify.app.notifying
 ---------------------
 

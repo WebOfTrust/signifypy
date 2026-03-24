@@ -102,9 +102,14 @@ def test_schema_oobi_resolution_smoke(client_factory):
     client = client_factory()
 
     result = resolve_schema_oobi(client)
+    schema = client.schemas().get(SCHEMA_SAID)
+    schemas = client.schemas().list()
+    schema_saids = {entry["$id"] for entry in schemas}
 
     assert result["done"] is True
     assert result["metadata"]["oobi"] == schema_oobi(client)
+    assert schema["$id"] == SCHEMA_SAID
+    assert SCHEMA_SAID in schema_saids
 
     for alias_name, oobi in additional_schema_oobis(client).items():
         extra = resolve_oobi(client, oobi, alias=alias_name)
@@ -263,8 +268,8 @@ def test_credential_issue_smoke(client_factory):
     issuer_hab = create_identifier(client, issuer_name, wits=[])
     resolve_schema_oobi(client)
 
-    _, _, _, registry_op = client.registries().create(issuer_hab, registry_name)
-    wait_for_operation(client, registry_op)
+    registry_result = client.registries().create(issuer_name, registry_name)
+    wait_for_operation(client, registry_result.op())
     # Registry inception anchors itself with an interaction event, so the
     # identifier state must be reloaded before building the next credential
     # issuance anchor.

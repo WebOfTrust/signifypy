@@ -701,6 +701,16 @@ def test_signify_client_registries(make_signify_client):
     assert out.client == client
 
 
+def test_signify_client_schemas(make_signify_client):
+    client = make_signify_client()
+
+    out = client.schemas()
+
+    from signify.app.schemas import Schemas
+    assert type(out) is Schemas
+    assert out.client == client
+
+
 def test_signify_client_exchanges(make_signify_client):
     client = make_signify_client()
 
