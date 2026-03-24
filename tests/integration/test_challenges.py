@@ -8,18 +8,16 @@ endpoints.
 
 from __future__ import annotations
 
-import time
-
 import pytest
 from keri.core import serdering
 
 from .constants import TEST_WITNESS_AIDS
 from .helpers import (
-    POLL_INTERVAL,
     alias,
     create_identifier,
     exchange_agent_oobis,
     wait_for_contact_alias,
+    wait_for_contact_challenge_state,
     wait_for_operation,
 )
 
@@ -63,12 +61,7 @@ def test_challenge_response(client_factory):
     assert exn.said
     assert client_a.challenges().responded(aid_b["prefix"], exn.said) is True
 
-    deadline = time.time() + 30
-    while time.time() < deadline:
-        contact = wait_for_contact_alias(client_a, name_b)
-        if len(contact.get("challenges", [])) == 1:
-            break
-        time.sleep(POLL_INTERVAL)
+    contact = wait_for_contact_challenge_state(client_a, name_b, expected_count=1, authenticated=True)
 
     assert contact["alias"] == name_b
     assert contact["id"] == aid_b["prefix"]

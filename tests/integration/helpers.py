@@ -27,14 +27,10 @@ from requests import HTTPError
 
 from signify.app.clienting import SignifyClient
 from tests.integration.constants import (
-    SCHEMA_OOBI,
     SCHEMA_SAID,
     TEST_WITNESS_AIDS,
     WITNESS_AIDS,
-    WITNESS_OOBIS,
 )
-
-WITNESS_OOBI_BY_AID = dict(zip(WITNESS_AIDS, WITNESS_OOBIS))
 
 # The live stack runs entirely on localhost, so polling every 500-1000ms is
 # more conservative than necessary for most long-running op and notification
@@ -44,7 +40,10 @@ POLL_INTERVAL = float(os.getenv("SIGNIFYPY_INTEGRATION_POLL_INTERVAL", "0.25"))
 HEAVY_POLL_INTERVAL = float(
     os.getenv("SIGNIFYPY_INTEGRATION_HEAVY_POLL_INTERVAL", "0.5")
 )
+_UNSET = object()
 
+
+# Bootstrap and stack-derived lookup helpers
 
 def random_passcode() -> str:
     """Create a 21-character passcode suitable for booting a fresh client."""
@@ -91,6 +90,10 @@ def connect_client(
     This helper owns the full controller bootstrap path used by the live tests:
     boot the remote agent, connect the local controller, and assert the agent
     delegation relationship is present before returning the client.
+
+    The returned client also carries the active live-stack mapping on a private
+    attribute so later helpers can derive stack-local witness/schema OOBIs
+    without reaching back into pytest fixtures.
     """
     client = SignifyClient(
         passcode=passcode or random_passcode(),
@@ -107,19 +110,122 @@ def connect_client(
     assert isinstance(body, dict)
     client.connect()
     assert client.agent is not None
+    client._integration_live_stack = live_stack
     return client
+
+
+def _require_live_stack(client: SignifyClient) -> dict:
+    """Return the active live stack topology attached to a test client."""
+    live_stack = getattr(client, "_integration_live_stack", None)
+    if not isinstance(live_stack, dict):
+        raise RuntimeError("integration client is missing attached live stack topology")
+    return live_stack
+
+
+def witness_oobi_by_aid(client: SignifyClient) -> dict[str, str]:
+    """Return the current stack's witness OOBIs keyed by witness AID."""
+    return dict(zip(WITNESS_AIDS, _require_live_stack(client)["witness_oobis"]))
+
+
+def schema_oobi(client: SignifyClient) -> str:
+    """Return the current stack's primary schema OOBI."""
+    return _require_live_stack(client)["schema_oobi"]
+
+
+def additional_schema_oobis(client: SignifyClient) -> dict[str, str]:
+    """Return the current stack's additional sample schema OOBIs."""
+    return dict(_require_live_stack(client)["additional_schema_oobis"])
+
+
+def resolve_schema_oobi(client: SignifyClient, *, alias: str = "schema") -> dict:
+    """Resolve the current stack's primary schema OOBI."""
+    return resolve_oobi(client, schema_oobi(client), alias=alias)
+
+
+def _format_poll_value(value) -> str:
+    """Render the last observed poll value in timeout messages."""
+    if value is _UNSET:
+        return "unset"
+    if isinstance(value, (dict, list)):
+        try:
+            return json.dumps(value, sort_keys=True)
+        except TypeError:
+            return repr(value)
+    return repr(value)
+
+
+def poll_until(
+    fetch,
+    *,
+    ready,
+    timeout: float,
+    interval: float,
+    describe: str,
+    retry_exceptions: tuple[type[BaseException], ...] = (),
+):
+    """Poll until a fetched value satisfies `ready`, or raise a rich timeout.
+
+    The live integration layer spends most of its time waiting on remote KERIA
+    state. Centralizing the wait loop keeps timeout diagnostics consistent and
+    makes it cheaper to strengthen weak transport waits into stronger state
+    checks later.
+
+    Maintainer rule of thumb: prefer wrapping this in a domain-specific helper
+    over adding raw `time.sleep(...)` loops to tests. That keeps the wait
+    contract explicit and the timeout errors actionable.
+    """
+    deadline = time.monotonic() + timeout
+    last_value = _UNSET
+    last_error = None
+
+    while True:
+        try:
+            value = fetch()
+        except retry_exceptions as err:
+            last_error = str(err)
+        else:
+            last_value = value
+            if ready(value):
+                return value
+
+        if time.monotonic() >= deadline:
+            raise TimeoutError(
+                f"timed out waiting for {describe}; "
+                f"last_error={last_error!r}; "
+                f"last_value={_format_poll_value(last_value)}"
+            )
+        time.sleep(interval)
+
+
+def _matching_unread_notes(client: SignifyClient, route: str) -> list[dict]:
+    """Return unread notifications for one route."""
+    return [
+        note
+        for note in client.notifications().list()["notes"]
+        if note["a"].get("r") == route and note.get("r") is False
+    ]
+
+
+def _contact_by_alias(client: SignifyClient, contact_alias: str) -> dict | None:
+    """Return one contact record by alias when present."""
+    for contact in client.contacts().list():
+        if contact.get("alias") == contact_alias:
+            return contact
+    return None
 
 
 def wait_for_operation(client: SignifyClient, operation: dict, *, timeout: float = 120.0) -> dict:
     """Poll a KERIA long-running operation until completion or timeout."""
-    deadline = time.time() + timeout
-    current = operation
-    while not current["done"]:
-        if time.time() >= deadline:
-            raise TimeoutError(f"timed out waiting for operation {current['name']}")
-        time.sleep(POLL_INTERVAL)
-        current = client.operations().get(current["name"])
-    return current
+    if operation["done"]:
+        return operation
+
+    return poll_until(
+        lambda: client.operations().get(operation["name"]),
+        ready=lambda current: current["done"],
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"operation {operation['name']}",
+    )
 
 
 def wait_for_notification(
@@ -136,45 +242,16 @@ def wait_for_notification(
     waiting on the wrong route often means the scenario choreography is wrong,
     not just slow.
     """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        notes = [
-            note
-            for note in client.notifications().list()["notes"]
-            if note["a"].get("r") == route and note.get("r") is False
-        ]
-        if notes:
-            if mark_read:
-                for note in notes:
-                    client.notifications().markAsRead(note["i"])
-            return notes[-1]
-        time.sleep(POLL_INTERVAL)
-    raise TimeoutError(f"timed out waiting for notification route {route}")
-
-
-def wait_for_any_notification(
-    clients: list[SignifyClient],
-    route: str,
-    *,
-    timeout: float = 120.0,
-    mark_read: bool = True,
-) -> tuple[SignifyClient, dict]:
-    """Wait until any client in a set receives the requested notification route."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        for client in clients:
-            notes = [
-                note
-                for note in client.notifications().list()["notes"]
-                if note["a"].get("r") == route and note.get("r") is False
-            ]
-            if notes:
-                if mark_read:
-                    for note in notes:
-                        client.notifications().markAsRead(note["i"])
-                return client, notes[-1]
-        time.sleep(POLL_INTERVAL)
-    raise TimeoutError(f"timed out waiting for notification route {route} on any client")
+    note = poll_until(
+        lambda: _matching_unread_notes(client, route),
+        ready=bool,
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"notification route {route}",
+    )[-1]  # -1 for last, most recent notification
+    if mark_read:
+        client.notifications().markAsRead(note["i"])
+    return note
 
 
 def notification_routes(client: SignifyClient) -> list[str]:
@@ -184,14 +261,45 @@ def notification_routes(client: SignifyClient) -> list[str]:
 
 def wait_for_contact_alias(client: SignifyClient, contact_alias: str, *, timeout: float = 60.0) -> dict:
     """Poll the contact list until the requested alias becomes visible."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        contacts = client.contacts().list()
-        for contact in contacts:
-            if contact.get("alias") == contact_alias:
-                return contact
-        time.sleep(POLL_INTERVAL)
-    raise TimeoutError(f"timed out waiting for contact alias {contact_alias}")
+    return poll_until(
+        lambda: _contact_by_alias(client, contact_alias),
+        ready=lambda contact: contact is not None,
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"contact alias {contact_alias}",
+    )
+
+
+def wait_for_contact_challenge_state(
+    client: SignifyClient,
+    contact_alias: str,
+    *,
+    expected_count: int = 1,
+    authenticated: bool | None = True,
+    timeout: float = 60.0,
+) -> dict:
+    """Poll one contact record until its challenge list reaches the expected state."""
+
+    def _ready(contact: dict | None) -> bool:
+        if contact is None:
+            return False
+        challenges = contact.get("challenges", [])
+        if len(challenges) != expected_count:
+            return False
+        if authenticated is None:
+            return True
+        return all(challenge.get("authenticated") is authenticated for challenge in challenges)
+
+    return poll_until(
+        lambda: _contact_by_alias(client, contact_alias),
+        ready=_ready,
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=(
+            f"contact challenge state for alias {contact_alias} "
+            f"(expected_count={expected_count}, authenticated={authenticated})"
+        ),
+    )
 
 
 def contact_aliases(client: SignifyClient) -> set[str]:
@@ -201,14 +309,20 @@ def contact_aliases(client: SignifyClient) -> set[str]:
 
 def wait_for_credential(client: SignifyClient, said: str, *, timeout: float = 120.0) -> dict:
     """Poll received credentials until the expected SAID appears."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        credentials = client.credentials().list()
-        for credential in credentials:
-            if credential["sad"]["d"] == said:
-                return credential
-        time.sleep(HEAVY_POLL_INTERVAL)
-    raise TimeoutError(f"timed out waiting for credential {said}")
+    return poll_until(
+        lambda: next(
+            (
+                credential
+                for credential in client.credentials().list()
+                if credential["sad"]["d"] == said
+            ),
+            None,
+        ),
+        ready=lambda credential: credential is not None,
+        timeout=timeout,
+        interval=HEAVY_POLL_INTERVAL,
+        describe=f"credential {said}",
+    )
 
 
 def wait_for_multisig_request(
@@ -217,14 +331,49 @@ def wait_for_multisig_request(
     *,
     timeout: float = 120.0,
 ) -> tuple[dict, list[dict]]:
-    """Wait for a multisig notification and return the stored request payload.
+    """Wait for a multisig notification and the corresponding stored request payload.
 
     This is useful for registry/issuance diagnostics on the non-initiator path:
     we can prove the join signal arrived and inspect the embedded payload before
     deciding whether local reconstruction drifted from the peer proposal.
+
+    The notification is only the discovery mechanism. Success means the stored
+    request payload is retrievable and parseable through `groups().get_request`.
     """
     note = wait_for_notification(client, route, timeout=timeout)
-    return note, client.groups().get_request(note["a"]["d"])
+    request = poll_until(
+        lambda: client.groups().get_request(note["a"]["d"]),
+        ready=lambda request: bool(request) and request[0]["exn"]["r"] == route,
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"multisig request payload for route {route}",
+        retry_exceptions=(HTTPError,),
+    )
+    return note, request
+
+
+def wait_for_exchange_message(
+    client: SignifyClient,
+    route: str,
+    *,
+    timeout: float = 120.0,
+) -> tuple[dict, dict]:
+    """Wait for a notification and the corresponding stored exchange payload.
+
+    This is the exchange-message sibling of `wait_for_multisig_request(...)`:
+    the notification identifies *which* exchange matters, but the stronger
+    readiness condition is that the exchange itself is retrievable.
+    """
+    note = wait_for_notification(client, route, timeout=timeout)
+    exchange = poll_until(
+        lambda: client.exchanges().get(note["a"]["d"]),
+        ready=lambda exchange: exchange["exn"]["r"] == route,
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"exchange payload for route {route}",
+        retry_exceptions=(HTTPError,),
+    )
+    return note, exchange
 
 
 def wait_for_issued_credential(
@@ -235,15 +384,19 @@ def wait_for_issued_credential(
     timeout: float = 120.0,
 ) -> dict:
     """Poll issued-credential visibility until the expected SAID appears."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        credentials = client.credentials().list(filtr={"-i": issuer_prefix})
-        for credential in credentials:
-            if credential["sad"]["d"] == said:
-                return credential
-        time.sleep(HEAVY_POLL_INTERVAL)
-    raise TimeoutError(
-        f"timed out waiting for issued credential {said} from issuer {issuer_prefix}"
+    return poll_until(
+        lambda: next(
+            (
+                credential
+                for credential in client.credentials().list(filtr={"-i": issuer_prefix})
+                if credential["sad"]["d"] == said
+            ),
+            None,
+        ),
+        ready=lambda credential: credential is not None,
+        timeout=timeout,
+        interval=HEAVY_POLL_INTERVAL,
+        describe=f"issued credential {said} from issuer {issuer_prefix}",
     )
 
 
@@ -257,30 +410,19 @@ def wait_for_credential_state(
     timeout: float = 120.0,
 ) -> dict:
     """Poll one credential TEL state until the expected revocation/issuance state is visible."""
-    deadline = time.time() + timeout
-    last_state = None
-    last_error = None
-    while time.time() < deadline:
-        try:
-            state = client.credentials().state(registry_said, credential_said)
-        except HTTPError as err:
-            last_error = str(err)
-            time.sleep(POLL_INTERVAL)
-            continue
-
-        last_state = state
-        if expected_et is not None and state.get("et") != expected_et:
-            time.sleep(POLL_INTERVAL)
-            continue
-        if expected_sn is not None and state.get("s") != expected_sn:
-            time.sleep(POLL_INTERVAL)
-            continue
-        return state
-
-    raise TimeoutError(
-        f"timed out waiting for credential state {credential_said} in registry {registry_said}; "
-        f"expected_et={expected_et!r}; expected_sn={expected_sn!r}; "
-        f"last_error={last_error!r}; last_state={json.dumps(last_state, sort_keys=True) if last_state is not None else None}"
+    return poll_until(
+        lambda: client.credentials().state(registry_said, credential_said),
+        ready=lambda state: (
+            (expected_et is None or state.get("et") == expected_et)
+            and (expected_sn is None or state.get("s") == expected_sn)
+        ),
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=(
+            f"credential state {credential_said} in registry {registry_said} "
+            f"(expected_et={expected_et!r}, expected_sn={expected_sn!r})"
+        ),
+        retry_exceptions=(HTTPError,),
     )
 
 
@@ -300,35 +442,23 @@ def wait_for_multisig_credential_state_convergence(
         normalized.pop("dt", None)
         return normalized
 
-    deadline = time.time() + timeout
-    last_state_a = None
-    last_state_b = None
-    last_error = None
-    while time.time() < deadline:
-        try:
-            state_a = client_a.credentials().state(registry_said, credential_said)
-            state_b = client_b.credentials().state(registry_said, credential_said)
-        except HTTPError as err:
-            last_error = str(err)
-            time.sleep(POLL_INTERVAL)
-            continue
-
-        last_state_a = state_a
-        last_state_b = state_b
-        if (
-            state_a.get("et") == expected_et
-            and state_b.get("et") == expected_et
-            and normalized_state(state_a) == normalized_state(state_b)
-        ):
-            return state_a, state_b
-        time.sleep(POLL_INTERVAL)
-
-    raise TimeoutError(
-        "timed out waiting for multisig credential state convergence; "
-        f"registry_said={registry_said}; credential_said={credential_said}; expected_et={expected_et!r}; "
-        f"last_error={last_error!r}; "
-        f"state_a={json.dumps(last_state_a, sort_keys=True) if last_state_a is not None else None}; "
-        f"state_b={json.dumps(last_state_b, sort_keys=True) if last_state_b is not None else None}"
+    return poll_until(
+        lambda: (
+            client_a.credentials().state(registry_said, credential_said),
+            client_b.credentials().state(registry_said, credential_said),
+        ),
+        ready=lambda states: (
+            states[0].get("et") == expected_et
+            and states[1].get("et") == expected_et
+            and normalized_state(states[0]) == normalized_state(states[1])
+        ),
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=(
+            "multisig credential state convergence "
+            f"(registry_said={registry_said}, credential_said={credential_said}, expected_et={expected_et!r})"
+        ),
+        retry_exceptions=(HTTPError,),
     )
 
 
@@ -351,34 +481,19 @@ def wait_for_multisig_registry_convergence(
         state.pop("dt", None)
         return state
 
-    deadline = time.time() + timeout
-    last_registry_a = None
-    last_registry_b = None
-    last_error = None
-    while time.time() < deadline:
-        try:
-            registry_a = client_a.registries().get(group_name, registry_name)
-            registry_b = client_b.registries().get(group_name, registry_name)
-        except HTTPError as err:
-            last_error = str(err)
-            time.sleep(POLL_INTERVAL)
-            continue
-
-        last_registry_a = registry_a
-        last_registry_b = registry_b
-        if (
-            registry_a["regk"] == registry_b["regk"]
-            and normalized_state(registry_a) == normalized_state(registry_b)
-        ):
-            return registry_a, registry_b
-        time.sleep(POLL_INTERVAL)
-
-    raise TimeoutError(
-        "timed out waiting for multisig registry "
-        f"{registry_name} to converge for {group_name}; "
-        f"last_error={last_error!r}; "
-        f"registry_a={json.dumps(last_registry_a, sort_keys=True) if last_registry_a is not None else None}; "
-        f"registry_b={json.dumps(last_registry_b, sort_keys=True) if last_registry_b is not None else None}"
+    return poll_until(
+        lambda: (
+            client_a.registries().get(group_name, registry_name),
+            client_b.registries().get(group_name, registry_name),
+        ),
+        ready=lambda registries: (
+            registries[0]["regk"] == registries[1]["regk"]
+            and normalized_state(registries[0]) == normalized_state(registries[1])
+        ),
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"multisig registry {registry_name} convergence for {group_name}",
+        retry_exceptions=(HTTPError,),
     )
 
 
@@ -406,13 +521,20 @@ def wait_for_end_role(
     timeout: float = 60.0,
 ) -> dict:
     """Poll until an identifier exposes the expected end-role authorization."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        for end_role in get_end_roles(client, name, role=role):
-            if end_role.get("role") == role and end_role.get("eid") == eid:
-                return end_role
-        time.sleep(POLL_INTERVAL)
-    raise TimeoutError(f"timed out waiting for {role} end-role {eid} on {name}")
+    return poll_until(
+        lambda: next(
+            (
+                end_role
+                for end_role in get_end_roles(client, name, role=role)
+                if end_role.get("role") == role and end_role.get("eid") == eid
+            ),
+            None,
+        ),
+        ready=lambda end_role: end_role is not None,
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"{role} end-role {eid} on {name}",
+    )
 
 
 def wait_for_identifier_oobi(
@@ -428,16 +550,14 @@ def wait_for_identifier_oobi(
     which publication route each workflow relies on. Hiding role selection
     behind a fallback makes tests look greener than the actual client contract.
     """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            oobis = client.oobis().get(name, role=role)["oobis"]
-        except HTTPError:
-            oobis = []
-        if oobis:
-            return oobis
-        time.sleep(POLL_INTERVAL)
-    raise TimeoutError(f"timed out waiting for {role} OOBI on {name}")
+    return poll_until(
+        lambda: client.oobis().get(name, role=role)["oobis"],
+        ready=bool,
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"{role} OOBI on {name}",
+        retry_exceptions=(HTTPError,),
+    )
 
 
 def ensure_witness_oobis(client: SignifyClient, wits: list[str]) -> None:
@@ -451,10 +571,11 @@ def ensure_witness_oobis(client: SignifyClient, wits: list[str]) -> None:
     if not isinstance(resolved, set):
         resolved = set()
 
+    witness_oobis = witness_oobi_by_aid(client)
     for witness in wits:
         if witness in resolved:
             continue
-        resolve_oobi(client, WITNESS_OOBI_BY_AID[witness], alias=f"wit-{witness[:6]}")
+        resolve_oobi(client, witness_oobis[witness], alias=f"wit-{witness[:6]}")
         resolved.add(witness)
 
     client._integration_witness_oobis_resolved = resolved
@@ -641,6 +762,8 @@ def _messagize(serder, sigs, *, seal=None):
     return eventing.messagize(serder=serder, sigers=sigers, seal=seal)
 
 
+# Identifier and multisig workflow helpers
+
 def _state_order(client: SignifyClient, member_names: list[str]) -> list[dict]:
     """Return member states in a stable caller-provided name order."""
     return [client.identifiers().get(name)["state"] for name in member_names]
@@ -721,9 +844,7 @@ def accept_multisig_incept(
     4. Echo a matching `/multisig/icp` exchange so the initiator sees the peer
        contribution and both sides can converge on the same group AID.
     """
-    note = wait_for_notification(client, "/multisig/icp")
-    msg_said = note["a"]["d"]
-    request = client.groups().get_request(msg_said)
+    _, request = wait_for_multisig_request(client, "/multisig/icp")
     exn = request[0]["exn"]
     icp = exn["e"]["icp"]
     smids = exn["a"]["smids"]
@@ -811,7 +932,12 @@ def create_multisig_group_n(
     delpre: str | None = None,
     wits: list[str] | None = None,
 ) -> list[dict]:
-    """Create one multisig group across an ordered participant list."""
+    """Create one multisig group across an ordered participant list.
+
+    Participant order is part of the contract here, not just presentation.
+    Helpers and tests reuse this ordering for state lookup, peer exchange, and
+    later membership assertions.
+    """
     if len(participants) < 2:
         raise ValueError("multisig groups require at least two participants")
 
@@ -901,19 +1027,17 @@ def wait_for_group_agent_endroles(
     that the group can publish an agent OOBI is that the group end-role list now
     exposes every member agent EID that should be authorized under the group.
     """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        end_roles = get_end_roles(client, group_name, role="agent")
-        visible_eids = {
+    return poll_until(
+        lambda: get_end_roles(client, group_name, role="agent"),
+        ready=lambda end_roles: {
             end_role.get("eid")
             for end_role in end_roles
             if end_role.get("role") == "agent" and end_role.get("eid")
         }
-        if visible_eids == expected_eids:
-            return end_roles
-        time.sleep(POLL_INTERVAL)
-    raise TimeoutError(
-        f"timed out waiting for group agent end-roles {sorted(expected_eids)} on {group_name}"
+        == expected_eids,
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"group agent end-roles {sorted(expected_eids)} on {group_name}",
     )
 
 
@@ -936,7 +1060,7 @@ def add_multisig_agent_endroles(
         # Mirror the SignifyTS choreography: the non-initiating member waits
         # for the initiator's `/multisig/rpy` exchange before publishing its
         # own group end-role replies back to the peer.
-        wait_for_notification(client, "/multisig/rpy")
+        wait_for_multisig_request(client, "/multisig/rpy")
 
     group_hab = client.identifiers().get(group_name)
     member_hab = client.identifiers().get(member_name)
@@ -1074,7 +1198,12 @@ def expose_multisig_agent_oobi_n(
     participants: list[tuple[SignifyClient, str]],
     group_name: str,
 ) -> str:
-    """Expose a multisig agent OOBI for an ordered participant list."""
+    """Expose a multisig agent OOBI for an ordered participant list.
+
+    This is the N-party analogue of `expose_multisig_agent_oobi(...)`: publish
+    the required group end-role replies on every member, wait for multisig state convergence,
+    and return one verified shared OOBI string.
+    """
     if len(participants) < 2:
         raise ValueError("multisig groups require at least two participants")
 
@@ -1165,8 +1294,7 @@ def accept_multisig_rotation(
     4. Send the participant's matching embedded rotation event back to the peer.
     """
     member = client.identifiers().get(member_name)
-    note = wait_for_notification(client, "/multisig/rot")
-    exchange = client.exchanges().get(note["a"]["d"])
+    _, exchange = wait_for_exchange_message(client, "/multisig/rot")
     exn = exchange["exn"]
     gid = exn["a"]["gid"]
     smids = exn["a"]["smids"]
@@ -1279,8 +1407,7 @@ def interact_multisig_group(
         recipients=[member_b["prefix"]],
     )
 
-    note = wait_for_notification(client_b, "/multisig/ixn")
-    request = client_b.groups().get_request(note["a"]["d"])
+    _, request = wait_for_multisig_request(client_b, "/multisig/ixn")
     request_data = request[0]["exn"]["e"]["ixn"]["a"]
     # Rebuild the interaction from the received payload instead of local memory
     # so both members prove they are converging on the same shared event data.
@@ -1308,17 +1435,26 @@ def rotate_multisig_group_n(
     participants: list[tuple[SignifyClient, str]],
     group_name: str,
 ) -> list[dict]:
-    """Rotate every member AID and then rotate the multisig group itself."""
+    """Rotate every member AID and then rotate the multisig group itself.
+
+    Use this helper when the test cares about the converged N-party result more
+    than the mechanics of each intermediate participant step.
+    """
     if len(participants) < 2:
         raise ValueError("multisig groups require at least two participants")
 
+    # rotate single sig and create client tuples of
+    # (client, name, keystate)
     rotated_members = [
         (client, member_name, rotate_identifier(client, member_name))
         for client, member_name in participants
     ]
+
+    # refresh key state between all rotated members
     ordered_prefixes = [member["prefix"] for _, _, member in rotated_members]
     state_maps: list[dict[str, dict]] = []
     for client, _, local_member in rotated_members:
+        # store key states for smids and rmids later
         state_map: dict[str, dict] = {}
         for _, _, member in rotated_members:
             if member["prefix"] == local_member["prefix"]:
@@ -1327,6 +1463,7 @@ def rotate_multisig_group_n(
                 state_map[member["prefix"]] = query_key_state(client, member["prefix"], sn=member["state"]["s"])
         state_maps.append(state_map)
 
+    # get first member to initiate multisig
     initiator_client, initiator_member_name, _ = rotated_members[0]
     operations: list[tuple[SignifyClient, dict]] = [
         (
@@ -1339,6 +1476,7 @@ def rotate_multisig_group_n(
             ),
         )
     ]
+    # join multisig op with other members
     for (client, member_name, _), state_map in zip(rotated_members[1:], state_maps[1:]):
         operations.append(
             (
@@ -1352,6 +1490,7 @@ def rotate_multisig_group_n(
             )
         )
 
+    # wait for all members to complete the multisig op
     for client, operation in operations:
         wait_for_operation(client, operation)
 
@@ -1375,6 +1514,8 @@ def approve_single_delegation(
     serder, _, operation = client.delegations().approve(delegator_name, anchor)
     return serder, wait_for_operation(client, operation)
 
+
+# Delegation and credential workflow helpers
 
 def approve_multisig_delegation(
     client_a: SignifyClient,
@@ -1414,8 +1555,7 @@ def approve_multisig_delegation(
         recipients=[member_b["prefix"]],
     )
 
-    note = wait_for_notification(client_b, "/multisig/ixn")
-    request = client_b.groups().get_request(note["a"]["d"])
+    _, request = wait_for_multisig_request(client_b, "/multisig/ixn")
     request_anchor = request[0]["exn"]["e"]["ixn"]["a"][0]
     # Member B must reconstruct the anchor from the received request rather
     # than trust local assumptions, or the two approvals can diverge.
@@ -1570,6 +1710,8 @@ def create_multisig_registry(
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
     if request is not None:
+        # The follower path intentionally reuses the stored proposal payload.
+        # That is the actual replay contract the multisig tests are protecting.
         proposal = request[0]["exn"]["e"]
         vcp = serdering.SerderKERI(sad=proposal["vcp"])
         anc = serdering.SerderKERI(sad=proposal["anc"])
@@ -1642,6 +1784,8 @@ def issue_multisig_credential(
     group_hab = client.identifiers().get(group_name)
     registry = client.registries().get(group_name, registry_name)
     if request is not None:
+        # As with `/multisig/vcp`, the follower path is only correct if it
+        # approves the stored proposal instead of reconstructing one locally.
         proposal = request[0]["exn"]["e"]
         creder = serdering.SerderACDC(sad=proposal["acdc"])
         iserder = serdering.SerderKERI(sad=proposal["iss"])
@@ -1712,6 +1856,8 @@ def revoke_multisig_credential(
 
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
+    # Revocation still begins with the local wrapper call; the regression
+    # assertion is that all members converge on one revoke event and TEL state.
     rserder, anc, sigs, operation = client.credentials().revoke(
         group_name,
         credential_said,
@@ -1745,9 +1891,14 @@ def send_multisig_credential_grant(
     sigs: list[str],
     is_initiator: bool = False,
 ) -> dict:
-    """Submit a multisig grant and mirror it to peer members via `/multisig/exn`."""
+    """Submit a multisig grant and mirror it to peer members via `/multisig/exn`.
+
+    The first member submits the real IPEX grant to the holder. The extra
+    `/multisig/exn` wrapper exists so peer members can record and approve that
+    exact grant message as part of the shared multisig workflow.
+    """
     if not is_initiator:
-        wait_for_notification(client, "/multisig/exn")
+        wait_for_exchange_message(client, "/multisig/exn")
 
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
@@ -1831,7 +1982,12 @@ def submit_multisig_admit(
     issuer_prefix: str,
     notification: dict,
 ) -> dict:
-    """Submit a multisig admit and mirror it to peer members via `/multisig/exn`."""
+    """Submit a multisig admit and mirror it to peer members via `/multisig/exn`.
+
+    This mirrors `submit_admit(...)` for group workflows: submit the admit for
+    the shared group AID, then forward the exact admit message to peer members
+    so all participants observe the same group-side exchange.
+    """
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
     admit, sigs, atc = client.ipex().admit(

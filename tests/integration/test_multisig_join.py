@@ -22,6 +22,13 @@ pytestmark = pytest.mark.integration
 
 
 def test_multisig_join_lifecycle_4_of_4(client_factory):
+    """Replace the old quartet scripts with one truthful 4-of-4 live workflow.
+
+    The contract here is broader than basic creation: all four members must
+    converge on one group prefix, an outside observer must be able to resolve
+    the group agent OOBI, and the full group must rotate coherently after every
+    member rotates.
+    """
     # This replaces the old create/join quartet scripts with one isolated live
     # scenario: create four member AIDs, exchange the exact agent OOBIs they
     # need to coordinate, incept one 4-of-4 group, publish the group agent
@@ -38,6 +45,8 @@ def test_multisig_join_lifecycle_4_of_4(client_factory):
         for client, member_name in participants
     ]
     exchange_agent_oobis_among(participants)
+    # The ordered participant list is the source of truth for later group
+    # membership assertions and for the N-party helper choreography.
     groups = create_multisig_group_n(
         participants,
         group_name,

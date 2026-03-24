@@ -7,14 +7,17 @@ from __future__ import annotations
 import pytest
 from keri.help import helping
 
-from .constants import SCHEMA_OOBI, SCHEMA_SAID, TEST_WITNESS_AIDS
+from .constants import SCHEMA_SAID, TEST_WITNESS_AIDS
 from .helpers import (
+    additional_schema_oobis,
     alias,
     contact_aliases,
     create_identifier,
     list_key_states,
     resolve_agent_oobi,
     resolve_oobi,
+    resolve_schema_oobi,
+    schema_oobi,
     rotate_identifier,
     wait_for_contact_alias,
     wait_for_operation,
@@ -23,14 +26,14 @@ from .helpers import (
 
 pytestmark = pytest.mark.integration
 
-ADDITIONAL_SCHEMA_OOBIS = {
-    "legal-entity": "http://127.0.0.1:7723/oobi/ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY",
-    "ecr-auth": "http://127.0.0.1:7723/oobi/EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g",
-    "ecr": "http://127.0.0.1:7723/oobi/EEy9PkikFcANV1l7EHukCeXqrzT1hNZjGlUk7wuMO5jw",
-}
-
 
 def test_provision_agent_and_connect(client_factory):
+    """Prove the default bootstrap path yields a usable delegated agent/client pair.
+
+    This is the smallest believable live-stack contract for the SignifyPy
+    client: boot the remote agent through KERIA, connect the local controller,
+    and confirm the controller-to-agent delegation relationship is fully wired.
+    """
     # This is the minimum believable client bootstrap: boot the remote agent,
     # connect, and verify the delegated agent/controller relationship is live.
     client = client_factory()
@@ -44,6 +47,12 @@ def test_provision_agent_and_connect(client_factory):
 
 
 def test_manual_agent_boot_and_connect(client_factory):
+    """Lock down the manual boot path used by the old `init_agent.py` workflow.
+
+    The maintained contract here is not just "manual boot works", but "manual
+    boot lands in the same connected delegated-agent state as the default
+    client-managed boot path."
+    """
     # This absorbs the old `init_agent.py` manual-boot path without requiring
     # an operator to paste an inception event into a terminal.
     client = client_factory(passcode="manualbootpath0000001", boot_mode="manual")
@@ -55,6 +64,12 @@ def test_manual_agent_boot_and_connect(client_factory):
 
 
 def test_single_sig_identifier_lifecycle_smoke(client_factory):
+    """Prove one plain single-sig identifier can be created, listed, and read back.
+
+    This test stays intentionally narrow so later failures in rotation, OOBI,
+    or credential flows do not blur the contract for baseline identifier
+    persistence and read-path behavior.
+    """
     # Keep the first lifecycle check intentionally narrow: create a plain
     # single-sig identifier and prove it is persisted and queryable.
     client = client_factory()
@@ -75,23 +90,36 @@ def test_single_sig_identifier_lifecycle_smoke(client_factory):
 
 
 def test_schema_oobi_resolution_smoke(client_factory):
+    """Prove schema OOBI resolution works against the stack-local vLEI server.
+
+    This is the first OOBI read-path contract because it avoids the extra
+    moving parts of identifier endpoint publication while still proving that
+    SignifyPy can resolve external schema metadata through the live stack.
+    """
     # Use the vLEI schema OOBI as the first OOBI smoke case because it is
     # stable in the local stack and does not require extra endpoint wiring on a
     # newly created identifier.
     client = client_factory()
 
-    result = resolve_oobi(client, SCHEMA_OOBI, alias="schema")
+    result = resolve_schema_oobi(client)
 
     assert result["done"] is True
-    assert result["metadata"]["oobi"] == SCHEMA_OOBI
+    assert result["metadata"]["oobi"] == schema_oobi(client)
 
-    for alias_name, oobi in ADDITIONAL_SCHEMA_OOBIS.items():
+    for alias_name, oobi in additional_schema_oobis(client).items():
         extra = resolve_oobi(client, oobi, alias=alias_name)
         assert extra["done"] is True
         assert extra["metadata"]["oobi"] == oobi
 
 
 def test_witnessed_identifier_agent_oobi_resolution(client_factory):
+    """Lock down the witness-backed agent OOBI publication sequence Phase 2 needs.
+
+    The real contract is the ordering: witness-backed inception first, then
+    group/agent end-role publication, then third-party OOBI resolution. This
+    keeps later OOBI-heavy workflows honest about what has to exist before an
+    agent OOBI becomes queryable and resolvable.
+    """
     # This scenario exists to lock down the exact OOBI publication sequence the
     # rest of Phase 2 depends on:
     # 1. witness-backed identifier inception
@@ -126,6 +154,12 @@ def test_witnessed_identifier_agent_oobi_resolution(client_factory):
 
 
 def test_contact_and_key_state_read_paths(client_factory):
+    """Replace the old contact/key-state listing scripts with live read assertions.
+
+    After a real OOBI exchange, both participants should expose the peer in the
+    contact list and should be able to read the peer's key state through the
+    maintained SignifyPy wrapper surfaces.
+    """
     # This replaces the old `list_contacts.py` and `list_kevers.py` scripts
     # with assertions on the same observable state after a real OOBI exchange.
     client_a = client_factory()
@@ -152,6 +186,12 @@ def test_contact_and_key_state_read_paths(client_factory):
 
 
 def test_contact_management_read_and_update_paths(client_factory):
+    """Prove the maintained contact CRUD read/update surfaces over a real contact.
+
+    This test exists so maintainers can change contact wrapper internals
+    without losing the observable contract for `list()`, `get(...)`, and
+    `update(...)` after a real OOBI-backed contact relationship exists.
+    """
     # This locks down the modern contact wrapper shape after OOBI exchange:
     # raw list(), get(prefix), and update(prefix, info).
     client_a = client_factory()
@@ -186,6 +226,11 @@ def test_contact_management_read_and_update_paths(client_factory):
 
 
 def test_single_sig_rotation_smoke(client_factory):
+    """Keep one small rotation contract separate from the heavier OOBI workflows.
+
+    The purpose is to prove sequence/digest advancement on the same identifier
+    prefix without mixing in witness or multisig complexity.
+    """
     # Keep rotation coverage intentionally small here: one create, one rotate,
     # then assert sequence-number advancement on the same prefix.
     client = client_factory()
@@ -200,6 +245,12 @@ def test_single_sig_rotation_smoke(client_factory):
 
 
 def test_credential_issue_smoke(client_factory):
+    """Prove the smallest useful self-issued credential flow against the live stack.
+
+    This covers the minimum issuance contract for SignifyPy: create issuer,
+    create registry, resolve schema, issue one credential, and verify the
+    resulting record can be listed and exported through maintained read paths.
+    """
     # This locks down the smallest useful credential workflow in SignifyPy:
     # identifier -> registry -> schema resolution -> issuance -> query/export.
     # It is intentionally self-issued so Phase 1 can verify the issuance path
@@ -210,7 +261,7 @@ def test_credential_issue_smoke(client_factory):
     registry_name = alias("registry")
 
     issuer_hab = create_identifier(client, issuer_name, wits=[])
-    resolve_oobi(client, SCHEMA_OOBI, alias="schema")
+    resolve_schema_oobi(client)
 
     _, _, _, registry_op = client.registries().create(issuer_hab, registry_name)
     wait_for_operation(client, registry_op)

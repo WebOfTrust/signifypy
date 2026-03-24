@@ -51,6 +51,7 @@ test = [
     "responses>=0.25.6",
     "coverage>=7.6.10",
     "pytest>=8.3.4",
+    "pytest-xdist>=3.6.1",
     "pytest-cov>=6.1.1",
     "mockito==1.5.3",
 ]
@@ -65,6 +66,7 @@ dev = [
     "responses>=0.25.6",
     "coverage>=7.6.10",
     "pytest>=8.3.4",
+    "pytest-xdist>=3.6.1",
     "pytest-cov>=6.1.1",
     "mockito==1.5.3",
     "myst-parser>=0.16.1",

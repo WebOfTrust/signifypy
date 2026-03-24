@@ -27,22 +27,17 @@ multistep workflows.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
 import os
 import socket
 import subprocess
-import time
 from pathlib import Path
 
 import pytest
 
-from tests.integration.constants import (
-    KERIA_ADMIN_URL,
-    KERIA_AGENT_URL,
-    KERIA_BOOT_URL,
-    VLEI_SCHEMA_URL,
-    WITNESS_CONFIG_IURLS,
-)
+from tests.integration.helpers import poll_until
+from tests.integration.topology import make_stack_topology, stack_runtime_name
 
 # The following directories are used when running each command or library in an
 # isolated virtualenv below.
@@ -65,6 +60,8 @@ VLEI_SERVER_SCRIPT = SERVICE_SCRIPTS_ROOT / "vlei_server.py"
 PORT_POLL_INTERVAL = float(os.getenv("SIGNIFYPY_INTEGRATION_PORT_POLL_INTERVAL", "0.1"))
 
 
+# Runtime and config helpers
+
 def _require_python(path: Path, name: str) -> str:
     """Return the runtime path or skip when that repo-local interpreter is unavailable."""
     if not path.exists():
@@ -72,7 +69,7 @@ def _require_python(path: Path, name: str) -> str:
     return str(path)
 
 
-def _write_canonical_witness_configs(config_root: Path) -> None:
+def _write_canonical_witness_configs(config_root: Path, live_stack: dict) -> None:
     """Copy canonical witness-demo configs into the exact path witnesses read.
 
     Witness startup in the harness launcher uses `Configer(..., base="main")`,
@@ -83,14 +80,19 @@ def _write_canonical_witness_configs(config_root: Path) -> None:
     target_dir = config_root / "keri" / "cf" / "main"
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    for name in WITNESS_CONFIG_NAMES:
+    for index, name in enumerate(WITNESS_CONFIG_NAMES):
         source = KERIPY_WITNESS_CONFIG_DIR / f"{name}.json"
         if not source.exists():
             pytest.skip(f"canonical witness config is unavailable at {source}")
-        (target_dir / f"{name}.json").write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        config = json.loads(source.read_text(encoding="utf-8"))
+        config[name]["curls"] = [
+            curl if not curl.startswith("http://") else f"http://{live_stack['host']}:{live_stack['witness_ports'][index]}/"
+            for curl in config[name]["curls"]
+        ]
+        (target_dir / f"{name}.json").write_text(json.dumps(config), encoding="utf-8")
 
 
-def _write_keria_config(config_root: Path) -> None:
+def _write_keria_config(config_root: Path, live_stack: dict) -> None:
     """Write the KERIA harness config into the exact path `runAgency` reads.
 
     This is intentionally *not* the same path the witness configs use. KERIA's
@@ -106,9 +108,9 @@ def _write_keria_config(config_root: Path) -> None:
         "dt": "2022-01-20T12:57:59.823350+00:00",
         "keria": {
             "dt": "2022-01-20T12:57:59.823350+00:00",
-            "curls": ["http://127.0.0.1:3902/"],
+            "curls": [live_stack["keria_agent_url"] + "/"],
         },
-        "iurls": WITNESS_CONFIG_IURLS,
+        "iurls": live_stack["witness_config_iurls"],
     }
     (target_dir / "demo-witness-oobis.json").write_text(
         json.dumps(witness_config),
@@ -217,8 +219,7 @@ def _wait_for_port(
     subprocesses. When a service exits before binding, surfacing the log tail
     here keeps later test failures from obscuring the real startup defect.
     """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    def _fetch() -> bool:
         if proc.poll() is not None:
             raise RuntimeError(
                 f"{name} exited early with code {proc.returncode}:\n"
@@ -227,103 +228,144 @@ def _wait_for_port(
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(0.5)
-            if sock.connect_ex((host, port)) == 0:
-                return
-        time.sleep(PORT_POLL_INTERVAL)
+            return sock.connect_ex((host, port)) == 0
 
-    raise TimeoutError(
-        f"timed out waiting for {name} on {host}:{port}:\n"
-        f"{_read_log_tail(log_path)}"
+    try:
+        poll_until(
+            _fetch,
+            ready=bool,
+            timeout=timeout,
+            interval=PORT_POLL_INTERVAL,
+            describe=f"{name} on {host}:{port}",
+        )
+    except TimeoutError as err:
+        raise TimeoutError(
+            f"{err}\n{_read_log_tail(log_path)}"
+        ) from err
+
+
+def _current_worker_id() -> str:
+    """Return the pytest xdist worker id, or `master` outside xdist."""
+    return os.getenv("PYTEST_XDIST_WORKER", "master")
+
+
+def _port_conflict(err: BaseException) -> bool:
+    """Return True when startup failed because a port was already in use."""
+    text = str(err).lower()
+    return (
+        "address already in use" in text
+        or "cannot create http server on port" in text
+        or "errno 98" in text
+        or "errno 48" in text
     )
 
 
-@pytest.fixture(scope="session")
-def live_stack(tmp_path_factory: pytest.TempPathFactory):
+def _build_live_stack(tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest, *, mode: str, attempt: int = 0) -> dict:
+    """Create one runtime-generated live stack mapping for the requested mode.
+
+    The returned mapping is the shared contract between topology generation,
+    subprocess launch, and the client-side helper layer. Keeping that shape
+    centralized here is what lets the harness evolve without leaking stack
+    internals into test bodies.
     """
-    Launch the local witness demo topology, KERIA, and vLEI schema server.
+    worker_id = _current_worker_id()
+    nodeid = request.node.nodeid if mode == "isolated" else None
+    runtime_root = tmp_path_factory.mktemp(
+        stack_runtime_name(mode=mode, worker_id=worker_id, nodeid=nodeid, attempt=attempt)
+    )
+    topology = make_stack_topology(runtime_root, worker_id=worker_id, mode=mode)
+    return topology.as_live_stack()
 
-    The stack is session-scoped because service startup dominates runtime; once
-    the ports are live, the individual scenarios are comparatively cheap.
 
-    Custom HOME dir isolation per test:
-    each spawned service gets `HOME` pointed at the pytest temp runtime
-    directory. That means any KERI fallback state that would normally land in
-    `~/.keri` is isolated per test run instead. This keeps live integration
-    tests reproducible, avoids mutating local personal KERI state, and
-    removes the need for destructive cleanup between runs.
+@contextmanager
+def _launch_live_stack(live_stack: dict):
+    """Launch one live stack instance from a runtime-generated topology.
 
-    Workflow summary:
-    1. Create a fresh runtime root and write the witness and KERIA configs into
-       the exact `Configer` paths those processes will read.
-    2. Verify those configs are actually readable before starting any service.
-    3. Start witnesses, then KERIA, then vLEI, waiting for each service's ports
-       before proceeding.
-    4. Yield connection details to the tests.
-    5. Tear services down in reverse startup order so reruns do not inherit
-       stale listeners.
+    This context manager owns the full lifecycle of the live harness: write
+    stack-specific configs, launch witnesses/KERIA/vLEI, wait for their ports,
+    then tear everything down in reverse order.
     """
     witness_python = _require_python(SIGNIFYPY_PYTHON, "SignifyPy")
     keria_python = _require_python(KERIA_PYTHON, "KERIA")
     vlei_python = _require_python(VLEI_PYTHON, "vLEI")
-    runtime_root = tmp_path_factory.mktemp("signify_live_stack")
-    config_root = runtime_root / "config"
-    _write_canonical_witness_configs(config_root)
-    _write_keria_config(config_root)
+    runtime_root = live_stack["runtime_root"]
+    config_root = live_stack["config_root"]
+
+    _write_canonical_witness_configs(config_root, live_stack)
+    _write_keria_config(config_root, live_stack)
     for witness_name in WITNESS_CONFIG_NAMES:
         _assert_config_readable(config_root, witness_name, required_keys=(witness_name, "dt"))
     _assert_keria_config_readable(config_root, "demo-witness-oobis", required_keys=("keria", "iurls", "dt"))
 
     shared_env = os.environ.copy()
-    # Force every service's fallback `~/.keri` state into pytest temp space so
-    # the harness does not depend on or mutate the developer's global KERI data.
-    shared_env["HOME"] = str(runtime_root)
+    # Every stack gets its own HOME so KERI/KERIA state stays inside the
+    # pytest-owned runtime directory rather than leaking into the maintainer's
+    # real ~/.keri.
+    shared_env["HOME"] = str(live_stack["home"])
 
     witness_env = shared_env.copy()
-    keria_env = os.environ.copy()
-    keria_env["HOME"] = str(runtime_root)
+    keria_env = shared_env.copy()
     keria_env["PYTHONPATH"] = str(KERIA_ROOT / "src")
 
     vlei_env = shared_env.copy()
     vlei_env["PYTHONPATH"] = str(VLEI_ROOT / "src")
 
     procs: list[tuple[str, subprocess.Popen[bytes]]] = []
-    # Persist service logs in the temp runtime directory so backend exceptions
-    # can be inspected after pytest only surfaces a client-side HTTP failure.
-    witness_log = (runtime_root / "witness.log").open("wb")
-    keria_log = (runtime_root / "keria.log").open("wb")
-    vlei_log = (runtime_root / "vlei.log").open("wb")
+    witness_log_path = live_stack["log_root"] / "witness.log"
+    keria_log_path = live_stack["log_root"] / "keria.log"
+    vlei_log_path = live_stack["log_root"] / "vlei.log"
+    witness_log = witness_log_path.open("wb")
+    keria_log = keria_log_path.open("wb")
+    vlei_log = vlei_log_path.open("wb")
 
     try:
-        # Witnesses must come up first because KERIA resolves the configured
-        # witness introduction OOBIs at startup.
         witness = subprocess.Popen(
-            [witness_python, "-u", str(WITNESS_SERVER_SCRIPT), "--config-dir", str(config_root)],
+            [
+                witness_python,
+                "-u",
+                str(WITNESS_SERVER_SCRIPT),
+                "--config-dir",
+                str(config_root),
+                "--wan-port",
+                str(live_stack["witness_ports"][0]),
+                "--wil-port",
+                str(live_stack["witness_ports"][1]),
+                "--wes-port",
+                str(live_stack["witness_ports"][2]),
+            ],
             cwd=SIGNIFYPY_ROOT,
             env=witness_env,
             stdout=witness_log,
             stderr=subprocess.STDOUT,
         )
         procs.append(("witness-demo", witness))
-        _wait_for_port("127.0.0.1", 5642, witness, "witness-demo", log_path=runtime_root / "witness.log")
-        _wait_for_port("127.0.0.1", 5643, witness, "witness-demo", log_path=runtime_root / "witness.log")
-        _wait_for_port("127.0.0.1", 5644, witness, "witness-demo", log_path=runtime_root / "witness.log")
+        for port in live_stack["witness_ports"]:
+            _wait_for_port(live_stack["host"], port, witness, "witness-demo", log_path=witness_log_path)
 
-        # KERIA comes next so client boot/connect and OOBI routes are ready
-        # before any test creates identifiers.
         keria = subprocess.Popen(
-            [keria_python, "-u", str(KERIA_SERVER_SCRIPT), "--config-dir", str(config_root)],
+            [
+                keria_python,
+                "-u",
+                str(KERIA_SERVER_SCRIPT),
+                "--config-dir",
+                str(config_root),
+                "--admin-port",
+                str(live_stack["topology"].keria_admin_port),
+                "--http-port",
+                str(live_stack["topology"].keria_http_port),
+                "--boot-port",
+                str(live_stack["topology"].keria_boot_port),
+            ],
             cwd=SIGNIFYPY_ROOT,
             env=keria_env,
             stdout=keria_log,
             stderr=subprocess.STDOUT,
         )
         procs.append(("keria", keria))
-        _wait_for_port("127.0.0.1", 3901, keria, "keria", log_path=runtime_root / "keria.log")
-        _wait_for_port("127.0.0.1", 3902, keria, "keria", log_path=runtime_root / "keria.log")
-        _wait_for_port("127.0.0.1", 3903, keria, "keria", log_path=runtime_root / "keria.log")
+        _wait_for_port(live_stack["host"], live_stack["topology"].keria_admin_port, keria, "keria", log_path=keria_log_path)
+        _wait_for_port(live_stack["host"], live_stack["topology"].keria_http_port, keria, "keria", log_path=keria_log_path)
+        _wait_for_port(live_stack["host"], live_stack["topology"].keria_boot_port, keria, "keria", log_path=keria_log_path)
 
-        # The vLEI helper server is only needed for schema and sample-credential
-        # flows, so it starts last.
         vlei = subprocess.Popen(
             [
                 vlei_python,
@@ -335,6 +377,8 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory):
                 str(VLEI_ROOT / "samples" / "acdc"),
                 "--oobi-dir",
                 str(VLEI_ROOT / "samples" / "oobis"),
+                "--http-port",
+                str(live_stack["topology"].vlei_port),
             ],
             cwd=SIGNIFYPY_ROOT,
             env=vlei_env,
@@ -342,18 +386,10 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory):
             stderr=subprocess.STDOUT,
         )
         procs.append(("vlei-server", vlei))
-        _wait_for_port("127.0.0.1", 7723, vlei, "vlei-server", log_path=runtime_root / "vlei.log")
+        _wait_for_port(live_stack["host"], live_stack["topology"].vlei_port, vlei, "vlei-server", log_path=vlei_log_path)
 
-        yield {
-            "keria_admin_url": KERIA_ADMIN_URL,
-            "keria_agent_url": KERIA_AGENT_URL,
-            "keria_boot_url": KERIA_BOOT_URL,
-            "vlei_schema_url": VLEI_SCHEMA_URL,
-            "runtime_root": runtime_root,
-        }
+        yield live_stack
     finally:
-        # Reverse shutdown order mirrors dependency order and reduces the chance
-        # of port or file-handle leaks between reruns.
         for name, proc in reversed(procs):
             _terminate_process(proc, name)
         witness_log.close()
@@ -361,8 +397,31 @@ def live_stack(tmp_path_factory: pytest.TempPathFactory):
         vlei_log.close()
 
 
-@pytest.fixture
-def client_factory(live_stack):
+def _stack_fixture(tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest, *, mode: str):
+    """Launch one stack instance with retry-on-port-conflict semantics.
+
+    Dynamic ports make conflicts unlikely, not impossible. Retrying the whole
+    topology launch is simpler and safer than trying to recover from a partial
+    startup where one subprocess bound and another failed.
+    """
+    last_err = None
+    for attempt in range(3):
+        live_stack = _build_live_stack(tmp_path_factory, request, mode=mode, attempt=attempt)
+        try:
+            with _launch_live_stack(live_stack) as launched:
+                yield launched
+                return
+        except (RuntimeError, TimeoutError) as err:
+            if not _port_conflict(err):
+                raise
+            last_err = err
+
+    raise RuntimeError(
+        f"failed to launch {mode} live stack after repeated port conflicts"
+    ) from last_err
+
+
+def _client_factory(live_stack):
     """Return a factory for fresh clients so each test controls its own actors.
 
     The integration suite routinely models multiple participants in one
@@ -375,3 +434,42 @@ def client_factory(live_stack):
         return connect_client(live_stack, **kwargs)
 
     return factory
+
+
+@pytest.fixture(scope="session")
+def shared_live_stack(tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest):
+    """Launch one live stack per worker session."""
+    yield from _stack_fixture(tmp_path_factory, request, mode="shared")
+
+
+@pytest.fixture
+def isolated_live_stack(tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest):
+    """Launch one fully isolated live stack per test."""
+    yield from _stack_fixture(tmp_path_factory, request, mode="isolated")
+
+
+@pytest.fixture(scope="session")
+def live_stack(shared_live_stack):
+    """Compatibility alias for the shared-per-worker live stack."""
+    return shared_live_stack
+
+
+@pytest.fixture
+def client_factory(shared_live_stack):
+    """Return fresh clients bound to the worker-shared live stack.
+
+    This is the default fixture for workflow tests: each call creates a new
+    controller/agent pair, but all actors in the same test still talk to the
+    same live deployment.
+    """
+    return _client_factory(shared_live_stack)
+
+
+@pytest.fixture
+def isolated_client_factory(isolated_live_stack):
+    """Return fresh clients bound to a per-test isolated live stack.
+
+    Use this when the test is explicitly about stack isolation or fresh runtime
+    boundaries. Most business-workflow tests should stay on `client_factory`.
+    """
+    return _client_factory(isolated_live_stack)

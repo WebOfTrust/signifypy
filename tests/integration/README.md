@@ -20,6 +20,13 @@ To run this layer explicitly:
 ./venv/bin/python -m pytest --run-integration tests/integration
 ```
 
+Maintainer shortcuts:
+
+```bash
+make test-integration
+make test-integration-parallel
+```
+
 In CI, the same rule applies: the live layer should run from a dedicated
 workflow job, not from the default fast-test invocation.
 
@@ -65,10 +72,31 @@ The fixture uses those runtimes to launch:
 
 ## Isolation Model
 
-The live stack fixture points each spawned service at a pytest temp `HOME`
-directory. That isolates fallback `~/.keri` state per run, avoids mutating a
-developer's personal KERI state, and removes the need for destructive cleanup
-between normal reruns.
+The live harness now builds a runtime-generated stack topology instead of
+assuming fixed localhost ports.
+
+Every stack instance gets its own:
+
+- `HOME`
+- runtime root
+- config root
+- log root
+- loopback ports for witnesses, KERIA, and vLEI
+- derived witness and schema OOBIs
+
+This keeps parallel runs from colliding on the old fixed `3901/3902/3903`,
+`5642/5643/5644`, and `7723` layout.
+
+The fixture surface is now:
+
+- `shared_live_stack`: one stack per xdist worker session
+- `isolated_live_stack`: one stack per test function
+- `live_stack`: compatibility alias for `shared_live_stack`
+- `client_factory`: clients bound to the shared-per-worker stack
+- `isolated_client_factory`: clients bound to a per-test isolated stack
+
+The default model is still the shared stack, but tests that need stronger
+runtime/process separation can opt into the isolated fixture explicitly.
 
 The witness launcher also forces its local listeners onto `127.0.0.1` instead
 of all interfaces. That keeps the harness aligned with the loopback OOBIs and

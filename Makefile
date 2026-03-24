@@ -4,8 +4,11 @@ UV_CACHE = UV_CACHE_DIR=$(CURDIR)/.uv-cache
 INTEGRATION_POLL_INTERVAL ?= 0.1
 INTEGRATION_HEAVY_POLL_INTERVAL ?= 0.25
 INTEGRATION_PORT_POLL_INTERVAL ?= 0.1
+INTEGRATION_WORKERS ?= 2
+INTEGRATION_DIST ?= loadscope
+INTEGRATION_TARGETS ?= tests/integration
 
-.PHONY: help sync test test-fast test-ci test-integration test-integration-ci build release docs clean
+.PHONY: help sync test test-fast test-ci test-integration test-integration-ci test-integration-parallel test-integration-parallel-ci build release docs clean
 
 help: ## Show available maintainer tasks
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -25,13 +28,25 @@ test-integration: ## Run the live integration suite
 	@SIGNIFYPY_INTEGRATION_POLL_INTERVAL=$(INTEGRATION_POLL_INTERVAL) \
 		SIGNIFYPY_INTEGRATION_HEAVY_POLL_INTERVAL=$(INTEGRATION_HEAVY_POLL_INTERVAL) \
 		SIGNIFYPY_INTEGRATION_PORT_POLL_INTERVAL=$(INTEGRATION_PORT_POLL_INTERVAL) \
-		./venv/bin/python -m pytest -q --run-integration $(PYTEST_ARGS) tests/integration
+		./venv/bin/python -m pytest -q --run-integration $(PYTEST_ARGS) $(INTEGRATION_TARGETS)
 
 test-integration-ci: ## Run integration tests with CI-friendly per-test output
 	@SIGNIFYPY_INTEGRATION_POLL_INTERVAL=$(INTEGRATION_POLL_INTERVAL) \
 		SIGNIFYPY_INTEGRATION_HEAVY_POLL_INTERVAL=$(INTEGRATION_HEAVY_POLL_INTERVAL) \
 		SIGNIFYPY_INTEGRATION_PORT_POLL_INTERVAL=$(INTEGRATION_PORT_POLL_INTERVAL) \
-		./venv/bin/python -m pytest -vv --run-integration $(PYTEST_ARGS) tests/integration
+		./venv/bin/python -m pytest -vv --run-integration $(PYTEST_ARGS) $(INTEGRATION_TARGETS)
+
+test-integration-parallel: ## Run the live integration suite with a conservative xdist worker count
+	@SIGNIFYPY_INTEGRATION_POLL_INTERVAL=$(INTEGRATION_POLL_INTERVAL) \
+		SIGNIFYPY_INTEGRATION_HEAVY_POLL_INTERVAL=$(INTEGRATION_HEAVY_POLL_INTERVAL) \
+		SIGNIFYPY_INTEGRATION_PORT_POLL_INTERVAL=$(INTEGRATION_PORT_POLL_INTERVAL) \
+		./venv/bin/python -m pytest -q --run-integration -n $(INTEGRATION_WORKERS) --dist $(INTEGRATION_DIST) $(PYTEST_ARGS) $(INTEGRATION_TARGETS)
+
+test-integration-parallel-ci: ## Run integration tests in parallel with CI-friendly per-test output
+	@SIGNIFYPY_INTEGRATION_POLL_INTERVAL=$(INTEGRATION_POLL_INTERVAL) \
+		SIGNIFYPY_INTEGRATION_HEAVY_POLL_INTERVAL=$(INTEGRATION_HEAVY_POLL_INTERVAL) \
+		SIGNIFYPY_INTEGRATION_PORT_POLL_INTERVAL=$(INTEGRATION_PORT_POLL_INTERVAL) \
+		./venv/bin/python -m pytest -vv --run-integration -n $(INTEGRATION_WORKERS) --dist $(INTEGRATION_DIST) $(PYTEST_ARGS) $(INTEGRATION_TARGETS)
 
 build: ## Build source and wheel distributions
 	@$(UV_CACHE) $(UV) build
