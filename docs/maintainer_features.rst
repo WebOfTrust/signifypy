@@ -84,11 +84,11 @@ Feature Inventory
    * - Challenge requests
      - ``client.challenges()``
      - ``signify.app.challenging``
-     - Maintained for generate/respond/verify plus acceptance tracking.
+     - Maintained for TS-style challenge generation, response, verification, and acceptance tracking.
    * - Contact requests
      - ``client.contacts()``
      - ``signify.app.contacting``
-     - Maintained as a read surface for resolved contacts.
+     - Maintained for TS-style contact list/get/add/update/delete, with one explicit legacy range-list path.
    * - Credential requests
      - ``client.credentials()``, ``client.ipex()``
      - ``signify.app.credentialing``
@@ -244,14 +244,14 @@ Implementation:
 
 Routes:
 
-- ``GET /challenges``
+- ``GET /challenges?strength={n}``
 - ``POST /challenges_verify/{source}``
 - ``PUT /challenges_verify/{source}``
 - ``POST /identifiers/{name}/exchanges``
 
 Responsibilities:
 
-- Generate random challenge phrases.
+- Generate random challenge phrases with explicit entropy strength.
 - Send challenge responses through the peer exchange path.
 - Ask KERIA to verify a signed response from a source AID.
 - Mark accepted challenge responses as handled.
@@ -270,12 +270,19 @@ Implementation:
 Routes:
 
 - ``GET /contacts``
+- ``GET /contacts/{prefix}``
+- ``POST /contacts/{prefix}``
+- ``PUT /contacts/{prefix}``
+- ``DELETE /contacts/{prefix}``
 
 Responsibilities:
 
 - Return resolved contact records already known to the agent.
-- Provide the maintained read path used by the integration helper layer after
-  OOBI resolution and workflow choreography.
+- Support TS-style query/filter lookup through ``group``, ``filter_field``, and
+  ``filter_value``.
+- Support local metadata management for already-known remote contacts through
+  ``get``, ``add``, ``update``, and ``delete``.
+- Preserve one explicit legacy range-list path for older Python callers.
 
 Primary tests:
 
@@ -460,7 +467,9 @@ and ``signify.app.escrowing.Escrows``
 
 Routes:
 
+- ``GET /operations``
 - ``GET /operations/{name}``
+- ``DELETE /operations/{name}``
 - ``GET /notifications``
 - ``PUT /notifications/{nid}``
 - ``DELETE /notifications/{nid}``
@@ -468,11 +477,17 @@ Routes:
 
 Responsibilities:
 
-- Poll long-running operations started by identifier, registry, delegation, and
-  IPEX workflows.
+- Fetch, list, poll, and remove long-running operations started by identifier,
+  registry, delegation, and IPEX workflows.
+- Use ``Operations.wait(...)`` as the local convenience poller for completion,
+  dependency waits, timeout control, and optional caller-controlled
+  cancellation hooks.
 - Inspect and acknowledge notification side effects created by peer and
-  multisig messaging.
+  multisig messaging. ``Notifications.mark()`` is the primary TS-style name;
+  ``markAsRead()`` remains a compatibility alias.
 - Read escrowed reply state for troubleshooting and support tooling.
+  ``Escrows.listReply()`` is the primary TS-style name;
+  ``getEscrowReply()`` remains a compatibility alias.
 
 Primary tests:
 
@@ -491,7 +506,6 @@ Notable current gaps:
 
 - no dedicated ``schemas()`` resource wrapper yet
 - no dedicated ``config()`` resource wrapper yet
-- ``operations()`` is currently narrow and only exposes ``get()``
 
 When those surfaces are added, update this guide and the API reference in the
 same change so the published docs remain aligned with the actual maintained

@@ -30,6 +30,51 @@ def test_poll_until_retries_until_ready(monkeypatch):
     assert calls["count"] == 3
 
 
+def test_wait_for_operation_delegates_to_operations_wait(monkeypatch):
+    operation = {"name": "op-1", "done": False}
+    result = {"name": "op-1", "done": True}
+    captured = {}
+
+    class FakeOperations:
+        def wait(self, op, **kwargs):
+            captured["op"] = op
+            captured["kwargs"] = kwargs
+            return result
+
+    class FakeClient:
+        def operations(self):
+            return FakeOperations()
+
+    out = helpers.wait_for_operation(FakeClient(), operation, timeout=12.5)
+
+    assert out == result
+    assert captured["op"] == operation
+    assert captured["kwargs"]["timeout"] == 12.5
+    assert captured["kwargs"]["interval"] == helpers.POLL_INTERVAL
+    assert captured["kwargs"]["max_interval"] == helpers.POLL_INTERVAL
+    assert captured["kwargs"]["backoff"] == 1.0
+
+
+def test_wait_for_operation_timeout_surfaces_operations_wait_error():
+    operation = {"name": "op-2", "done": False}
+
+    class FakeOperations:
+        def wait(self, op, **kwargs):
+            raise TimeoutError(
+                "timed out waiting for operation op-2; "
+                "last_value={'name': 'op-2', 'done': False, 'stage': 'still waiting'}"
+            )
+
+    class FakeClient:
+        def operations(self):
+            return FakeOperations()
+
+    with pytest.raises(TimeoutError, match="timed out waiting for operation op-2") as excinfo:
+        helpers.wait_for_operation(FakeClient(), operation, timeout=1.0)
+
+    assert "still waiting" in str(excinfo.value)
+
+
 def test_wait_for_multisig_request_waits_for_stored_request(monkeypatch):
     monkeypatch.setattr(helpers.time, "sleep", lambda _: None)
 

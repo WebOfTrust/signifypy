@@ -219,12 +219,12 @@ def wait_for_operation(client: SignifyClient, operation: dict, *, timeout: float
     if operation["done"]:
         return operation
 
-    return poll_until(
-        lambda: client.operations().get(operation["name"]),
-        ready=lambda current: current["done"],
+    return client.operations().wait(
+        operation,
         timeout=timeout,
         interval=POLL_INTERVAL,
-        describe=f"operation {operation['name']}",
+        max_interval=POLL_INTERVAL,
+        backoff=1.0,
     )
 
 

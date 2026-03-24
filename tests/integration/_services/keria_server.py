@@ -5,8 +5,6 @@ from __future__ import annotations
 import argparse
 import signal
 
-from keria.app import agenting
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -19,6 +17,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    from keria.app import agenting
+
     config = agenting.KERIAServerConfig(
         name="keria",
         base="",
