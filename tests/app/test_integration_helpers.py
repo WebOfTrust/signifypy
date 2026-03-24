@@ -42,7 +42,7 @@ def test_wait_for_multisig_request_waits_for_stored_request(monkeypatch):
         def list(self):
             return {"notes": [note]}
 
-        def markAsRead(self, nid):
+        def mark(self, nid):
             self.marked.append(nid)
             return True
 
@@ -89,7 +89,7 @@ def test_wait_for_exchange_message_waits_for_retrievable_exchange(monkeypatch):
         def list(self):
             return {"notes": [note]}
 
-        def markAsRead(self, nid):
+        def mark(self, nid):
             self.marked.append(nid)
             return True
 
@@ -176,7 +176,7 @@ def test_wait_for_notification_marks_only_selected_note(monkeypatch):
         def list(self):
             return {"notes": notes}
 
-        def markAsRead(self, nid):
+        def mark(self, nid):
             self.marked.append(nid)
             return True
 

@@ -250,7 +250,7 @@ def wait_for_notification(
         describe=f"notification route {route}",
     )[-1]  # -1 for last, most recent notification
     if mark_read:
-        client.notifications().markAsRead(note["i"])
+        client.notifications().mark(note["i"])
     return note
 
 

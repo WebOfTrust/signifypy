@@ -10,7 +10,7 @@ class Escrows:
         """Create an escrow resource bound to one Signify client."""
         self.client = client
 
-    def getEscrowReply(self, route=None):
+    def listReply(self, route=None):
         """Return escrowed reply records, optionally filtered by route."""
         params = {}
         if route is not None:
@@ -18,3 +18,7 @@ class Escrows:
 
         res = self.client.get(f"/escrows/rpy", params=params)
         return res.json()
+
+    def getEscrowReply(self, route=None):
+        """Compatibility alias for :meth:`listReply`."""
+        return self.listReply(route=route)

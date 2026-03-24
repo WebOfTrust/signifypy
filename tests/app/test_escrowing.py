@@ -8,7 +8,28 @@ Testing escrowing with unit tests
 
 from mockito import mock, expect, unstub, verifyNoUnwantedInteractions
 
-def test_escrows_get_reply_by_route():
+def test_escrows_list_reply_by_route():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.app.escrowing import Escrows
+    escrows = Escrows(client=mock_client) # type: ignore
+
+    from requests import Response
+    mock_response = mock(spec=Response, strict=True)
+
+    expect(mock_client, times=1).get('/escrows/rpy', params={'route': '/my_route'}).thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn({'some': 'output'})
+
+    out = escrows.listReply(route='/my_route')
+
+    assert out == {'some': 'output'}
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_escrows_get_reply_alias():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
@@ -22,6 +43,27 @@ def test_escrows_get_reply_by_route():
     expect(mock_response, times=1).json().thenReturn({'some': 'output'})
 
     out = escrows.getEscrowReply(route='/my_route')
+
+    assert out == {'some': 'output'}
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_escrows_list_reply_without_route():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.app.escrowing import Escrows
+    escrows = Escrows(client=mock_client) # type: ignore
+
+    from requests import Response
+    mock_response = mock(spec=Response, strict=True)
+
+    expect(mock_client, times=1).get('/escrows/rpy', params={}).thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn({'some': 'output'})
+
+    out = escrows.listReply()
 
     assert out == {'some': 'output'}
 

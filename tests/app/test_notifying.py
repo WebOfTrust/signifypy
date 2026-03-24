@@ -31,7 +31,27 @@ def test_notification_list(make_mock_response):
     assert out['total'] == 20
     assert out['notes'] == ['note1', 'note2']
 
-def test_notification_mark_as_read(make_mock_response):
+def test_notification_mark(make_mock_response):
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.app.notifying import Notifications
+    notes = Notifications(client=mock_client) # type: ignore
+
+    mock_response = make_mock_response({'status_code': 202})
+    expect(mock_client, times=1).put('/notifications/ABC123', json={}).thenReturn(mock_response)
+
+    out = notes.mark(said="ABC123")
+    assert out is True
+
+    mock_response = make_mock_response({'status_code': 404})
+    expect(mock_client, times=1).put('/notifications/DEF456', json={}).thenReturn(mock_response)
+
+    out = notes.mark(said="DEF456")
+    assert out is False
+
+
+def test_notification_mark_as_read_alias(make_mock_response):
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
@@ -43,12 +63,6 @@ def test_notification_mark_as_read(make_mock_response):
 
     out = notes.markAsRead(nid="ABC123")
     assert out is True
-
-    mock_response = make_mock_response({'status_code': 404})
-    expect(mock_client, times=1).put('/notifications/DEF456', json={}).thenReturn(mock_response)
-
-    out = notes.markAsRead(nid="DEF456")
-    assert out is False
 
 def test_notification_delete(make_mock_response):
     from signify.app.clienting import SignifyClient
