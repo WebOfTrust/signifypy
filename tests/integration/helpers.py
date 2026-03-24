@@ -14,6 +14,7 @@ import secrets
 import string
 import time
 import json
+import os
 
 import requests
 from keri.app import signing as app_signing
@@ -34,6 +35,15 @@ from tests.integration.constants import (
 )
 
 WITNESS_OOBI_BY_AID = dict(zip(WITNESS_AIDS, WITNESS_OOBIS))
+
+# The live stack runs entirely on localhost, so polling every 500-1000ms is
+# more conservative than necessary for most long-running op and notification
+# waits. Keep the defaults tighter to reduce idle time across the suite, but
+# allow maintainers/CI to tune them back up if a slower environment needs it.
+POLL_INTERVAL = float(os.getenv("SIGNIFYPY_INTEGRATION_POLL_INTERVAL", "0.25"))
+HEAVY_POLL_INTERVAL = float(
+    os.getenv("SIGNIFYPY_INTEGRATION_HEAVY_POLL_INTERVAL", "0.5")
+)
 
 
 def random_passcode() -> str:
@@ -107,7 +117,7 @@ def wait_for_operation(client: SignifyClient, operation: dict, *, timeout: float
     while not current["done"]:
         if time.time() >= deadline:
             raise TimeoutError(f"timed out waiting for operation {current['name']}")
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
         current = client.operations().get(current["name"])
     return current
 
@@ -138,7 +148,7 @@ def wait_for_notification(
                 for note in notes:
                     client.notifications().markAsRead(note["i"])
             return notes[-1]
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
     raise TimeoutError(f"timed out waiting for notification route {route}")
 
 
@@ -163,7 +173,7 @@ def wait_for_any_notification(
                     for note in notes:
                         client.notifications().markAsRead(note["i"])
                 return client, notes[-1]
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
     raise TimeoutError(f"timed out waiting for notification route {route} on any client")
 
 
@@ -180,7 +190,7 @@ def wait_for_contact_alias(client: SignifyClient, contact_alias: str, *, timeout
         for contact in contacts:
             if contact.get("alias") == contact_alias:
                 return contact
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
     raise TimeoutError(f"timed out waiting for contact alias {contact_alias}")
 
 
@@ -197,7 +207,7 @@ def wait_for_credential(client: SignifyClient, said: str, *, timeout: float = 12
         for credential in credentials:
             if credential["sad"]["d"] == said:
                 return credential
-        time.sleep(1.0)
+        time.sleep(HEAVY_POLL_INTERVAL)
     raise TimeoutError(f"timed out waiting for credential {said}")
 
 
@@ -231,7 +241,7 @@ def wait_for_issued_credential(
         for credential in credentials:
             if credential["sad"]["d"] == said:
                 return credential
-        time.sleep(1.0)
+        time.sleep(HEAVY_POLL_INTERVAL)
     raise TimeoutError(
         f"timed out waiting for issued credential {said} from issuer {issuer_prefix}"
     )
@@ -255,15 +265,15 @@ def wait_for_credential_state(
             state = client.credentials().state(registry_said, credential_said)
         except HTTPError as err:
             last_error = str(err)
-            time.sleep(0.5)
+            time.sleep(POLL_INTERVAL)
             continue
 
         last_state = state
         if expected_et is not None and state.get("et") != expected_et:
-            time.sleep(0.5)
+            time.sleep(POLL_INTERVAL)
             continue
         if expected_sn is not None and state.get("s") != expected_sn:
-            time.sleep(0.5)
+            time.sleep(POLL_INTERVAL)
             continue
         return state
 
@@ -300,7 +310,7 @@ def wait_for_multisig_credential_state_convergence(
             state_b = client_b.credentials().state(registry_said, credential_said)
         except HTTPError as err:
             last_error = str(err)
-            time.sleep(0.5)
+            time.sleep(POLL_INTERVAL)
             continue
 
         last_state_a = state_a
@@ -311,7 +321,7 @@ def wait_for_multisig_credential_state_convergence(
             and normalized_state(state_a) == normalized_state(state_b)
         ):
             return state_a, state_b
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
 
     raise TimeoutError(
         "timed out waiting for multisig credential state convergence; "
@@ -351,7 +361,7 @@ def wait_for_multisig_registry_convergence(
             registry_b = client_b.registries().get(group_name, registry_name)
         except HTTPError as err:
             last_error = str(err)
-            time.sleep(0.5)
+            time.sleep(POLL_INTERVAL)
             continue
 
         last_registry_a = registry_a
@@ -361,7 +371,7 @@ def wait_for_multisig_registry_convergence(
             and normalized_state(registry_a) == normalized_state(registry_b)
         ):
             return registry_a, registry_b
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
 
     raise TimeoutError(
         "timed out waiting for multisig registry "
@@ -401,7 +411,7 @@ def wait_for_end_role(
         for end_role in get_end_roles(client, name, role=role):
             if end_role.get("role") == role and end_role.get("eid") == eid:
                 return end_role
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
     raise TimeoutError(f"timed out waiting for {role} end-role {eid} on {name}")
 
 
@@ -426,7 +436,7 @@ def wait_for_identifier_oobi(
             oobis = []
         if oobis:
             return oobis
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
     raise TimeoutError(f"timed out waiting for {role} OOBI on {name}")
 
 
@@ -901,7 +911,7 @@ def wait_for_group_agent_endroles(
         }
         if visible_eids == expected_eids:
             return end_roles
-        time.sleep(0.5)
+        time.sleep(POLL_INTERVAL)
     raise TimeoutError(
         f"timed out waiting for group agent end-roles {sorted(expected_eids)} on {group_name}"
     )
