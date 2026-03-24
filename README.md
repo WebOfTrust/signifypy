@@ -26,16 +26,22 @@ encoded strings for the initial implementation.  Support for binary CESR can be 
 
 ### Development
 
-```
-pip install pytest mockito
+Install [uv](https://docs.astral.sh/uv/) first, then sync the local environment:
+
+```bash
+make sync
 ```
 
-`pytest` to run tests.
+Run the fast test suite with:
+
+```bash
+make test
+```
 
 ### Packaging
 
 ```bash
-python3 setup.py sdist
+make build
 ```
 
 ### Installation
@@ -47,5 +53,14 @@ python3 setup.py sdist
 #### Local
 
 ```bash
-pip install -e .
+make sync
+```
+
+#### Local Editable Install In An Existing Python Environment
+
+If you already have a Python environment selected and want an editable install
+inside that environment, `uv` still supports that flow directly:
+
+```bash
+uv pip install -e .
 ```
