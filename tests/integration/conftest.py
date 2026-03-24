@@ -31,7 +31,6 @@ import json
 import os
 import socket
 import subprocess
-import time
 from pathlib import Path
 
 import pytest
@@ -43,6 +42,7 @@ from tests.integration.constants import (
     VLEI_SCHEMA_URL,
     WITNESS_CONFIG_IURLS,
 )
+from tests.integration.helpers import poll_until
 
 # The following directories are used when running each command or library in an
 # isolated virtualenv below.
@@ -217,8 +217,7 @@ def _wait_for_port(
     subprocesses. When a service exits before binding, surfacing the log tail
     here keeps later test failures from obscuring the real startup defect.
     """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    def _fetch() -> bool:
         if proc.poll() is not None:
             raise RuntimeError(
                 f"{name} exited early with code {proc.returncode}:\n"
@@ -227,14 +226,20 @@ def _wait_for_port(
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.settimeout(0.5)
-            if sock.connect_ex((host, port)) == 0:
-                return
-        time.sleep(PORT_POLL_INTERVAL)
+            return sock.connect_ex((host, port)) == 0
 
-    raise TimeoutError(
-        f"timed out waiting for {name} on {host}:{port}:\n"
-        f"{_read_log_tail(log_path)}"
-    )
+    try:
+        poll_until(
+            _fetch,
+            ready=bool,
+            timeout=timeout,
+            interval=PORT_POLL_INTERVAL,
+            describe=f"{name} on {host}:{port}",
+        )
+    except TimeoutError as err:
+        raise TimeoutError(
+            f"{err}\n{_read_log_tail(log_path)}"
+        ) from err
 
 
 @pytest.fixture(scope="session")
