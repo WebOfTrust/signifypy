@@ -291,6 +291,15 @@ def test_signify_client_states(data, expected_pidx):
     verifyNoUnwantedInteractions()
     unstub()
 
+def test_signify_client_state_wrapper(make_signify_client):
+    client = make_signify_client()
+    expect(client, times=1).states().thenReturn("state bundle")
+
+    assert client.state() == "state bundle"
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
 def test_signify_client_states_agent_error():
     from signify.core import authing
     from keri.core.coring import Tiers
@@ -341,6 +350,15 @@ def test_signify_client_save_old_salt(status_code, expected):
     verifyNoUnwantedInteractions()
     unstub()
 
+def test_signify_client_save_old_passcode(make_signify_client):
+    client = make_signify_client()
+    expect(client, times=1)._save_old_salt("salty").thenReturn(True)
+
+    assert client.saveOldPasscode("salty") is True
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
 @pytest.mark.parametrize("status_code,expected", [
     (200, False), 
     (204, True), 
@@ -366,6 +384,15 @@ def test_signify_client_delete_old_salt(status_code, expected):
     verifyNoUnwantedInteractions()
     unstub()
 
+def test_signify_client_delete_passcode(make_signify_client):
+    client = make_signify_client()
+    expect(client, times=1)._delete_old_salt().thenReturn(True)
+
+    assert client.deletePasscode() is True
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
 def test_signify_client_get():
     from signify.core import authing
     from keri.core.coring import Tiers
@@ -384,6 +411,30 @@ def test_signify_client_get():
     expect(mock_session).get('http://example.com/my_path', params={'a': 'param'}, headers={'a': 'header'}, json={'a': 'body'}).thenReturn(mock_response)
 
     out = client.get('my_path', params={'a': 'param'}, headers={'a': 'header'}, body={'a': 'body'})
+    assert out == mock_response
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_fetch_get(make_signify_client, make_mock_response):
+    client = make_signify_client()
+    mock_response = make_mock_response()
+    expect(client, times=1)._request("GET", "/contacts", headers={"a": "header"}, json=None).thenReturn(mock_response)
+
+    out = client.fetch("/contacts", "GET", {"ignored": True}, headers={"a": "header"})
+
+    assert out == mock_response
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_signify_client_fetch_post(make_signify_client, make_mock_response):
+    client = make_signify_client()
+    mock_response = make_mock_response()
+    expect(client, times=1)._request("POST", "/contacts", headers={"a": "header"}, json={"foo": "bar"}).thenReturn(mock_response)
+
+    out = client.fetch("/contacts", "POST", {"foo": "bar"}, headers={"a": "header"})
+
     assert out == mock_response
 
     verifyNoUnwantedInteractions()
@@ -711,6 +762,16 @@ def test_signify_client_schemas(make_signify_client):
     assert out.client == client
 
 
+def test_signify_client_config(make_signify_client):
+    client = make_signify_client()
+
+    out = client.config()
+
+    from signify.app.coring import Config
+    assert type(out) is Config
+    assert out.client == client
+
+
 def test_signify_client_exchanges(make_signify_client):
     client = make_signify_client()
 
@@ -719,6 +780,76 @@ def test_signify_client_exchanges(make_signify_client):
     from signify.app.exchanging import Exchanges
     assert type(out) is Exchanges
     assert out.client == client
+
+
+def test_signify_client_create_signed_request(mockHelpingNowIso8601):
+    import requests
+    from keri.app.keeping import Algos
+    from keri.core import eventing
+    from keri.end import ending
+    from signify.app.clienting import SignifyClient
+    from signify.core import keeping
+
+    client = SignifyClient(passcode='abcdefghijklmnop01234')
+    client.mgr = keeping.Manager(salter=client.ctrl.salter)
+
+    keeper = client.manager.new(Algos.salty, 0, bran='0123456789abcdefghijk')
+    keys, ndigs = keeper.incept(transferable=True)
+    signer = keeper.signers()[0]
+    serder = eventing.incept(keys=keys, isith='1', nsith='1', ndigs=ndigs, code='E', wits=[], toad='0', cnfg=[], data=[])
+    hab = {
+        'prefix': serder.pre,
+        'state': {'k': keys, 'n': ndigs},
+        'salty': keeper.params(),
+    }
+
+    mock_identifiers = mock(strict=True)
+    expect(client, times=1).identifiers().thenReturn(mock_identifiers)
+    expect(mock_identifiers, times=1).get('aid1').thenReturn(hab)
+
+    prepared = client.createSignedRequest(
+        'aid1',
+        'http://example.com/test',
+        {
+            'method': 'POST',
+            'headers': {'Content-Type': 'application/json'},
+            'body': '{"foo": true}',
+        },
+    )
+
+    assert isinstance(prepared, requests.PreparedRequest)
+    assert prepared.url == 'http://example.com/test'
+    assert prepared.method == 'POST'
+    assert prepared.body == '{"foo": true}'
+    assert prepared.headers['Signify-Resource'] == hab['prefix']
+    assert prepared.headers['Signify-Timestamp'] == '2021-06-27T21:26:21.233257+00:00'
+    assert 'Signature-Input' in prepared.headers
+    assert 'Signature' in prepared.headers
+    assert f'keyid="{signer.verfer.qb64}"' in prepared.headers['Signature-Input']
+    assert 'alg="ed25519"' in prepared.headers['Signature-Input']
+
+    inputage = ending.desiginput(prepared.headers['Signature-Input'].encode('utf-8'))[0]
+    items = []
+    for field in inputage.fields:
+        if field == '@method':
+            items.append(f'"{field}": {prepared.method}')
+        elif field == '@path':
+            items.append(f'"{field}": /test')
+        else:
+            items.append(f'"{field}": {ending.normalize(prepared.headers[field.upper()])}')
+
+    values = [f"({' '.join(inputage.fields)})", f"created={inputage.created}"]
+    if inputage.keyid is not None:
+        values.append(f"keyid={inputage.keyid}")
+    if inputage.alg is not None:
+        values.append(f"alg={inputage.alg}")
+    items.append(f'"@signature-params: {";".join(values)}"')
+
+    signature = ending.designature(prepared.headers['Signature'])[0].markers[inputage.name]
+    assert signer.verfer.verify(sig=signature.raw, ser="\n".join(items).encode("utf-8"))
+
+    unstub()
+    verifyNoUnwantedInteractions()
 
 
 @pytest.mark.parametrize("resp,err", [

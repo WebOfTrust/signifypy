@@ -44,8 +44,7 @@ class Identifiers:
 
     def rename(self, name, newName):
         """Rename an identifier alias without changing its underlying AID."""
-        res = self.client.put(f"/identifiers/{name}", json={"name": newName})
-        return res.json()
+        return self.update(name, {"name": newName})
 
     def create(self, name, transferable=True, isith="1", nsith="1", wits=None, toad="0", proxy=None, delpre=None,
                dcode=MtrDex.Blake3_256, data=None, algo=Algos.salty, estOnly=False, DnD=False, **kwargs):
@@ -116,8 +115,20 @@ class Identifiers:
         res = self.client.post("/identifiers", json=body)
         return serder, sigs, res.json()
 
-    def update(self, name, typ, **kwas):
-        """Dispatch an identifier update to either ``interact`` or ``rotate``."""
+    def update(self, name, info=None, typ=None, **kwas):
+        """Update identifier metadata or dispatch an interaction/rotation flow.
+
+        ``update(name, {"name": "new-alias"})`` is the TS-compatible rename
+        path. The older dispatcher mode remains supported through either
+        ``update(name, typ="interact", ...)`` or ``update(name, "interact", ...)``.
+        """
+        if isinstance(info, dict) and typ is None:
+            res = self.client.put(f"/identifiers/{name}", json=info)
+            return res.json()
+
+        if typ is None:
+            typ = info
+
         if typ == "interact":
             return self.interact(name, **kwas)
         elif typ == "rotate":
@@ -131,6 +142,12 @@ class Identifiers:
 
     def interact(self, name, data=None):
         """Create and submit a signed interaction event for an identifier."""
+        serder, sigs, body = self.createInteract(name, data=data)
+        res = self.client.post(f"/identifiers/{name}/events", json=body)
+        return serder, sigs, res.json()
+
+    def createInteract(self, name, data=None):
+        """Create the local interaction event payload without submitting it."""
         hab = self.get(name)
         pre = hab["prefix"]
 
@@ -148,9 +165,7 @@ class Identifiers:
             ixn=serder.ked,
             sigs=sigs)
         body[keeper.algo] = keeper.params()
-
-        res = self.client.post(f"/identifiers/{name}/events", json=body)
-        return serder, sigs, res.json()
+        return serder, sigs, body
 
     def rotate(self, name, *, transferable=True, nsith=None, toad=None, cuts=None, adds=None,
                data=None, ncode=MtrDex.Ed25519_Seed, ncount=1, ncodes=None, states=None, rstates=None):

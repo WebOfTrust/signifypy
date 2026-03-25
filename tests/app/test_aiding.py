@@ -214,6 +214,30 @@ def test_aiding_update_interact():
     unstub()
 
 
+def test_aiding_update_rename():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    mock_client.manager = mock_manager  # type: ignore
+
+    from signify.app.aiding import Identifiers
+    ids = Identifiers(client=mock_client)  # type: ignore
+
+    from requests import Response
+    mock_response = mock(spec=Response, strict=True)
+    expect(mock_client, times=1).put('/identifiers/aid1', json={'name': 'aid2'}).thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn({'name': 'aid2'})
+
+    out = ids.update('aid1', {'name': 'aid2'})
+
+    assert out == {'name': 'aid2'}
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
 def test_aiding_update_rotate():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
@@ -310,6 +334,43 @@ def test_aiding_interact_no_data():
     ids.interact(name='aid1')
 
     verify(ids).get('aid1')
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_aiding_create_interact_no_submit():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    mock_client.manager = mock_manager  # type: ignore
+
+    from signify.app.aiding import Identifiers
+    ids = Identifiers(client=mock_client)  # type: ignore
+
+    mock_hab = {'prefix': 'hab prefix', 'name': 'aid1', 'state': {'s': '0', 'd': 'hab digest'}}
+    expect(ids, times=1).get('aid1').thenReturn(mock_hab)
+
+    from keri.core import eventing, serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI,
+                       strict=True)
+    expect(eventing, times=1).interact('hab prefix', sn=1, data=[None], dig='hab digest').thenReturn(mock_serder)
+
+    mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=1).get(aid=mock_hab).thenReturn(mock_keeper)
+    expect(mock_keeper, times=1).sign(ser=mock_serder.raw).thenReturn(['a signature'])
+
+    serder, sigs, body = ids.createInteract(name='aid1')
+
+    assert serder == mock_serder
+    assert sigs == ['a signature']
+    assert body == {
+        'ixn': {'a': 'key event dictionary'},
+        'sigs': ['a signature'],
+        'salty': {'keeper': 'params'}
+    }
 
     verifyNoUnwantedInteractions()
     unstub()

@@ -61,6 +61,15 @@ def test_manual_agent_boot_and_connect(client_factory):
     assert client.session is not None
 
 
+def test_agent_config_read_path(client_factory):
+    """Prove the client exposes the stack-local `/config` read path after connect."""
+    client = client_factory()
+
+    config = client.config().get()
+
+    assert config == {"iurls": client._integration_live_stack["witness_config_iurls"]}
+
+
 def test_single_sig_identifier_lifecycle_smoke(client_factory):
     """Prove one plain single-sig identifier can be created, listed, and read back.
 
@@ -85,6 +94,25 @@ def test_single_sig_identifier_lifecycle_smoke(client_factory):
     assert hab["state"]["s"] == "0"
     assert hab["state"]["b"] == []
     assert fetched["prefix"] == hab["prefix"]
+
+
+def test_identifier_rename_update_compatibility(client_factory):
+    """Prove TS-style identifier rename works without dropping the Python wrappers."""
+    client = client_factory()
+    name = alias("rename")
+    renamed_name = alias("renamed")
+
+    hab = create_identifier(client, name, wits=[], add_end_role=False)
+    renamed = client.identifiers().update(name, {"name": renamed_name})
+    fetched = client.identifiers().get(renamed_name)
+    identifiers = client.identifiers().list()
+    names = {aid["name"] for aid in identifiers["aids"]}
+
+    assert hab["name"] == name
+    assert renamed["name"] == renamed_name
+    assert fetched["name"] == renamed_name
+    assert fetched["prefix"] == hab["prefix"]
+    assert renamed_name in names
 
 
 def test_schema_oobi_resolution_smoke(client_factory):
