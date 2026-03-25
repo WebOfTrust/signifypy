@@ -8,7 +8,7 @@ INTEGRATION_WORKERS ?= 2
 INTEGRATION_DIST ?= loadscope
 INTEGRATION_TARGETS ?= tests/integration
 
-.PHONY: help sync test test-fast test-ci test-integration test-integration-ci test-integration-parallel test-integration-parallel-ci build release docs clean
+.PHONY: help sync test test-fast test-ci test-integration test-integration-ci test-integration-parallel test-integration-parallel-ci build dist-check release-patch release-minor release-major release-bump docs clean guard-clean-worktree
 
 help: ## Show available maintainer tasks
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -51,11 +51,37 @@ test-integration-parallel-ci: ## Run integration tests in parallel with CI-frien
 build: ## Build source and wheel distributions
 	@$(UV_CACHE) $(UV) build
 
-release: clean build ## Build release artifacts and validate them with twine
+dist-check: clean build ## Build release artifacts and validate them with twine
 	@$(UV_CACHE) $(UV_ENV) $(UV) run --with twine twine check dist/*
+
+release-patch: ## Prepare and commit a patch release
+	@$(MAKE) release-bump BUMP=patch
+
+release-minor: ## Prepare and commit a minor release
+	@$(MAKE) release-bump BUMP=minor
+
+release-major: ## Prepare and commit a major release
+	@$(MAKE) release-bump BUMP=major
+
+release-bump: guard-clean-worktree
+	@VERSION_BEFORE=$$($(UV_CACHE) $(UV_ENV) $(UV) run python -c "import tomllib; from pathlib import Path; print(tomllib.load(Path('pyproject.toml').open('rb'))['project']['version'])"); \
+	$(UV) version --bump $(BUMP); \
+	VERSION_AFTER=$$($(UV_CACHE) $(UV_ENV) $(UV) run python -c "import tomllib; from pathlib import Path; print(tomllib.load(Path('pyproject.toml').open('rb'))['project']['version'])"); \
+	echo "Preparing release $$VERSION_AFTER from $$VERSION_BEFORE"; \
+	$(UV_CACHE) $(UV) lock; \
+	$(UV_CACHE) $(UV_ENV) $(UV) run --group dev towncrier build --yes --version "$$VERSION_AFTER"; \
+	git add -A pyproject.toml uv.lock docs/changelog.md newsfragments src/signify/__init__.py; \
+	git commit -m "chore(release): $$VERSION_AFTER"
 
 docs: ## Build the Sphinx documentation
 	@./venv/bin/python -m sphinx -b html docs docs/_build/html
+
+guard-clean-worktree:
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Release preparation requires a clean git worktree."; \
+		git status --short; \
+		exit 1; \
+	fi
 
 clean: ## Remove build, docs, and test artifacts
 	@rm -rf build dist docs/_build .pytest_cache .ruff_cache .uv-cache src/signifypy.egg-info

@@ -9,5 +9,7 @@ This documentation set serves two audiences:
 - contributors who need the generated API reference for the underlying modules
 
 Start with :doc:`maintainer_features` for the current request families, route
-ownership, workflow notes, and test coverage. Then use the API reference pages
-to drill down into the implementation modules.
+ownership, workflow notes, and test coverage. Use :doc:`releasing` for the
+maintained PyPI release workflow and :doc:`changelog` for versioned release
+notes. Then use the API reference pages to drill down into the implementation
+modules.

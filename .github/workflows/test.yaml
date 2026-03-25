@@ -4,6 +4,8 @@ on:
     branches:
       - 'main'
       - 'development'
+    tags:
+      - '*'
   pull_request:
   workflow_dispatch:
 
