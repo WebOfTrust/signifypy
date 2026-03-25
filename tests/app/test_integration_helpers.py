@@ -147,7 +147,7 @@ def test_wait_for_exchange_message_waits_for_retrievable_exchange(monkeypatch):
             self.calls += 1
             if self.calls == 1:
                 raise HTTPError("exchange not ready")
-            return {"exn": {"r": "/multisig/exn", "a": {}}}
+            return {"exn": {"r": "/multisig/exn", "a": {}, "e": {"exn": {"r": "/ipex/grant"}}}}
 
     notifications = FakeNotifications()
     exchanges = FakeExchanges()
@@ -167,6 +167,54 @@ def test_wait_for_exchange_message_waits_for_retrievable_exchange(monkeypatch):
     assert exchange["exn"]["r"] == "/multisig/exn"
     assert notifications.marked == ["note-2"]
     assert exchanges.calls == 2
+
+
+def test_wait_for_exchange_message_selects_matching_embedded_route(monkeypatch):
+    monkeypatch.setattr(helpers.time, "sleep", lambda _: None)
+
+    notes = [
+        {"i": "note-2b", "a": {"r": "/multisig/exn", "d": "said-2b"}, "r": False},
+        {"i": "note-2c", "a": {"r": "/multisig/exn", "d": "said-2c"}, "r": False},
+    ]
+
+    class FakeNotifications:
+        def __init__(self):
+            self.marked = []
+
+        def list(self):
+            return {"notes": notes}
+
+        def mark(self, nid):
+            self.marked.append(nid)
+            return True
+
+    class FakeExchanges:
+        def get(self, said):
+            if said == "said-2b":
+                return {"exn": {"r": "/multisig/exn", "a": {}, "e": {"exn": {"r": "/ipex/admit"}}}}
+            assert said == "said-2c"
+            return {"exn": {"r": "/multisig/exn", "a": {}, "e": {"exn": {"r": "/ipex/grant"}}}}
+
+    notifications = FakeNotifications()
+    exchanges = FakeExchanges()
+
+    class FakeClient:
+        def notifications(self):
+            return notifications
+
+        def exchanges(self):
+            return exchanges
+
+    returned_note, exchange = helpers.wait_for_exchange_message(
+        FakeClient(),
+        "/multisig/exn",
+        embedded_route="/ipex/grant",
+        timeout=1.0,
+    )
+
+    assert returned_note["i"] == "note-2c"
+    assert exchange["exn"]["e"]["exn"]["r"] == "/ipex/grant"
+    assert notifications.marked == ["note-2c"]
 
 
 def test_wait_for_contact_challenge_state_waits_for_authenticated_challenge(monkeypatch):
@@ -235,3 +283,291 @@ def test_wait_for_notification_marks_only_selected_note(monkeypatch):
 
     assert note["i"] == "note-4"
     assert notifications.marked == ["note-4"]
+
+
+def test_wait_for_notification_any_returns_first_available_client_note(monkeypatch):
+    monkeypatch.setattr(helpers.time, "sleep", lambda _: None)
+
+    class FakeNotifications:
+        def __init__(self, notes):
+            self.notes = notes
+            self.marked = []
+
+        def list(self):
+            return {"notes": self.notes}
+
+        def mark(self, nid):
+            self.marked.append(nid)
+            return True
+
+    notifications_a = FakeNotifications(
+        [{"i": "note-a", "a": {"r": "/multisig/iss", "d": "ignored"}, "r": False}]
+    )
+    notifications_b = FakeNotifications(
+        [{"i": "note-b", "a": {"r": "/exn/ipex/grant", "d": "grant-said"}, "r": False}]
+    )
+
+    class FakeClient:
+        def __init__(self, notifications):
+            self._notifications = notifications
+
+        def notifications(self):
+            return self._notifications
+
+    index, note = helpers.wait_for_notification_any(
+        [FakeClient(notifications_a), FakeClient(notifications_b)],
+        "/exn/ipex/grant",
+        timeout=1.0,
+    )
+
+    assert index == 1
+    assert note["i"] == "note-b"
+    assert notifications_a.marked == []
+    assert notifications_b.marked == ["note-b"]
+
+
+def test_wait_for_exchange_waits_for_retrievable_exchange(monkeypatch):
+    monkeypatch.setattr(helpers.time, "sleep", lambda _: None)
+
+    class FakeExchanges:
+        def __init__(self):
+            self.calls = 0
+
+        def get(self, said):
+            assert said == "said-2"
+            self.calls += 1
+            if self.calls == 1:
+                raise HTTPError("exchange not ready")
+            return {"exn": {"r": "/multisig/exn", "a": {}}}
+
+    exchanges = FakeExchanges()
+
+    class FakeClient:
+        def exchanges(self):
+            return exchanges
+
+    exchange = helpers.wait_for_exchange(
+        FakeClient(),
+        "said-2",
+        expected_route="/multisig/exn",
+        timeout=1.0,
+    )
+
+    assert exchange["exn"]["r"] == "/multisig/exn"
+    assert exchanges.calls == 2
+
+
+def test_send_multisig_credential_grant_returns_raw_operation_and_mirrors_peer_message(
+    monkeypatch,
+):
+    captured_wait = {}
+
+    def fake_wait_for_exchange_message(*args, **kwargs):
+        captured_wait["kwargs"] = kwargs
+        return "note", "exchange"
+
+    monkeypatch.setattr(helpers, "wait_for_exchange_message", fake_wait_for_exchange_message)
+    monkeypatch.setattr(
+        helpers.app_signing,
+        "serialize",
+        lambda *args, **kwargs: b"serialized-acdc",
+    )
+    messagize_calls = []
+
+    def fake_messagize(**kwargs):
+        messagize_calls.append(kwargs)
+        return bytearray(b"msg")
+
+    monkeypatch.setattr(helpers.eventing, "messagize", fake_messagize)
+    monkeypatch.setattr(helpers.eventing, "SealEvent", lambda **kwargs: kwargs)
+    monkeypatch.setattr(helpers.csigning, "Siger", lambda qb64: qb64)
+    monkeypatch.setattr(helpers.coring, "Prefixer", lambda qb64: qb64)
+    monkeypatch.setattr(helpers.coring, "Seqner", lambda sn: sn)
+    monkeypatch.setattr(helpers.coring, "Saider", lambda qb64: qb64)
+    fresh_state = {"ee": {"s": "2", "d": "fresh-digest"}}
+    query_calls = []
+
+    monkeypatch.setattr(
+        helpers,
+        "query_key_state",
+        lambda *args, **kwargs: query_calls.append((args, kwargs)) or fresh_state,
+    )
+    monkeypatch.setattr(
+        helpers,
+        "wait_for_operation",
+        lambda *args, **kwargs: pytest.fail("helper should not wait internally"),
+    )
+
+    raw_operation = {"done": False, "name": "grant-op"}
+    captured = {}
+
+    class FakeIdentifiers:
+        def get(self, name):
+            mapping = {
+                "member-a": {"prefix": "member-prefix"},
+                "group": {
+                    "prefix": "group-prefix",
+                    "state": {"ee": {"s": "1", "d": "stale-digest"}},
+                },
+            }
+            return mapping[name]
+
+    class FakeIpex:
+        def grant(self, *args, **kwargs):
+            captured["grant"] = {"args": args, "kwargs": kwargs}
+            return {"d": "grant-said"}, ["sig-1"], "grant-atc"
+
+        def submitGrant(self, name, **kwargs):
+            captured["submitGrant"] = {"name": name, **kwargs}
+            return raw_operation
+
+    class FakeRegistries:
+        def serialize(self, iserder, anc):
+            captured["serialize"] = {"iserder": iserder, "anc": anc}
+            return b"serialized-iss"
+
+    class FakeExchanges:
+        def send(self, name, topic, **kwargs):
+            captured["send"] = {"name": name, "topic": topic, **kwargs}
+            return {"done": False, "name": "peer-exn-op"}
+
+    class FakeClient:
+        def identifiers(self):
+            return FakeIdentifiers()
+
+        def ipex(self):
+            return FakeIpex()
+
+        def registries(self):
+            return FakeRegistries()
+
+        def exchanges(self):
+            return FakeExchanges()
+
+    class FakeIserder:
+        pre = "issuer-prefix"
+        sn = 0
+        said = "iss-said"
+
+    class FakeAnc:
+        raw = b"anc-raw"
+
+    timestamp = "2026-03-24T12:00:00.000000+00:00"
+    client = FakeClient()
+    result = helpers.send_multisig_credential_grant(
+        client,
+        local_member_name="member-a",
+        group_name="group",
+        other_member_prefixes=["member-b-prefix"],
+        recipient="holder-group-prefix",
+        creder={"d": "cred-said"},
+        iserder=FakeIserder(),
+        anc=FakeAnc(),
+        sigs=["sig-anc"],
+        timestamp=timestamp,
+        is_initiator=False,
+    )
+
+    assert result == raw_operation
+    assert captured_wait["kwargs"]["embedded_route"] == "/ipex/grant"
+    assert len(query_calls) == 1
+    assert query_calls[0][0][0] is client
+    assert query_calls[0][0][1] == "group-prefix"
+    assert captured["grant"]["kwargs"]["dt"] == timestamp
+    assert captured["grant"]["args"][0]["state"] == fresh_state
+    assert captured["submitGrant"]["name"] == "group"
+    assert captured["submitGrant"]["recp"] == ["holder-group-prefix"]
+    assert any(call.get("seal") == {"i": "group-prefix", "s": "2", "d": "fresh-digest"} for call in messagize_calls)
+    assert captured["send"]["name"] == "member-a"
+    assert captured["send"]["topic"] == "multisig"
+    assert captured["send"]["route"] == "/multisig/exn"
+    assert captured["send"]["recipients"] == ["member-b-prefix"]
+
+
+def test_submit_multisig_admit_returns_raw_operation_and_mirrors_peer_message(monkeypatch):
+    messagize_calls = []
+
+    def fake_messagize(**kwargs):
+        messagize_calls.append(kwargs)
+        return bytearray(b"msg")
+
+    monkeypatch.setattr(helpers.eventing, "messagize", fake_messagize)
+    monkeypatch.setattr(helpers.eventing, "SealEvent", lambda **kwargs: kwargs)
+    monkeypatch.setattr(helpers.csigning, "Siger", lambda qb64: qb64)
+    fresh_state = {"ee": {"s": "2", "d": "fresh-digest"}}
+    query_calls = []
+
+    monkeypatch.setattr(
+        helpers,
+        "query_key_state",
+        lambda *args, **kwargs: query_calls.append((args, kwargs)) or fresh_state,
+    )
+    monkeypatch.setattr(
+        helpers,
+        "wait_for_operation",
+        lambda *args, **kwargs: pytest.fail("helper should not wait internally"),
+    )
+
+    raw_operation = {"done": False, "name": "admit-op"}
+    captured = {}
+
+    class FakeIdentifiers:
+        def get(self, name):
+            mapping = {
+                "member-a": {"prefix": "member-prefix"},
+                "group": {
+                    "prefix": "group-prefix",
+                    "state": {"ee": {"s": "1", "d": "stale-digest"}},
+                },
+            }
+            return mapping[name]
+
+    class FakeIpex:
+        def admit(self, *args, **kwargs):
+            captured["admit"] = {"args": args, "kwargs": kwargs}
+            return {"d": "admit-said"}, ["sig-1"], "admit-atc"
+
+        def submitAdmit(self, name, **kwargs):
+            captured["submitAdmit"] = {"name": name, **kwargs}
+            return raw_operation
+
+    class FakeExchanges:
+        def send(self, name, topic, **kwargs):
+            captured["send"] = {"name": name, "topic": topic, **kwargs}
+            return {"done": False, "name": "peer-exn-op"}
+
+    class FakeClient:
+        def identifiers(self):
+            return FakeIdentifiers()
+
+        def ipex(self):
+            return FakeIpex()
+
+        def exchanges(self):
+            return FakeExchanges()
+
+    timestamp = "2026-03-24T12:00:00.000000+00:00"
+    client = FakeClient()
+    result = helpers.submit_multisig_admit(
+        client,
+        local_member_name="member-a",
+        group_name="group",
+        other_member_prefixes=["member-b-prefix"],
+        issuer_prefix="issuer-group-prefix",
+        grant_said="grant-note-said",
+        timestamp=timestamp,
+    )
+
+    assert result == raw_operation
+    assert len(query_calls) == 1
+    assert query_calls[0][0][0] is client
+    assert query_calls[0][0][1] == "group-prefix"
+    assert captured["admit"]["args"][0]["state"] == fresh_state
+    assert captured["admit"]["args"][4] == timestamp
+    assert captured["submitAdmit"]["name"] == "group"
+    assert captured["submitAdmit"]["recp"] == ["issuer-group-prefix"]
+    assert any(call.get("seal") == {"i": "group-prefix", "s": "2", "d": "fresh-digest"} for call in messagize_calls)
+    assert captured["send"]["name"] == "member-a"
+    assert captured["send"]["topic"] == "multisig"
+    assert captured["send"]["route"] == "/multisig/exn"
+    assert captured["send"]["recipients"] == ["member-b-prefix"]

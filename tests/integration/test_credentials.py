@@ -1,4 +1,10 @@
-"""Live credential presentation coverage for the single-sig grant/admit path."""
+"""Live single-sig credential and IPEX workflow coverage.
+
+These tests are intentionally written as end-to-end protocol narratives rather
+than tiny isolated assertions. The important maintainer question here is not
+just "did one method return?" but "did the full issuance, exchange, and
+storage workflow converge in the same shape SignifyTS and KERIA expect?"
+"""
 
 from __future__ import annotations
 
@@ -178,6 +184,184 @@ def test_credential_presentation_grant_admit(client_factory):
     assert exported
 
 
+def test_ipex_apply_offer_agree_grant_admit(client_factory):
+    """Prove the full single-sig IPEX conversation path, not just presentation.
+
+    This is the missing early-conversation parity slice relative to SignifyTS:
+    a verifier applies, the holder offers, the verifier agrees, the holder
+    grants, and the verifier admits and stores the credential.
+
+    Mental model:
+    - issuer -> holder bootstraps a real stored credential
+    - verifier -> holder starts a request conversation for that credential
+    - each later message points back to the prior message SAID
+    - only the final admit should cause the verifier to store the credential
+    """
+    issuer_client = client_factory()
+    holder_client = client_factory()
+    verifier_client = client_factory()
+    issuer_name = alias("issuer")
+    holder_name = alias("holder")
+    verifier_name = alias("verifier")
+    registry_name = alias("registry")
+
+    issuer = create_identifier(issuer_client, issuer_name, wits=TEST_WITNESS_AIDS)
+    holder = create_identifier(holder_client, holder_name, wits=TEST_WITNESS_AIDS)
+    verifier = create_identifier(verifier_client, verifier_name, wits=TEST_WITNESS_AIDS)
+
+    exchange_agent_oobis(issuer_client, issuer_name, holder_client, holder_name)
+    exchange_agent_oobis(holder_client, holder_name, verifier_client, verifier_name)
+    resolve_schema_oobi(issuer_client, QVI_SCHEMA_SAID)
+    resolve_schema_oobi(holder_client, QVI_SCHEMA_SAID)
+    resolve_schema_oobi(verifier_client, QVI_SCHEMA_SAID)
+
+    # Stage 1: bootstrap a real credential onto the holder so the later offer
+    # can reference a stored credential instead of a synthetic payload.
+    create_registry(issuer_client, issuer_name, registry_name)
+    creder, iserder, anc, sigs = issue_credential(
+        issuer_client,
+        issuer_name=issuer_name,
+        registry_name=registry_name,
+        recipient=holder["prefix"],
+        data={"LEI": "5493001KJTIIGC8Y1R17"},
+    )
+    send_credential_grant(
+        issuer_client,
+        issuer_name=issuer_name,
+        recipient=holder["prefix"],
+        creder=creder,
+        iserder=iserder,
+        anc=anc,
+        sigs=sigs,
+    )
+
+    initial_grant_note = wait_for_notification(holder_client, "/exn/ipex/grant")
+    submit_admit(
+        holder_client,
+        holder_name=holder_name,
+        issuer_prefix=issuer["prefix"],
+        notification=initial_grant_note,
+    )
+    wait_for_notification(issuer_client, "/exn/ipex/admit")
+    wait_for_credential(holder_client, creder.said)
+
+    # Stage 2: verifier asks the holder for a credential matching the target
+    # schema plus subject attributes.
+    apply, apply_sigs, _ = verifier_client.ipex().apply(
+        verifier_name,
+        holder["prefix"],
+        QVI_SCHEMA_SAID,
+        attributes={"LEI": "5493001KJTIIGC8Y1R17"},
+        dt="2026-03-25T00:00:00.000000+00:00",
+    )
+    wait_for_operation(
+        verifier_client,
+        verifier_client.ipex().submitApply(verifier_name, apply, apply_sigs, [holder["prefix"]]),
+    )
+
+    holder_apply_note = wait_for_notification(holder_client, "/exn/ipex/apply")
+    apply_exchange = holder_client.exchanges().get(holder_apply_note["a"]["d"])
+    apply_said = apply_exchange["exn"]["d"]
+
+    filter_kwargs = {"-s": apply_exchange["exn"]["a"]["s"]}
+    for key, value in apply_exchange["exn"]["a"]["a"].items():
+        filter_kwargs[f"-a-{key}"] = value
+    matching_credentials = holder_client.credentials().list(filter=filter_kwargs)
+
+    assert len(matching_credentials) == 1
+    assert matching_credentials[0]["sad"]["d"] == creder.said
+
+    # Stage 3: holder answers the request with an offer that references the
+    # stored credential and points back to the apply SAID.
+    offer, offer_sigs, offer_atc = holder_client.ipex().offer(
+        holder_name,
+        verifier["prefix"],
+        matching_credentials[0]["sad"],
+        applySaid=apply_said,
+        dt="2026-03-25T00:00:01.000000+00:00",
+    )
+    wait_for_operation(
+        holder_client,
+        holder_client.ipex().submitOffer(holder_name, offer, offer_sigs, offer_atc, [verifier["prefix"]]),
+    )
+
+    verifier_offer_note = wait_for_notification(verifier_client, "/exn/ipex/offer")
+    offer_exchange = verifier_client.exchanges().get(verifier_offer_note["a"]["d"])
+    offer_said = offer_exchange["exn"]["d"]
+
+    assert offer_exchange["exn"]["p"] == apply_said
+    assert offer_exchange["exn"]["e"]["acdc"]["a"]["LEI"] == "5493001KJTIIGC8Y1R17"
+
+    # Stage 4: verifier explicitly agrees to the offered credential before the
+    # holder is allowed to grant it.
+    agree, agree_sigs, _ = verifier_client.ipex().agree(
+        verifier_name,
+        holder["prefix"],
+        offer_said,
+        dt="2026-03-25T00:00:02.000000+00:00",
+    )
+    wait_for_operation(
+        verifier_client,
+        verifier_client.ipex().submitAgree(verifier_name, agree, agree_sigs, [holder["prefix"]]),
+    )
+
+    holder_agree_note = wait_for_notification(holder_client, "/exn/ipex/agree")
+    agree_exchange = holder_client.exchanges().get(holder_agree_note["a"]["d"])
+    agree_said = agree_exchange["exn"]["d"]
+
+    assert agree_exchange["exn"]["p"] == offer_said
+
+    # Stage 5: holder grants the concrete credential artifacts and chains that
+    # grant back to the agree SAID.
+    holder_stored = holder_client.credentials().get(creder.said)
+    grant, grant_sigs, grant_atc = holder_client.ipex().grant(
+        name=holder_name,
+        recipient=verifier["prefix"],
+        acdc=holder_stored["sad"],
+        iss=holder_stored["iss"],
+        anc=holder_stored["anc"],
+        acdcAttachment=holder_stored.get("atc"),
+        issAttachment=holder_stored.get("issatc"),
+        ancAttachment=holder_stored.get("ancatc"),
+        agreeSaid=agree_said,
+        dt="2026-03-25T00:00:03.000000+00:00",
+    )
+    wait_for_operation(
+        holder_client,
+        holder_client.ipex().submitGrant(holder_name, grant, grant_sigs, grant_atc, [verifier["prefix"]]),
+    )
+
+    verifier_grant_note = wait_for_notification(verifier_client, "/exn/ipex/grant")
+    verifier_grant = verifier_client.exchanges().get(verifier_grant_note["a"]["d"])
+    assert verifier_grant["exn"]["p"] == agree_said
+
+    # Stage 6: verifier admits the grant, which is the protocol step that
+    # should result in a stored credential on the verifier side.
+    admit, admit_sigs, admit_atc = verifier_client.ipex().admit(
+        name=verifier_name,
+        recipient=holder["prefix"],
+        grantSaid=verifier_grant_note["a"]["d"],
+        dt="2026-03-25T00:00:04.000000+00:00",
+    )
+    wait_for_operation(
+        verifier_client,
+        verifier_client.ipex().submitAdmit(verifier_name, admit, admit_sigs, admit_atc, [holder["prefix"]]),
+    )
+    wait_for_notification(holder_client, "/exn/ipex/admit")
+
+    verifier_received = wait_for_credential(verifier_client, creder.said)
+    verifier_fetched = verifier_client.credentials().get(creder.said)
+    verifier_exported = verifier_client.credentials().export(creder.said)
+    verifier_filtered = verifier_client.credentials().list(filter={"-a-i": holder["prefix"]})
+
+    assert verifier_received["sad"]["d"] == creder.said
+    assert verifier_received["sad"]["a"]["i"] == holder["prefix"]
+    assert verifier_received["sad"]["i"] == issuer["prefix"]
+    assert verifier_fetched["sad"]["d"] == creder.said
+    assert any(credential["sad"]["d"] == creder.said for credential in verifier_filtered)
+    assert verifier_exported
+
+
 def test_holder_credential_delete_readback(client_factory):
     """Prove local credential deletion removes both JSON and CESR read paths.
 
@@ -250,6 +434,13 @@ def test_chained_credential_issue_with_rules_and_edges(client_factory):
     SignifyTS locks down more than the simplest QVI issuance: later credential
     families depend on `issue(...)` carrying source edges and rules cleanly
     enough that the recipient can read back chain material after IPEX.
+
+    Workflow summary:
+    - issuer issues a QVI credential to holder
+    - holder receives it through grant/admit
+    - holder then acts as issuer for a legal-entity credential
+    - the legal-entity credential must carry both rules and a source edge back
+      to the received QVI credential
     """
     issuer_client = client_factory()
     holder_client = client_factory()
@@ -281,6 +472,8 @@ def test_chained_credential_issue_with_rules_and_edges(client_factory):
         alias="legal-entity-schema",
     )
 
+    # Stage 1: bootstrap the parent QVI credential that later source edges
+    # should reference.
     create_registry(issuer_client, issuer_name, issuer_registry_name)
     qvi_creder, qvi_iss, qvi_anc, qvi_sigs = issue_credential(
         issuer_client,
@@ -308,6 +501,8 @@ def test_chained_credential_issue_with_rules_and_edges(client_factory):
     wait_for_notification(issuer_client, "/exn/ipex/admit")
     qvi_credential = wait_for_credential(holder_client, qvi_creder.said)
 
+    # Stage 2: issuer of the downstream credential creates its own registry and
+    # builds the explicit rules and source-edge material.
     create_registry(holder_client, holder_name, holder_registry_name)
 
     rules = coring.Saider.saidify(
@@ -331,6 +526,8 @@ def test_chained_credential_issue_with_rules_and_edges(client_factory):
         }
     )[1]
 
+    # Stage 3: issue the chained legal-entity credential and transport it
+    # through the same single-sig grant/admit path.
     le_issue = holder_client.credentials().issue(
         holder_name,
         holder_registry_name,

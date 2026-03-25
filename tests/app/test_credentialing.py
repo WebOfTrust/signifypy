@@ -652,9 +652,9 @@ def test_ipex_grant():
 
     dt = "2023-09-25T16:01:37.000000+00:00"
     mock_hab = {'prefix': 'a_prefix', 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
-    mock_acdc = {}
-    mock_iss = {}
-    mock_anc = {}
+    mock_acdc = b"ACDC"
+    mock_iss = b"ISS"
+    mock_anc = b"ANC"
     mock_agree = mock({'said': 'EAGREE123'}, strict=True)
     mock_grant = {}
     mock_gsigs = []
@@ -663,9 +663,10 @@ def test_ipex_grant():
     expect(mock_excs).createExchangeMessage(sender=mock_hab, route="/ipex/grant",
                                             payload={'m': 'this is a test',
                                                      'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose'},
-                                            embeds={'acdc': {}, 'iss': {}, 'anc': {}},
+                                            embeds={'acdc': b'ACDC', 'iss': b'ISS', 'anc': b'ANC'},
                                             recipient='ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
                                             dt=dt,
+                                            datetime=None,
                                             dig='EAGREE123').thenReturn((mock_grant, mock_gsigs, mock_atc))
 
     ipex = credentialing.Ipex(mock_client)
@@ -676,6 +677,231 @@ def test_ipex_grant():
 
     assert grant == mock_grant
     assert gsigs == mock_gsigs
+    assert atc == mock_atc
+
+
+def test_ipex_apply():
+    from signify.app.clienting import SignifyClient
+    from signify.app.aiding import Identifiers
+    from signify.app.exchanging import Exchanges
+
+    mock_client = mock(spec=SignifyClient, strict=True)
+    mock_ids = mock(spec=Identifiers, strict=True)
+    mock_excs = mock(spec=Exchanges, strict=True)
+
+    dt = "2023-09-25T16:01:37.000000+00:00"
+    mock_hab = {"prefix": "a_prefix", "name": "aid1", "state": {"s": "1", "d": "ABCDEFG"}}
+    mock_apply = {}
+    mock_sigs = []
+    mock_atc = ""
+
+    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
+    expect(mock_ids, times=1).get("aid1").thenReturn(mock_hab)
+    expect(mock_client, times=1).exchanges().thenReturn(mock_excs)
+    expect(mock_excs, times=1).createExchangeMessage(
+        sender=mock_hab,
+        route="/ipex/apply",
+        payload={"m": "please share", "s": "ESCHEMA", "a": {"LEI": "5493001KJTIIGC8Y1R17"}},
+        embeds={},
+        recipient="ERECIPIENT",
+        dt=dt,
+        datetime=None,
+    ).thenReturn((mock_apply, mock_sigs, mock_atc))
+
+    apply, sigs, atc = credentialing.Ipex(mock_client).apply(
+        "aid1",
+        "ERECIPIENT",
+        "ESCHEMA",
+        message="please share",
+        attributes={"LEI": "5493001KJTIIGC8Y1R17"},
+        dt=dt,
+    )
+
+    assert apply == mock_apply
+    assert sigs == mock_sigs
+    assert atc == mock_atc
+
+
+def test_ipex_offer():
+    from signify.app.clienting import SignifyClient
+    from signify.app.aiding import Identifiers
+    from signify.app.exchanging import Exchanges
+
+    class DummyAcdc:
+        raw = b'{"v":"ACDC10JSON000000_"}'
+
+    mock_client = mock(spec=SignifyClient, strict=True)
+    mock_ids = mock(spec=Identifiers, strict=True)
+    mock_excs = mock(spec=Exchanges, strict=True)
+
+    dt = "2023-09-25T16:01:37.000000+00:00"
+    mock_hab = {"prefix": "a_prefix", "name": "aid1", "state": {"s": "1", "d": "ABCDEFG"}}
+    mock_offer = {}
+    mock_sigs = []
+    mock_atc = ""
+
+    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
+    expect(mock_ids, times=1).get("aid1").thenReturn(mock_hab)
+    expect(mock_client, times=1).exchanges().thenReturn(mock_excs)
+    expect(mock_excs, times=1).createExchangeMessage(
+        sender=mock_hab,
+        route="/ipex/offer",
+        payload={"m": "this matches"},
+        embeds={"acdc": DummyAcdc.raw},
+        recipient="ERECIPIENT",
+        dig="EAPPLYSAID",
+        dt=dt,
+        datetime=None,
+    ).thenReturn((mock_offer, mock_sigs, mock_atc))
+
+    offer, sigs, atc = credentialing.Ipex(mock_client).offer(
+        "aid1",
+        "ERECIPIENT",
+        DummyAcdc(),
+        message="this matches",
+        applySaid="EAPPLYSAID",
+        dt=dt,
+    )
+
+    assert offer == mock_offer
+    assert sigs == mock_sigs
+    assert atc == mock_atc
+
+
+def test_ipex_agree():
+    from signify.app.clienting import SignifyClient
+    from signify.app.aiding import Identifiers
+    from signify.app.exchanging import Exchanges
+
+    mock_client = mock(spec=SignifyClient, strict=True)
+    mock_ids = mock(spec=Identifiers, strict=True)
+    mock_excs = mock(spec=Exchanges, strict=True)
+
+    dt = "2023-09-25T16:01:37.000000+00:00"
+    mock_hab = {"prefix": "a_prefix", "name": "aid1", "state": {"s": "1", "d": "ABCDEFG"}}
+    mock_agree = {}
+    mock_sigs = []
+    mock_atc = ""
+
+    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
+    expect(mock_ids, times=1).get("aid1").thenReturn(mock_hab)
+    expect(mock_client, times=1).exchanges().thenReturn(mock_excs)
+    expect(mock_excs, times=1).createExchangeMessage(
+        sender=mock_hab,
+        route="/ipex/agree",
+        payload={"m": "agreed"},
+        embeds={},
+        recipient="ERECIPIENT",
+        dig="EOFFERSAID",
+        dt=dt,
+        datetime=None,
+    ).thenReturn((mock_agree, mock_sigs, mock_atc))
+
+    agree, sigs, atc = credentialing.Ipex(mock_client).agree(
+        "aid1",
+        "ERECIPIENT",
+        "EOFFERSAID",
+        message="agreed",
+        dt=dt,
+    )
+
+    assert agree == mock_agree
+    assert sigs == mock_sigs
+    assert atc == mock_atc
+
+
+def test_ipex_name_grant():
+    from signify.app.clienting import SignifyClient
+    from signify.app.aiding import Identifiers
+    from signify.app.exchanging import Exchanges
+
+    class DummyAcdc:
+        raw = b"ACDC"
+
+    class DummyEvt:
+        raw = b"KERI"
+
+    mock_client = mock(spec=SignifyClient, strict=True)
+    mock_ids = mock(spec=Identifiers, strict=True)
+    mock_excs = mock(spec=Exchanges, strict=True)
+
+    dt = "2023-09-25T16:01:37.000000+00:00"
+    mock_hab = {"prefix": "a_prefix", "name": "aid1", "state": {"s": "1", "d": "ABCDEFG"}}
+    mock_grant = {}
+    mock_sigs = []
+    mock_atc = ""
+
+    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
+    expect(mock_ids, times=1).get("aid1").thenReturn(mock_hab)
+    expect(mock_client, times=1).exchanges().thenReturn(mock_excs)
+    expect(mock_excs, times=1).createExchangeMessage(
+        sender=mock_hab,
+        route="/ipex/grant",
+        payload={"m": "present", "i": "ERECIPIENT"},
+        embeds={"acdc": b"ACDCattach-acdc", "iss": b"KERIattach-iss", "anc": b"KERIattach-anc"},
+        recipient="ERECIPIENT",
+        dt=dt,
+        datetime=None,
+        dig="EAGREE123",
+    ).thenReturn((mock_grant, mock_sigs, mock_atc))
+
+    grant, sigs, atc = credentialing.Ipex(mock_client).grant(
+        name="aid1",
+        recipient="ERECIPIENT",
+        message="present",
+        acdc=DummyAcdc(),
+        iss=DummyEvt(),
+        anc=DummyEvt(),
+        acdcAttachment="attach-acdc",
+        issAttachment="attach-iss",
+        ancAttachment="attach-anc",
+        agreeSaid="EAGREE123",
+        dt=dt,
+    )
+
+    assert grant == mock_grant
+    assert sigs == mock_sigs
+    assert atc == mock_atc
+
+
+def test_ipex_name_admit():
+    from signify.app.clienting import SignifyClient
+    from signify.app.aiding import Identifiers
+    from signify.app.exchanging import Exchanges
+
+    mock_client = mock(spec=SignifyClient, strict=True)
+    mock_ids = mock(spec=Identifiers, strict=True)
+    mock_excs = mock(spec=Exchanges, strict=True)
+
+    dt = "2023-09-25T16:01:37.000000+00:00"
+    mock_hab = {"prefix": "a_prefix", "name": "aid1", "state": {"s": "1", "d": "ABCDEFG"}}
+    mock_admit = {}
+    mock_sigs = []
+    mock_atc = ""
+
+    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
+    expect(mock_ids, times=1).get("aid1").thenReturn(mock_hab)
+    expect(mock_client, times=1).exchanges().thenReturn(mock_excs)
+    expect(mock_excs, times=1).createExchangeMessage(
+        sender=mock_hab,
+        route="/ipex/admit",
+        payload={"m": ""},
+        embeds=None,
+        recipient="ERECIPIENT",
+        dt=dt,
+        datetime=None,
+        dig="EGRANT123",
+    ).thenReturn((mock_admit, mock_sigs, mock_atc))
+
+    admit, sigs, atc = credentialing.Ipex(mock_client).admit(
+        name="aid1",
+        recipient="ERECIPIENT",
+        grantSaid="EGRANT123",
+        dt=dt,
+    )
+
+    assert admit == mock_admit
+    assert sigs == mock_sigs
     assert atc == mock_atc
 
 def test_ipex_admit():
@@ -698,6 +924,7 @@ def test_ipex_admit():
                                             embeds=None,
                                             recipient='ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
                                             dt=dt,
+                                            datetime=None,
                                             dig=grant.said).thenReturn((mock_admit, mock_gsigs, mock_atc))
 
     ipex = credentialing.Ipex(mock_client)  # type: ignore
@@ -712,6 +939,27 @@ def test_ipex_admit():
     assert grant == mock_admit
     assert gsigs == mock_gsigs
     assert atc == mock_atc
+
+
+def test_submit_apply():
+    from signify.app.clienting import SignifyClient
+    from requests import Response
+
+    mock_client = mock(spec=SignifyClient, strict=True)
+    mock_rep = mock(spec=Response, strict=True)
+
+    expect(mock_rep).json().thenReturn(dict(b='c'))
+
+    mock_apply = mock({'ked': dict(a='b')})
+    mock_sigs = []
+    recp = ["ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"]
+
+    ipex = credentialing.Ipex(mock_client)  # type: ignore
+    body = {'exn': {'a': 'b'}, 'sigs': [], 'rec': ['ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose']}
+    expect(mock_client, times=1).post(f"/identifiers/aid1/ipex/apply", json=body).thenReturn(mock_rep)
+    rep = ipex.submitApply("aid1", exn=mock_apply, sigs=mock_sigs, recp=recp)
+
+    assert rep == dict(b='c')
 
 
 
@@ -736,6 +984,48 @@ def test_submit_admit():
 
     assert rep == dict(b='c')
 
+
+def test_submit_offer():
+    from signify.app.clienting import SignifyClient
+    from requests import Response
+
+    mock_client = mock(spec=SignifyClient, strict=True)
+    mock_rep = mock(spec=Response, strict=True)
+
+    expect(mock_rep).json().thenReturn(dict(b='c'))
+
+    mock_offer = mock({'ked': dict(a='b')})
+    mock_sigs = []
+    mock_end = ""
+    recp = ["ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"]
+
+    ipex = credentialing.Ipex(mock_client)  # type: ignore
+    body = {'exn': {'a': 'b'}, 'sigs': [], 'atc': '', 'rec': ['ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose']}
+    expect(mock_client, times=1).post(f"/identifiers/aid1/ipex/offer", json=body).thenReturn(mock_rep)
+    rep = ipex.submitOffer("aid1", exn=mock_offer, sigs=mock_sigs, atc=mock_end, recp=recp)
+
+    assert rep == dict(b='c')
+
+
+def test_submit_agree():
+    from signify.app.clienting import SignifyClient
+    from requests import Response
+
+    mock_client = mock(spec=SignifyClient, strict=True)
+    mock_rep = mock(spec=Response, strict=True)
+
+    expect(mock_rep).json().thenReturn(dict(b='c'))
+
+    mock_agree = mock({'ked': dict(a='b')})
+    mock_sigs = []
+    recp = ["ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"]
+
+    ipex = credentialing.Ipex(mock_client)  # type: ignore
+    body = {'exn': {'a': 'b'}, 'sigs': [], 'rec': ['ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose']}
+    expect(mock_client, times=1).post(f"/identifiers/aid1/ipex/agree", json=body).thenReturn(mock_rep)
+    rep = ipex.submitAgree("aid1", exn=mock_agree, sigs=mock_sigs, recp=recp)
+
+    assert rep == dict(b='c')
 
 
 def test_submit_grant():

@@ -1,9 +1,9 @@
-"""
-Configure PyTest
+"""Shared pytest fixtures and helpers for SignifyPy.
 
-Use this module to configure pytest
-https://docs.pytest.org/en/latest/pythonpath.html
-
+This file underpins both unit and integration coverage. The intent is to keep
+test setup predictable and readable: lightweight factories for strict mocks,
+opt-in time/randomness freezing, and a few KERIpy-backed helper classes for
+tests that need lower-level habitat or credential primitives.
 """
 import json
 from contextlib import contextmanager
@@ -126,15 +126,10 @@ def make_mock_client_with_manager():
 
 @pytest.fixture()
 def mockHelpingNowUTC(monkeypatch):
-    """
-    Replace nowUTC universally with fixed value for testing
-    """
+    """Freeze `helping.nowUTC` at one value for deterministic time assertions."""
 
     def mockNowUTC():
-        """
-        Use predetermined value for now (current time)
-        '2021-01-01T00:00:00.000000+00:00'
-        """
+        """Return the fixed test timestamp used by UTC-based callers."""
         return helping.fromIso8601("2021-01-01T00:00:00.000000+00:00")
 
     monkeypatch.setattr(helping, "nowUTC", mockNowUTC)
@@ -142,15 +137,10 @@ def mockHelpingNowUTC(monkeypatch):
 
 @pytest.fixture()
 def mockHelpingNowIso8601(monkeypatch):
-    """
-    Replace nowIso8601 universally with fixed value for testing
-    """
+    """Freeze `helping.nowIso8601` for code that stamps exchange payloads."""
 
     def mockNowIso8601():
-        """
-        Use predetermined value for now (current time)
-        '2021-01-01T00:00:00.000000+00:00'
-        """
+        """Return the fixed ISO-8601 timestamp used by timestamped builders."""
         return "2021-06-27T21:26:21.233257+00:00"
 
     monkeypatch.setattr(helping, "nowIso8601", mockNowIso8601)
@@ -158,7 +148,7 @@ def mockHelpingNowIso8601(monkeypatch):
 
 @pytest.fixture()
 def mockCoringRandomNonce(monkeypatch):
-    """ Replay randomNonce with fixed value for testing"""
+    """Freeze `coring.randomNonce` for deterministic registry/credential payloads."""
 
     def mockRandomNonce():
         return "A9XfpxIl1LcIkMhUSCCC8fgvkuX8gG9xK3SM-S8a8Y_U"
@@ -167,17 +157,11 @@ def mockCoringRandomNonce(monkeypatch):
 
 @dataclass
 class IcpCfg:
-    """
-    Configuration for inception
+    """Compact input bundle for helper-driven AID inception in tests.
 
-    Constructor arguments:
-    :param name: str - Name of the AID
-    :param icount: int - Signing key count for the AID
-    :param isith: str - Signing threshold for the AID
-    :param ncount: int - Rotation key count for the AID
-    :param nsith: str - Rotation threshold for the AID
-    :param toad: int - Threshold of accountable duplicity for the AID
-    :param wits: List[str] - List of witness AIDs for the AID
+    These defaults describe the smallest witnessed single-sig AID that still
+    exercises the KERIpy controller stack honestly. Tests override fields only
+    when they are specifically about inception shape.
     """
     name: str = "test_aid"
     icount: int = 1
@@ -191,20 +175,12 @@ class HabbingHelpers:
     @staticmethod
     @contextmanager
     def openHab(name='test', base='', salt=None, temp=True, cf=None, **kwa):
-        """
-        Context manager wrapper for Hab instance.
-        Defaults to temporary resources
-        Context 'with' statements call .close on exit of 'with' block
+        """Open one temporary habitat pair for lower-level controller tests.
 
-        Parameters:
-            name(str): name of habitat to create
-            base(str): the name used for shared resources i.e. Baser and Keeper The habitat specific config file will be
-            in base/name
-            salt(bytes): passed to habitat to use for inception raw salt not qb64
-            temp(bool): indicates if this uses temporary databases
-            cf(Configer): optional configer for loading configuration data
-        TODO: replace this openHab fixture with one from KERIpy once https://github.com/WebOfTrust/keripy/pull/1078 is merged.
-              this copy was needed in order to pass cf to Habery.makeHab() since the **kwa is not unpacking the cf arg.
+        This wrapper exists because some SignifyPy tests still need direct
+        KERIpy habitat access, and upstream helpers have not always exposed the
+        `cf` wiring those tests need. It should be read as compatibility test
+        scaffolding, not as a SignifyPy public API pattern.
         """
 
         salt = core.Salter(raw=salt).qb64
@@ -235,7 +211,7 @@ class HabbingHelpers:
 
     @staticmethod
     def resolve_wit_oobi(doist: doing.Doist, wit_deeds: List[Doer], hby: habbing.Habery, oobi: str, alias: str = None):
-        """Resolve an OOBI depending on a given witness for a given Habery."""
+        """Resolve one OOBI through the witness-driven KERIpy test harness."""
         obr = basing.OobiRecord(date=helping.nowIso8601())
         if alias is not None:
             obr.oobialias = alias
@@ -250,11 +226,7 @@ class HabbingHelpers:
 
     @staticmethod
     def incept_aid(doist: doing.Doist, wit_deeds: List[Doer], hby_deeds: List[Doer], hby: habbing.Habery, icp_cfg: IcpCfg, wit_rcptr: agenting.WitnessReceiptor):
-        """
-        Incept an AID in the given Habery using the given inception configuration.
-
-        Does not yet support delegation or multisig.
-        """
+        """Incept one non-delegated, non-multisig AID and wait for receipts."""
 
         # perform inception
         hab = hby.makeHab(name=icp_cfg.name, isith=icp_cfg.isith, icount=icp_cfg.icount, toad=icp_cfg.toad, wits=icp_cfg.wits)

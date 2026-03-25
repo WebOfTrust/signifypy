@@ -280,6 +280,39 @@ def wait_for_notification(
     return note
 
 
+def wait_for_notification_any(
+    clients: list[SignifyClient],
+    route: str,
+    *,
+    timeout: float = 120.0,
+    mark_read: bool = True,
+) -> tuple[int, dict]:
+    """Wait until any client exposes one unread notification on `route`.
+
+    This is useful when multisig workflows only need one participant to surface
+    the shared message SAID before the rest of the wave can proceed.
+    """
+
+    def _fetch():
+        for index, client in enumerate(clients):
+            notes = _matching_unread_notes(client, route)
+            if notes:
+                return index, notes[-1]
+        return None
+
+    result = poll_until(
+        _fetch,
+        ready=lambda value: value is not None,
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"notification route {route} on any client",
+    )
+    index, note = result
+    if mark_read:
+        clients[index].notifications().mark(note["i"])
+    return index, note
+
+
 def notification_routes(client: SignifyClient) -> list[str]:
     """Return current notification routes for read-path assertions."""
     return [note["a"].get("r") for note in client.notifications().list()["notes"]]
@@ -351,6 +384,44 @@ def wait_for_credential(client: SignifyClient, said: str, *, timeout: float = 12
     )
 
 
+def wait_for_filtered_credential(
+    client: SignifyClient,
+    said: str,
+    *,
+    filter: dict,
+    timeout: float = 120.0,
+) -> dict:
+    """Poll one filtered credential view until the expected SAID appears."""
+    return poll_until(
+        lambda: next(
+            (
+                credential
+                for credential in client.credentials().list(filter=filter)
+                if credential["sad"]["d"] == said
+            ),
+            None,
+        ),
+        ready=lambda credential: credential is not None,
+        timeout=timeout,
+        interval=HEAVY_POLL_INTERVAL,
+        describe=f"credential {said} with filter {filter}",
+    )
+
+
+def wait_for_multisig_received_credential(
+    client_a: SignifyClient,
+    client_b: SignifyClient,
+    said: str,
+    *,
+    timeout: float = 120.0,
+) -> tuple[dict, dict]:
+    """Wait until both multisig members can read the same received credential."""
+    return (
+        wait_for_credential(client_a, said, timeout=timeout),
+        wait_for_credential(client_b, said, timeout=timeout),
+    )
+
+
 def wait_for_multisig_request(
     client: SignifyClient,
     route: str,
@@ -382,6 +453,7 @@ def wait_for_exchange_message(
     client: SignifyClient,
     route: str,
     *,
+    embedded_route: str | None = None,
     timeout: float = 120.0,
 ) -> tuple[dict, dict]:
     """Wait for a notification and the corresponding stored exchange payload.
@@ -390,16 +462,63 @@ def wait_for_exchange_message(
     the notification identifies *which* exchange matters, but the stronger
     readiness condition is that the exchange itself is retrievable.
     """
-    note = wait_for_notification(client, route, timeout=timeout)
-    exchange = poll_until(
-        lambda: client.exchanges().get(note["a"]["d"]),
-        ready=lambda exchange: exchange["exn"]["r"] == route,
+    def _fetch():
+        notes = _matching_unread_notes(client, route)
+        for note in reversed(notes):
+            try:
+                exchange = client.exchanges().get(note["a"]["d"])
+            except HTTPError:
+                continue
+
+            if exchange["exn"]["r"] != route:
+                continue
+
+            if embedded_route is not None:
+                outer = exchange["exn"]
+                embeds = outer.get("e", {})
+                embedded = embeds.get("exn")
+                if embedded is None or embedded.get("r") != embedded_route:
+                    continue
+
+            return note, exchange
+
+        return None
+
+    describe = f"exchange message route {route}"
+    if embedded_route is not None:
+        describe += f" with embedded route {embedded_route}"
+
+    note, exchange = poll_until(
+        _fetch,
+        ready=lambda value: value is not None,
         timeout=timeout,
         interval=POLL_INTERVAL,
-        describe=f"exchange payload for route {route}",
+        describe=describe,
+    )
+
+    client.notifications().mark(note["i"])
+    return note, exchange
+
+
+def wait_for_exchange(
+    client: SignifyClient,
+    said: str,
+    *,
+    expected_route: str | None = None,
+    timeout: float = 120.0,
+) -> dict:
+    """Poll until one stored exchange becomes retrievable by SAID."""
+    exchange = poll_until(
+        lambda: client.exchanges().get(said),
+        ready=lambda exchange: (
+            expected_route is None or exchange["exn"]["r"] == expected_route
+        ),
+        timeout=timeout,
+        interval=POLL_INTERVAL,
+        describe=f"exchange payload {said}",
         retry_exceptions=(HTTPError,),
     )
-    return note, exchange
+    return exchange
 
 
 def wait_for_issued_credential(
@@ -1170,7 +1289,7 @@ def expose_multisig_agent_oobi(
     member_b_name: str,
     group_name: str,
 ) -> str:
-    """Expose a multisig agent OOBI after both members publish end-role replies.
+    """Expose a resolvable multisig OOBI after both members publish end-role replies.
 
     Workflow substance:
     1. Both members publish the group's agent-role authorization replies.
@@ -1181,6 +1300,9 @@ def expose_multisig_agent_oobi(
        EID set.
     4. Each member waits for a non-empty group agent OOBI and both answers are
        compared to confirm convergence on one publication route.
+    5. Return the base multisig OOBI, not the raw `/agent/...` route. This
+       mirrors the SignifyTS multisig flows, which resolve the group OOBI
+       derived from the agent publication path.
 
     Important contract detail:
     Once an embedded `rpy` is already locally approved, the peer echo may be
@@ -1214,17 +1336,17 @@ def expose_multisig_agent_oobi(
         wait_for_operation(client_b, operation)
     wait_for_group_agent_endroles(client_a, group_name, expected_eids=expected_eids_a)
     wait_for_group_agent_endroles(client_b, group_name, expected_eids=expected_eids_a)
-    oobi_a = wait_for_identifier_oobi(client_a, group_name, role="agent")[0]
-    oobi_b = wait_for_identifier_oobi(client_b, group_name, role="agent")[0]
-    assert oobi_a == oobi_b
-    return oobi_a
+    agent_oobi_a = wait_for_identifier_oobi(client_a, group_name, role="agent")[0]
+    agent_oobi_b = wait_for_identifier_oobi(client_b, group_name, role="agent")[0]
+    assert agent_oobi_a == agent_oobi_b
+    return agent_oobi_a.split("/agent/")[0]
 
 
 def expose_multisig_agent_oobi_n(
     participants: list[tuple[SignifyClient, str]],
     group_name: str,
 ) -> str:
-    """Expose a multisig agent OOBI for an ordered participant list.
+    """Expose a resolvable multisig OOBI for an ordered participant list.
 
     This is the N-party analogue of `expose_multisig_agent_oobi(...)`: publish
     the required group end-role replies on every member, wait for multisig state convergence,
@@ -1267,7 +1389,7 @@ def expose_multisig_agent_oobi_n(
         oobis.append(wait_for_identifier_oobi(client, group_name, role="agent")[0])
 
     assert len(set(oobis)) == 1
-    return oobis[0]
+    return oobis[0].split("/agent/")[0]
 
 
 def start_multisig_rotation(
@@ -1676,7 +1798,8 @@ def send_credential_grant(
     iserder,
     anc,
     sigs: list[str],
-) -> None:
+    agree_said: str | None = None,
+) -> dict | None:
     """Create and submit the IPEX grant message for an issued credential.
 
     The grant packages the credential, the issuance event, and the anchoring
@@ -1699,9 +1822,13 @@ def send_credential_grant(
             serder=anc,
             sigers=[csigning.Siger(qb64=sig) for sig in sigs],
         ),
+        agree=agree_said,
         dt=helping.nowIso8601(),
     )
-    client.ipex().submitGrant(issuer_name, exn=grant, sigs=grant_sigs, atc=atc, recp=[recipient])
+    result = client.ipex().submitGrant(issuer_name, exn=grant, sigs=grant_sigs, atc=atc, recp=[recipient])
+    if isinstance(result, dict) and "done" in result:
+        return wait_for_operation(client, result)
+    return result
 
 
 def create_multisig_registry(
@@ -1787,6 +1914,8 @@ def issue_multisig_credential(
     recipient: str,
     data: dict,
     schema: str = QVI_SCHEMA_SAID,
+    edges: dict | None = None,
+    rules: dict | None = None,
     timestamp: str | None = None,
     is_initiator: bool = False,
     request: list[dict] | None = None,
@@ -1829,6 +1958,8 @@ def issue_multisig_credential(
             data=data,
             schema=schema,
             recipient=recipient,
+            edges=edges,
+            rules=rules,
             timestamp=timestamp or helping.nowIso8601(),
         )
         creder = result.acdc
@@ -1910,6 +2041,13 @@ def revoke_multisig_credential(
     return rserder, anc, sigs, operation, request
 
 
+def _fresh_group_hab(client: SignifyClient, group_name: str) -> dict:
+    """Return one group habitat view with freshly queried key state."""
+    group_hab = dict(client.identifiers().get(group_name))
+    group_hab["state"] = query_key_state(client, group_hab["prefix"])
+    return group_hab
+
+
 def send_multisig_credential_grant(
     client: SignifyClient,
     *,
@@ -1921,19 +2059,19 @@ def send_multisig_credential_grant(
     iserder,
     anc,
     sigs: list[str],
+    timestamp: str,
     is_initiator: bool = False,
 ) -> dict:
     """Submit a multisig grant and mirror it to peer members via `/multisig/exn`.
 
-    The first member submits the real IPEX grant to the holder. The extra
-    `/multisig/exn` wrapper exists so peer members can record and approve that
-    exact grant message as part of the shared multisig workflow.
+    Callers must provide one shared timestamp for the whole grant wave so every
+    member computes the same inner grant SAID.
     """
     if not is_initiator:
-        wait_for_exchange_message(client, "/multisig/exn")
+        wait_for_exchange_message(client, "/multisig/exn", embedded_route="/ipex/grant")
 
     local_member = client.identifiers().get(local_member_name)
-    group_hab = client.identifiers().get(group_name)
+    group_hab = _fresh_group_hab(client, group_name)
     prefixer = coring.Prefixer(qb64=iserder.pre)
     seqner = coring.Seqner(sn=iserder.sn)
     grant, grant_sigs, atc = client.ipex().grant(
@@ -1942,11 +2080,8 @@ def send_multisig_credential_grant(
         message="",
         acdc=app_signing.serialize(creder, prefixer, seqner, coring.Saider(qb64=iserder.said)),
         iss=client.registries().serialize(iserder, anc),
-        anc=eventing.messagize(
-            serder=anc,
-            sigers=[csigning.Siger(qb64=sig) for sig in sigs],
-        ),
-        dt=helping.nowIso8601(),
+        anc=_messagize(anc, sigs),
+        dt=timestamp,
     )
     result = client.ipex().submitGrant(group_name, exn=grant, sigs=grant_sigs, atc=atc, recp=[recipient])
     seal = eventing.SealEvent(
@@ -1960,22 +2095,15 @@ def send_multisig_credential_grant(
         seal=seal,
     )
     grant_ims.extend(atc.encode("utf-8"))
-    exn, exn_sigs, exn_atc = client.exchanges().createExchangeMessage(
+    client.exchanges().send(
+        local_member_name,
+        "multisig",
         sender=local_member,
         route="/multisig/exn",
         payload=dict(gid=group_hab["prefix"]),
         embeds=dict(exn=grant_ims),
-    )
-    client.exchanges().sendFromEvents(
-        local_member_name,
-        "multisig",
-        exn=exn,
-        sigs=exn_sigs,
-        atc=exn_atc,
         recipients=other_member_prefixes,
     )
-    if isinstance(result, dict) and "done" in result:
-        return wait_for_operation(client, result)
     return result
 
 
@@ -1985,7 +2113,7 @@ def submit_admit(
     holder_name: str,
     issuer_prefix: str,
     notification: dict,
-) -> None:
+) -> dict | None:
     """Submit an IPEX admit in response to a previously received grant notification.
 
     This is the holder-side acknowledgement step in the grant/admit
@@ -2002,7 +2130,16 @@ def submit_admit(
         issuer_prefix,
         helping.nowIso8601(),
     )
-    client.ipex().submitAdmit(holder_name, exn=admit, sigs=sigs, atc=atc, recp=[issuer_prefix])
+    result = client.ipex().submitAdmit(
+        holder_name,
+        exn=admit,
+        sigs=sigs,
+        atc=atc,
+        recp=[issuer_prefix],
+    )
+    if isinstance(result, dict) and "done" in result:
+        return wait_for_operation(client, result)
+    return result
 
 
 def submit_multisig_admit(
@@ -2012,22 +2149,22 @@ def submit_multisig_admit(
     group_name: str,
     other_member_prefixes: list[str],
     issuer_prefix: str,
-    notification: dict,
+    grant_said: str,
+    timestamp: str,
 ) -> dict:
     """Submit a multisig admit and mirror it to peer members via `/multisig/exn`.
 
-    This mirrors `submit_admit(...)` for group workflows: submit the admit for
-    the shared group AID, then forward the exact admit message to peer members
-    so all participants observe the same group-side exchange.
+    Callers must provide one shared timestamp for the whole admit wave so every
+    member computes the same inner admit SAID.
     """
     local_member = client.identifiers().get(local_member_name)
-    group_hab = client.identifiers().get(group_name)
+    group_hab = _fresh_group_hab(client, group_name)
     admit, sigs, atc = client.ipex().admit(
         group_hab,
         "",
-        notification["a"]["d"],
+        grant_said,
         issuer_prefix,
-        helping.nowIso8601(),
+        timestamp,
     )
     result = client.ipex().submitAdmit(group_name, exn=admit, sigs=sigs, atc=atc, recp=[issuer_prefix])
     seal = eventing.SealEvent(
@@ -2041,20 +2178,13 @@ def submit_multisig_admit(
         seal=seal,
     )
     admit_ims.extend(atc.encode("utf-8"))
-    exn, exn_sigs, exn_atc = client.exchanges().createExchangeMessage(
+    client.exchanges().send(
+        local_member_name,
+        "multisig",
         sender=local_member,
         route="/multisig/exn",
         payload=dict(gid=group_hab["prefix"]),
         embeds=dict(exn=admit_ims),
-    )
-    client.exchanges().sendFromEvents(
-        local_member_name,
-        "multisig",
-        exn=exn,
-        sigs=exn_sigs,
-        atc=exn_atc,
         recipients=other_member_prefixes,
     )
-    if isinstance(result, dict) and "done" in result:
-        return wait_for_operation(client, result)
     return result
