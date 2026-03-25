@@ -10,6 +10,17 @@ import pytest
 from mockito import mock, patch, unstub, verify, verifyNoUnwantedInteractions, expect, ANY
 
 
+def make_agent_state(pre="agent_prefix", said=None, delpre="a prefix"):
+    said = pre if said is None else said
+    return {
+        "i": pre,
+        "s": "0",
+        "d": said,
+        "di": delpre,
+        "k": ["DMZh_y-H5C3cSbZZST-fqnsmdNTReZxIh0t2xSTOJQ8a"],
+    }
+
+
 def test_signify_client_defaults(make_signify_client):
     from signify.app.clienting import SignifyClient
     patch(SignifyClient, 'connect', lambda: None)
@@ -41,6 +52,27 @@ def test_signify_client_bad_passcode_length():
         from signify.app.clienting import SignifyClient
         SignifyClient(passcode='too short')
 
+
+def test_signify_client_boot_caches_booted_agent(make_signify_client):
+    import requests
+
+    client = make_signify_client(boot_url='http://boot.example')
+
+    body = make_agent_state(pre="booted_agent", said="booted_said", delpre=client.controller)
+    response = mock({'status_code': requests.codes.accepted}, spec=requests.Response, strict=True)
+    expect(response, times=1).json().thenReturn(body)
+    expect(requests, times=1).post(url='http://boot.example/boot', json=ANY).thenReturn(response)
+
+    out = client.boot()
+
+    assert out == body
+    assert client._booted_agent is not None
+    assert client._booted_agent.pre == body["i"]
+    assert client._booted_agent.said == body["d"]
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
 def test_signify_client_connect_no_delegation(make_signify_client, make_mock_session):
     from signify.core import authing
     from keri.core.coring import Tiers
@@ -48,6 +80,7 @@ def test_signify_client_connect_no_delegation(make_signify_client, make_mock_ses
     expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
 
     client = make_signify_client()
+    client._booted_agent = authing.Agent(make_agent_state(pre="stale_boot_agent", said="stale_boot_said"))
 
     import requests
     mock_session = make_mock_session()
@@ -58,7 +91,7 @@ def test_signify_client_connect_no_delegation(make_signify_client, make_mock_ses
     expect(client, times=1).states().thenReturn(mock_state)
 
     from signify.core import authing
-    mock_agent = mock({'delpre': 'a prefix'}, spec=authing.Agent, strict=True)
+    mock_agent = mock({'delpre': 'a prefix', 'pre': 'connected_agent', 'said': 'connected_said'}, spec=authing.Agent, strict=True)
     expect(authing, times=1).Agent(state=mock_state.agent).thenReturn(mock_agent)
 
     from keri.core import serdering
@@ -83,6 +116,7 @@ def test_signify_client_connect_no_delegation(make_signify_client, make_mock_ses
     client.connect('http://example.com')
 
     assert client.pidx == mock_state.pidx
+    assert client._booted_agent.pre == "stale_boot_agent"
     assert client.session.auth == mock_signify_auth #type: ignore
     assert client.session.hooks == {'response': mock_authenticator.verify} #type: ignore
 
@@ -97,6 +131,7 @@ def test_signify_client_connect_delegation(make_signify_client, make_mock_sessio
     expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
 
     client = make_signify_client()
+    client._booted_agent = authing.Agent(make_agent_state(pre="booted_agent", said="booted_said"))
 
     # setup for client.connect()
     import requests
@@ -108,7 +143,7 @@ def test_signify_client_connect_delegation(make_signify_client, make_mock_sessio
     expect(client, times=1).states().thenReturn(mock_state)
 
     from signify.core import authing
-    mock_agent = mock({'delpre': 'a prefix'}, spec=authing.Agent, strict=True)
+    mock_agent = mock({'delpre': 'a prefix', 'pre': 'booted_agent', 'said': 'booted_said'}, spec=authing.Agent, strict=True)
     expect(authing, times=1).Agent(state=mock_state.agent).thenReturn(mock_agent)
 
     from keri.core import serdering
@@ -134,6 +169,7 @@ def test_signify_client_connect_delegation(make_signify_client, make_mock_sessio
     expect(clienting, times=1).SignifyAuth(mock_authenticator).thenReturn(mock_signify_auth)
 
     client.connect('http://example.com')
+    assert client._booted_agent is None
 
     verifyNoUnwantedInteractions()
     unstub()
@@ -163,7 +199,7 @@ def test_signify_client_connect_bad_delegation():
     expect(client, times=1).states().thenReturn(mock_state)
 
     from signify.core import authing
-    mock_agent = mock({'delpre': 'a prefix'}, spec=authing.Agent, strict=True)
+    mock_agent = mock({'delpre': 'a prefix', 'pre': 'connected_agent', 'said': 'connected_said'}, spec=authing.Agent, strict=True)
     expect(authing, times=1).Agent(state=mock_state.agent).thenReturn(mock_agent)
 
     from keri.core import serdering
@@ -180,6 +216,45 @@ def test_signify_client_connect_bad_delegation():
     from keri.kering import ConfigurationError
     with pytest.raises(ConfigurationError, match='commitment to controller AID missing in agent inception event'):
         client.connect('https://example.com')
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_signify_client_connect_rejects_mismatched_booted_agent(make_signify_client, make_mock_session):
+    from signify.core import authing
+    from keri.core.coring import Tiers
+    mock_init_controller = mock(spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low).thenReturn(mock_init_controller)
+
+    client = make_signify_client()
+    client._booted_agent = authing.Agent(make_agent_state(pre="booted_agent", said="booted_said"))
+
+    import requests
+    mock_session = make_mock_session()
+    expect(requests, times=1).Session().thenReturn(mock_session)
+
+    from signify.signifying import SignifyState
+    mock_state = mock({'pidx': 0, 'agent': 'agent info', 'controller': 'controller info'}, spec=SignifyState, strict=True)
+    expect(client, times=1).states().thenReturn(mock_state)
+
+    mock_agent = mock({'delpre': 'a prefix', 'pre': 'connected_agent', 'said': 'connected_said'}, spec=authing.Agent, strict=True)
+    expect(authing, times=1).Agent(state=mock_state.agent).thenReturn(mock_agent)
+
+    from keri.core import serdering
+    mock_serder = mock({'sn': 0}, spec=serdering.Serder, strict=True)
+    from keri.core import signing
+    mock_salter = mock(spec=signing.Salter, strict=True)
+    mock_controller = mock({'pre': 'a prefix', 'salter': mock_salter, 'serder': mock_serder}, spec=authing.Controller, strict=True)
+    expect(authing, times=1).Controller(bran='abcdefghijklmnop01234', tier=Tiers.low, state=mock_state.controller).thenReturn(mock_controller)
+
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    expect(keeping, times=1).Manager(salter=mock_salter, extern_modules=None).thenReturn(mock_manager)
+
+    from keri.kering import ConfigurationError
+    with pytest.raises(ConfigurationError, match='booted agent does not match connected agent state'):
+        client.connect('http://example.com')
 
     verifyNoUnwantedInteractions()
     unstub()

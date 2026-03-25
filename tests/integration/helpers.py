@@ -77,7 +77,9 @@ def boot_client_manually(client: SignifyClient, live_stack) -> dict:
         timeout=30,
     )
     response.raise_for_status()
-    return response.json()
+    body = response.json()
+    client._cache_booted_agent(body)
+    return body
 
 
 def connect_client(
@@ -109,6 +111,7 @@ def connect_client(
     else:
         raise ValueError(f"unsupported boot_mode={boot_mode}")
     assert isinstance(body, dict)
+    client._integration_boot_response = body
     client.connect()
     assert client.agent is not None
     client._integration_live_stack = live_stack

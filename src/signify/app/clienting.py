@@ -71,10 +71,26 @@ class SignifyClient:
         self.agent = None
         self.authn = None
         self.base = None
+        self._booted_agent = None
 
         self.ctrl = authing.Controller(bran=self.bran, tier=self.tier)
         self.url = url
         self.boot_url = boot_url
+
+    def _cache_booted_agent(self, state):
+        """Cache the agent state returned by ``/boot`` for first-connect checks."""
+        try:
+            self._booted_agent = authing.Agent(state=state)
+        except (KeyError, kering.ValidationError) as ex:
+            raise kering.AuthNError(f"invalid agent state from boot response: {ex}") from ex
+
+    def _require_booted_agent_match(self):
+        """Ensure first-connect approval targets the agent returned by ``/boot``."""
+        if self._booted_agent is None:
+            return
+
+        if self.agent.pre != self._booted_agent.pre or self.agent.said != self._booted_agent.said:
+            raise kering.ConfigurationError("booted agent does not match connected agent state")
 
     def boot(self) -> dict:
         """Create the remote cloud agent delegated to this controller AID."""
@@ -93,6 +109,7 @@ class SignifyClient:
             body = res.json()
         except requests.exceptions.JSONDecodeError as ex:
             raise kering.AuthNError(f"invalid response from server: {ex}") from ex
+        self._cache_booted_agent(body)
         return body
 
     def connect(self, url=None):
@@ -124,7 +141,9 @@ class SignifyClient:
             raise kering.ConfigurationError("commitment to controller AID missing in agent inception event")
 
         if self.ctrl.serder.sn == 0:
+            self._require_booted_agent_match()
             self.approveDelegation()
+            self._booted_agent = None
 
         self.authn = authing.Authenticater(agent=self.agent, ctrl=self.ctrl)
         self.session.auth = SignifyAuth(self.authn)

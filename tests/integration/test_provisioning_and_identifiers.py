@@ -40,6 +40,8 @@ def test_provision_agent_and_connect(client_factory):
     assert client.agent.pre
     assert client.agent.pre != client.controller
     assert client.agent.delpre == client.controller
+    assert client._integration_boot_response["i"] == client.agent.pre
+    assert client._integration_boot_response["d"] == client.agent.said
     assert client.session is not None
     assert client.session.auth is not None
 
@@ -58,6 +60,8 @@ def test_manual_agent_boot_and_connect(client_factory):
     assert client.controller == client.ctrl.pre
     assert client.agent.pre
     assert client.agent.delpre == client.controller
+    assert client._integration_boot_response["i"] == client.agent.pre
+    assert client._integration_boot_response["d"] == client.agent.said
     assert client.session is not None
 
 
