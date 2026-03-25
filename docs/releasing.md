@@ -70,6 +70,57 @@ The fragment body should be a short human-facing sentence or two. The release
 prep targets collect those fragments into `docs/changelog.md` and remove the
 consumed fragment files.
 
+## Towncrier Examples
+
+Create a fragment for PR or issue `100` using the configured SignifyPy types:
+
+```bash
+cd /Users/kbull/code/keri/kentbull/signifypy
+./venv/bin/python -m towncrier create --dir newsfragments \
+  --content "Documented the repository-secret PyPI publish flow." \
+  100.doc.md
+```
+
+Another example for a bug fix:
+
+```bash
+cd /Users/kbull/code/keri/kentbull/signifypy
+./venv/bin/python -m towncrier create --dir newsfragments \
+  --content "Fixed release workflow auth to use the repository secret PYPI_API_TOKEN." \
+  101.fixed.md
+```
+
+You can also create the fragment file yourself if that is faster:
+
+```bash
+cd /Users/kbull/code/keri/kentbull/signifypy
+cat > newsfragments/102.misc.md <<'EOF'
+Clarified the maintainer release runbook with concrete Towncrier examples.
+EOF
+```
+
+Preview the unreleased changelog without modifying tracked files:
+
+```bash
+cd /Users/kbull/code/keri/kentbull/signifypy
+./venv/bin/python -m towncrier build --draft --version 0.4.1
+```
+
+Build the actual `0.4.1` changelog entry during release preparation:
+
+```bash
+cd /Users/kbull/code/keri/kentbull/signifypy
+./venv/bin/python -m towncrier build --yes --version 0.4.1
+```
+
+Or let the maintained release-prep target do the version bump, lock refresh,
+Towncrier build, and release commit together:
+
+```bash
+cd /Users/kbull/code/keri/kentbull/signifypy
+make release-patch
+```
+
 ## CI Release Entry Points
 
 SignifyPy supports two release entry points:
@@ -104,10 +155,6 @@ PyPI publishing currently depends on a project-scoped API token for the
 Do not copy this token into `.pypirc`, workflow YAML, or personal shell
 history. Treat it as rotation-managed operational state owned by repository
 secrets.
-
-Trusted Publishing is not the active path right now because package-manager
-access is not available for this package. If that changes later, migrating back
-to OIDC would be preferable.
 
 ## Troubleshooting Publish Auth
 
