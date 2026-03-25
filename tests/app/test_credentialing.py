@@ -262,23 +262,187 @@ def test_credentials_list(make_mock_response):
                                             'sort': ['updside down'], 'skip': 10, 'limit': 10}).thenReturn(mock_response)
 
     from signify.app.credentialing import Credentials
-    Credentials(client=mock_client).list(filtr={'genre': 'horror'}, sort=['updside down'], skip=10,
+    Credentials(client=mock_client).list(filter={'genre': 'horror'}, sort=['updside down'], skip=10,
                                          limit=10)  # type: ignore
 
     verify(mock_response, times=1).json()
+
+
+def test_credentials_get_json(make_mock_response):
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    payload = {'sad': {'d': 'a_said'}}
+    mock_response = make_mock_response({'json': lambda: payload})
+    expect(mock_client, times=1).get('/credentials/a_said',
+                                     headers={'accept': 'application/json'}).thenReturn(mock_response)
+
+    from signify.app.credentialing import Credentials
+    out = Credentials(client=mock_client).get('a_said')  # type: ignore
+
+    assert out == payload
+
+
+def test_credentials_get_cesr(make_mock_response):
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    mock_response = make_mock_response({'content': b'things I found'})
+    expect(mock_client, times=1).get('/credentials/a_said',
+                                     headers={'accept': 'application/json+cesr'}).thenReturn(mock_response)
+
+    from signify.app.credentialing import Credentials
+    out = Credentials(client=mock_client).get('a_said', includeCESR=True)  # type: ignore
+
+    assert out == b'things I found'
+
 
 def test_credentials_export(make_mock_response):
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
 
-    mock_response = make_mock_response({'content': 'things I found'})
+    mock_response = make_mock_response({'content': b'things I found'})
     expect(mock_client, times=1).get('/credentials/a_said',
                                      headers={'accept': 'application/json+cesr'}).thenReturn(mock_response)
 
     from signify.app.credentialing import Credentials
     out = Credentials(client=mock_client).export('a_said')  # type: ignore
 
-    assert out == 'things I found'
+    assert out == b'things I found'
+
+
+def test_credentials_delete(make_mock_response):
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    mock_response = make_mock_response({})
+    expect(mock_client, times=1).delete('/credentials/a_said').thenReturn(mock_response)
+
+    from signify.app.credentialing import Credentials
+    out = Credentials(client=mock_client).delete('a_said')  # type: ignore
+
+    assert out is None
+
+
+def test_credentials_state(make_mock_response):
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    payload = {'et': 'iss', 's': '0'}
+    mock_response = make_mock_response({'json': lambda: payload})
+    expect(mock_client, times=1).get('/registries/registry_said/credential_said').thenReturn(mock_response)
+
+    from signify.app.credentialing import Credentials
+    out = Credentials(client=mock_client).state('registry_said', 'credential_said')  # type: ignore
+
+    assert out == payload
+
+
+def test_credential_issue_result_op_and_iterable(make_mock_response):
+    mock_response = make_mock_response({"json": lambda: {"done": True}})
+    expect(mock_response, times=2).json().thenReturn({"done": True})
+
+    result = credentialing.CredentialIssueResult(
+        acdc="acdc",
+        iss="iss",
+        anc="anc",
+        sigs=["a signature"],
+        response=mock_response,
+    )
+
+    assert result.acdc == "acdc"
+    assert result.iss == "iss"
+    assert result.anc == "anc"
+    assert result.sigs == ["a signature"]
+    assert result.op() == {"done": True}
+    assert tuple(result) == ("acdc", "iss", "anc", ["a signature"], {"done": True})
+
+
+def test_credential_revoke_result_op_and_iterable(make_mock_response):
+    mock_response = make_mock_response({"json": lambda: {"done": True}})
+    expect(mock_response, times=2).json().thenReturn({"done": True})
+
+    result = credentialing.CredentialRevokeResult(
+        rev="rev",
+        anc="anc",
+        sigs=["a signature"],
+        response=mock_response,
+    )
+
+    assert result.rev == "rev"
+    assert result.anc == "anc"
+    assert result.sigs == ["a signature"]
+    assert result.op() == {"done": True}
+    assert tuple(result) == ("rev", "anc", ["a signature"], {"done": True})
+
+
+def test_credentials_issue(make_mock_client_with_manager, make_mock_response):
+    mock_client, mock_manager = make_mock_client_with_manager()
+
+    from signify.app.aiding import Identifiers
+    from signify.app.credentialing import Registries
+    from signify.core import keeping
+
+    mock_ids = mock(spec=Identifiers, strict=True)
+    mock_regs = mock(spec=Registries, strict=True)
+    mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose', 'name': 'aid1',
+                'state': {'s': '1', 'd': "ABCDEFG"}}
+    mock_registry = {'regk': "EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF",
+                     'pre': 'EHpwssa6tmD2U5W7-aogym-r1NobKBNXydP4MmaebA4O', 'state': {'c': ['NB']}}
+    data = dict(dt="2023-09-27T16:27:14.376928+00:00", LEI="ABC1234567890AD4456")
+    schema = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+    recp = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
+
+    expect(mock_client, times=1).identifiers().thenReturn(mock_ids)
+    expect(mock_ids, times=1).get("aid1").thenReturn(mock_hab)
+    expect(mock_client, times=1).registries().thenReturn(mock_regs)
+    expect(mock_regs, times=1).get("aid1", "reg1").thenReturn(mock_registry)
+
+    mock_keeper = mock({'algo': 'salty', 'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=2).get(aid=mock_hab).thenReturn(mock_keeper)
+    expect(mock_keeper, times=1).sign(ser=ANY()).thenReturn(['a signature'])
+    mock_response = make_mock_response({})
+    expect(mock_response, times=2).json().thenReturn({'v': 'ACDC10JSON00014c_'})
+
+    body = {'acdc': {'v': 'ACDC10JSON000196_', 'd': 'EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m',
+                     'i': 'EHpwssa6tmD2U5W7-aogym-r1NobKBNXydP4MmaebA4O',
+                     'ri': 'EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF',
+                     's': 'EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao',
+                     'a': {'d': 'EHpwssa6tmD2U5W7-aogym-r1NobKBNXydP4MmaebA4O',
+                           'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
+                           'dt': '2023-09-27T16:27:14.376928+00:00', 'LEI': 'ABC1234567890AD4456'}},
+            'iss': {'v': 'KERI10JSON0000ed_', 't': 'iss', 'd': 'EE8yncw1LCyBVtZPtozAFi7qvGn9dRPwTbuq--ulOAtB',
+                    'i': 'EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m', 's': '0',
+                    'ri': 'EKRg7i8jS4O6BYUYiQG7X8YiMYdDXdw28tJRhFndCdGF', 'dt': '2023-09-27T16:27:14.376928+00:00'},
+            'ixn': {'v': 'KERI10JSON000115_', 't': 'ixn', 'd': 'EC5KxyucpxnOpIpHe2QUPs9YeH1yGvkALg8NcWLYFe6a',
+                    'i': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose', 's': '2', 'p': 'ABCDEFG', 'a': [
+                    {'i': 'EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m', 's': '0',
+                     'd': 'EE8yncw1LCyBVtZPtozAFi7qvGn9dRPwTbuq--ulOAtB'}]}, 'sigs': ['a signature'],
+            'salty': {'keeper': 'params'}}
+
+    expect(mock_client, times=1).post("/identifiers/aid1/credentials", json=body).thenReturn(mock_response)
+
+    result = credentialing.Credentials(client=mock_client).issue(
+        "aid1",
+        "reg1",
+        data,
+        schema,
+        recipient=recp,
+    )
+
+    assert isinstance(result, credentialing.CredentialIssueResult)
+    assert result.acdc.said == "EK2xYrVkfJJHvlGhP79sfEPvQGmkFPPNAj-bjI5oHy7m"
+    assert result.iss.said == "EE8yncw1LCyBVtZPtozAFi7qvGn9dRPwTbuq--ulOAtB"
+    assert result.anc.said == "EC5KxyucpxnOpIpHe2QUPs9YeH1yGvkALg8NcWLYFe6a"
+    assert result.sigs == ['a signature']
+    assert result.op() == {'v': 'ACDC10JSON00014c_'}
+    assert tuple(result) == (
+        result.acdc,
+        result.iss,
+        result.anc,
+        ['a signature'],
+        {'v': 'ACDC10JSON00014c_'},
+    )
 
 def test_credentials_create(make_mock_client_with_manager, make_mock_response):
     mock_client, mock_manager = make_mock_client_with_manager()
@@ -332,6 +496,152 @@ def test_credentials_create(make_mock_client_with_manager, make_mock_response):
     assert iss.said == "EE8yncw1LCyBVtZPtozAFi7qvGn9dRPwTbuq--ulOAtB"
     assert ixn.said == "EC5KxyucpxnOpIpHe2QUPs9YeH1yGvkALg8NcWLYFe6a"
     assert op == {'v': 'ACDC10JSON00014c_'}
+
+
+def test_credentials_revoke_uses_ri_and_returns_result(make_mock_response):
+    credential_said = "EMwcsEMUEruPXVwPCW7zmqmN8m0I3CihxolBm-RDrsJo"
+    registry_said = "EGK216v1yguLfex4YRFnG7k1sXRjh3OKY7QqzdKsx7df"
+    status_said = "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
+
+    class DummyKeeper:
+        algo = "salty"
+
+        @staticmethod
+        def params():
+            return {"keeper": "params"}
+
+        @staticmethod
+        def sign(ser):
+            return ["a signature"]
+
+    class DummyManager:
+        @staticmethod
+        def get(aid):
+            return DummyKeeper()
+
+    class DummyIdentifiers:
+        @staticmethod
+        def get(name):
+            assert name == "aid1"
+            return {"prefix": "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose", "name": "aid1",
+                    "state": {"s": "1", "d": "ABCDEFG"}}
+
+    class DummyResponse:
+        @staticmethod
+        def json():
+            return {"done": True}
+
+    class DummyClient:
+        def __init__(self):
+            self.manager = DummyManager()
+            self.last_delete = None
+
+        @staticmethod
+        def identifiers():
+            return DummyIdentifiers()
+
+        @staticmethod
+        def get(path, headers=None):
+            assert path == f"/credentials/{credential_said}"
+            assert headers == {"accept": "application/json"}
+            return make_mock_response({
+                "json": lambda: {
+                    "sad": {"d": credential_said, "ri": registry_said},
+                    "status": {"d": status_said},
+                }
+            })
+
+        def delete(self, path, body=None):
+            self.last_delete = (path, body)
+            return DummyResponse()
+
+    client = DummyClient()
+    result = credentialing.Credentials(client=client).revoke(
+        "aid1",
+        credential_said,
+        timestamp="2023-09-27T16:27:14.376928+00:00",
+    )
+
+    assert isinstance(result, credentialing.CredentialRevokeResult)
+    assert result.rev.ked["t"] == "rev"
+    assert result.rev.ked["ri"] == registry_said
+    assert result.rev.ked["i"] == credential_said
+    assert result.rev.ked["dt"] == "2023-09-27T16:27:14.376928+00:00"
+    assert result.anc.ked["t"] == "ixn"
+    assert result.sigs == ["a signature"]
+    assert result.op() == {"done": True}
+    assert tuple(result) == (result.rev, result.anc, ["a signature"], {"done": True})
+    assert client.last_delete[0] == f"/identifiers/aid1/credentials/{credential_said}"
+    assert client.last_delete[1]["rev"]["ri"] == registry_said
+    assert client.last_delete[1]["rev"]["i"] == credential_said
+    assert client.last_delete[1]["ixn"]["t"] == "ixn"
+    assert client.last_delete[1]["sigs"] == ["a signature"]
+    assert client.last_delete[1]["salty"] == {"keeper": "params"}
+
+
+def test_credentials_revoke_falls_back_to_rd(make_mock_response):
+    credential_said = "EMwcsEMUEruPXVwPCW7zmqmN8m0I3CihxolBm-RDrsJo"
+    registry_said = "EGK216v1yguLfex4YRFnG7k1sXRjh3OKY7QqzdKsx7df"
+    status_said = "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"
+
+    class DummyKeeper:
+        algo = "salty"
+
+        @staticmethod
+        def params():
+            return {"keeper": "params"}
+
+        @staticmethod
+        def sign(ser):
+            return ["a signature"]
+
+    class DummyManager:
+        @staticmethod
+        def get(aid):
+            return DummyKeeper()
+
+    class DummyIdentifiers:
+        @staticmethod
+        def get(name):
+            return {"prefix": "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose", "name": name,
+                    "state": {"s": "1", "d": "ABCDEFG"}}
+
+    class DummyResponse:
+        @staticmethod
+        def json():
+            return {"done": True}
+
+    class DummyClient:
+        def __init__(self):
+            self.manager = DummyManager()
+            self.last_delete = None
+
+        @staticmethod
+        def identifiers():
+            return DummyIdentifiers()
+
+        @staticmethod
+        def get(path, headers=None):
+            return make_mock_response({
+                "json": lambda: {
+                    "sad": {"d": credential_said, "rd": registry_said},
+                    "status": {"d": status_said},
+                }
+            })
+
+        def delete(self, path, body=None):
+            self.last_delete = (path, body)
+            return DummyResponse()
+
+    client = DummyClient()
+    result = credentialing.Credentials(client=client).revoke(
+        "aid1",
+        credential_said,
+        timestamp="2023-09-27T16:27:14.376928+00:00",
+    )
+
+    assert result.rev.ked["ri"] == registry_said
+    assert client.last_delete[1]["rev"]["ri"] == registry_said
 
 def test_ipex_grant():
     from signify.app.clienting import SignifyClient

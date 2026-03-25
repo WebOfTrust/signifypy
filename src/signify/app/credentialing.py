@@ -36,6 +36,50 @@ class RegistryResult:
         return self.response.json()
 
 
+class CredentialIssueResult:
+    """Canonical write-path wrapper for credential issuance results."""
+
+    def __init__(self, acdc, iss, anc, sigs, response):
+        self.acdc = acdc
+        self.iss = iss
+        self.anc = anc
+        self.sigs = sigs
+        self.response = response
+
+    def op(self):
+        """Return the decoded operation payload from the stored response."""
+        return self.response.json()
+
+    def __iter__(self):
+        """Yield the historical tuple shape for transition safety."""
+        yield self.acdc
+        yield self.iss
+        yield self.anc
+        yield self.sigs
+        yield self.op()
+
+
+class CredentialRevokeResult:
+    """Canonical write-path wrapper for credential revocation results."""
+
+    def __init__(self, rev, anc, sigs, response):
+        self.rev = rev
+        self.anc = anc
+        self.sigs = sigs
+        self.response = response
+
+    def op(self):
+        """Return the decoded operation payload from the stored response."""
+        return self.response.json()
+
+    def __iter__(self):
+        """Yield the historical tuple shape for transition safety."""
+        yield self.rev
+        yield self.anc
+        yield self.sigs
+        yield self.op()
+
+
 class Registries:
     """Resource wrapper for registry lifecycle operations under one identifier.
 
@@ -255,7 +299,7 @@ class Registries:
 
 
 class Credentials:
-    """Resource wrapper for listing, exporting, issuing, and revoking credentials."""
+    """Resource wrapper for listing, reading, issuing, and revoking credentials."""
 
     def __init__(self, client: SignifyClient):
         """Create a credentials resource bound to one Signify client.
@@ -266,25 +310,23 @@ class Credentials:
         """
         self.client = client
 
-    def list(self, filtr=None, sort=None, skip=None, limit=None):
+    def list(self, filter=None, sort=None, skip=0, limit=25):
         """Query credentials stored by the remote agent.
 
         Parameters:
-            filtr (dict): Credential filter dict
-            sort(list): list of SAD Path field references to sort by
-            skip (int): number of credentials to skip at the front of the list
-            limit (int): total number of credentials to retrieve
+            filter (dict | None): Maintained credential filter dict.
+            sort (list | None): List of SAD Path field references to sort by.
+            skip (int): Number of credentials to skip at the front of the list.
+            limit (int): Total number of credentials to retrieve.
 
         Returns:
             list: list of dicts representing the listed credentials
         """
-        filtr = filtr if filtr is not None else {}
         sort = sort if sort is not None else []
-        skip = skip if skip is not None else 0
-        limit = limit if limit is not None else 25
+        filter = {} if filter is None else filter
 
         body = dict(
-            filter=filtr,
+            filter=filter,
             sort=sort,
             skip=skip,
             limit=limit
@@ -294,31 +336,77 @@ class Credentials:
         return res.json()
 
     def export(self, said):
-        """Export one credential in CESR JSON form.
+        """Compatibility alias for fetching one credential in CESR JSON form."""
+        return self.get(said, includeCESR=True)
+
+    def get(self, said, includeCESR=False):
+        """Fetch one credential in JSON or CESR form.
 
         Parameters:
-            said (str): SAID of credential to export
-        Returns:
-            credential (bytes): exported credential
+            said (str): SAID of credential to fetch.
+            includeCESR (bool): When ``True``, request CESR JSON bytes instead
+                of the default decoded JSON payload.
         """
-        headers = dict(accept="application/json+cesr")
-
+        headers = dict(accept="application/json+cesr" if includeCESR else "application/json")
         res = self.client.get(f"/credentials/{said}", headers=headers)
-        return res.content
+        return res.content if includeCESR else res.json()
 
-    def get(self, said):
-        """Fetch one credential in JSON form, including its current TEL status."""
-        res = self.client.get(f"/credentials/{said}")
-        return res.json()
+    def delete(self, said):
+        """Delete one locally stored credential by SAID."""
+        self.client.delete(f"/credentials/{said}")
 
     def state(self, registry_said, credential_said):
         """Fetch one credential TEL state record under a registry."""
         res = self.client.get(f"/registries/{registry_said}/{credential_said}")
         return res.json()
 
+    def issue(
+        self,
+        name,
+        registryName,
+        data,
+        schema,
+        *,
+        recipient=None,
+        edges=None,
+        rules=None,
+        private=False,
+        timestamp=None,
+    ):
+        """Create and submit a credential issuance request using canonical names.
+
+        Parameters:
+            name (str): Identifier alias used as the issuer.
+            registryName (str): Registry alias under the identifier.
+            data (dict): Credential subject attributes.
+            schema (str): SAID of the credential schema.
+            recipient (str | None): Optional recipient AID.
+            edges (dict | None): Optional source edges for chained credentials.
+            rules (dict | None): Optional issuance rules block.
+            private (bool): Whether to issue a privacy-preserving credential.
+            timestamp (str | None): Optional issuance timestamp override.
+
+        Returns:
+            CredentialIssueResult: Wrapper exposing the created credential
+                material plus synchronous ``op()`` access.
+        """
+        hab = self.client.identifiers().get(name)
+        registry = self.client.registries().get(name, registryName)
+        return self._issue_result(
+            hab=hab,
+            registry=registry,
+            data=data,
+            schema=schema,
+            recipient=recipient,
+            edges=edges,
+            rules=rules,
+            private=private,
+            timestamp=timestamp,
+        )
+
     def create(self, hab, registry, data, schema, recipient=None, edges=None, rules=None, private=False,
                timestamp=None):
-        """Create and submit a credential issuance request.
+        """Compatibility wrapper for the older registry-centric issuance API.
 
         Parameters:
             hab (dict): Identifier habitat state used as the issuer.
@@ -336,58 +424,18 @@ class Credentials:
             credential, issuance event, anchoring interaction, signatures, and
             KERIA operation payload.
         """
-        pre = hab["prefix"]
-
-        if recipient is None:
-            recp = None
-        else:
-            recp = recipient
-
-        if timestamp is not None:
-            data["dt"] = timestamp
-
-        regk = registry['regk']
-        creder = proving.credential(issuer=registry['pre'],
-                                    schema=schema,
-                                    recipient=recp,
-                                    data=data,
-                                    source=edges,
-                                    private=private,
-                                    rules=rules,
-                                    status=regk)
-
-        dt = creder.attrib["dt"] if "dt" in creder.attrib else helping.nowIso8601()
-        noBackers = 'NB' in registry['state']['c']
-        if noBackers:
-            iserder = eventing.issue(vcdig=creder.said, regk=regk, dt=dt)
-        else:
-            regi = registry['state']['s']
-            try:
-                regi = int(regi)  # value is hex though should be parsed as int prior to passing in to backerIssue where it is reconverted to hex
-            except ValueError:
-                raise ValueError(f"invalid registry state sn={regi}")
-            regd = registry['state']['d']
-            iserder = eventing.backerIssue(vcdig=creder.said, regk=regk, regsn=regi, regd=regd, dt=dt)
-
-        vcid = iserder.ked["i"]
-        rseq = coring.Seqner(snh=iserder.ked["s"])
-        rseal = eventing.SealEvent(vcid, rseq.snh, iserder.said)
-        rseal = dict(i=rseal.i, s=rseal.s, d=rseal.d)
-
-        data = [rseal]
-
-        state = hab["state"]
-        sn = int(state["s"], 16)
-        dig = state["d"]
-        anc = interact(pre, sn=sn + 1, data=data, dig=dig)
-
-        keeper = self.client.manager.get(aid=hab)
-        sigs = keeper.sign(ser=anc.raw)
-
-        res = self.create_from_events(hab=hab, creder=creder.sad, iss=iserder.sad, anc=anc.sad,
-                                      sigs=sigs)
-
-        return creder, iserder, anc, sigs, res.json()
+        result = self._issue_result(
+            hab=hab,
+            registry=registry,
+            data=data,
+            schema=schema,
+            recipient=recipient,
+            edges=edges,
+            rules=rules,
+            private=private,
+            timestamp=timestamp,
+        )
+        return result.acdc, result.iss, result.anc, result.sigs, result.op()
 
     def create_from_events(self, hab, creder, iss, anc, sigs):
         """Submit a credential issuance request from prebuilt local events."""
@@ -403,14 +451,137 @@ class Credentials:
 
         return self.client.post(f"/identifiers/{name}/credentials", json=body)
 
-    def revoke(self, name, said, timestamp=None):
+    def revoke(self, name, said, *, timestamp=None):
         """Create and submit a credential revocation request.
 
         Returns:
-            tuple: ``(rserder, anc, sigs, operation)`` for the locally created
-            TEL revocation event, its anchoring interaction, its signatures,
-            and the KERIA operation payload.
+            CredentialRevokeResult: Wrapper exposing the created revocation
+                material plus synchronous ``op()`` access.
         """
+        return self._revoke_result(name=name, said=said, timestamp=timestamp)
+
+    def _issue_result(
+        self,
+        *,
+        hab,
+        registry,
+        data,
+        schema,
+        recipient=None,
+        edges=None,
+        rules=None,
+        private=False,
+        timestamp=None,
+    ):
+        creder, iserder, anc, sigs = self._build_issue_artifacts(
+            hab=hab,
+            registry=registry,
+            data=data,
+            schema=schema,
+            recipient=recipient,
+            edges=edges,
+            rules=rules,
+            private=private,
+            timestamp=timestamp,
+        )
+        response = self.create_from_events(
+            hab=hab,
+            creder=creder.sad,
+            iss=iserder.sad,
+            anc=anc.sad,
+            sigs=sigs,
+        )
+        return CredentialIssueResult(
+            acdc=creder,
+            iss=iserder,
+            anc=anc,
+            sigs=sigs,
+            response=response,
+        )
+
+    def _build_issue_artifacts(
+        self,
+        *,
+        hab,
+        registry,
+        data,
+        schema,
+        recipient=None,
+        edges=None,
+        rules=None,
+        private=False,
+        timestamp=None,
+    ):
+        pre = hab["prefix"]
+        recp = recipient if recipient is not None else None
+        body_data = dict(data)
+        if timestamp is not None:
+            body_data["dt"] = timestamp
+
+        regk = registry['regk']
+        creder = proving.credential(
+            issuer=registry['pre'],
+            schema=schema,
+            recipient=recp,
+            data=body_data,
+            source=edges,
+            private=private,
+            rules=rules,
+            status=regk,
+        )
+
+        dt = creder.attrib["dt"] if "dt" in creder.attrib else helping.nowIso8601()
+        noBackers = 'NB' in registry['state']['c']
+        if noBackers:
+            iserder = eventing.issue(vcdig=creder.said, regk=regk, dt=dt)
+        else:
+            regi = registry['state']['s']
+            try:
+                regi = int(regi)
+            except ValueError:
+                raise ValueError(f"invalid registry state sn={regi}")
+            regd = registry['state']['d']
+            iserder = eventing.backerIssue(vcdig=creder.said, regk=regk, regsn=regi, regd=regd, dt=dt)
+
+        vcid = iserder.ked["i"]
+        rseq = coring.Seqner(snh=iserder.ked["s"])
+        rseal = eventing.SealEvent(vcid, rseq.snh, iserder.said)
+        anchor_data = [dict(i=rseal.i, s=rseal.s, d=rseal.d)]
+
+        state = hab["state"]
+        sn = int(state["s"], 16)
+        dig = state["d"]
+        anc = interact(pre, sn=sn + 1, data=anchor_data, dig=dig)
+
+        keeper = self.client.manager.get(aid=hab)
+        sigs = keeper.sign(ser=anc.raw)
+        return creder, iserder, anc, sigs
+
+    def _revoke_result(self, *, name, said, timestamp=None):
+        hab, rserder, anc, sigs = self._build_revoke_artifacts(
+            name=name,
+            said=said,
+            timestamp=timestamp,
+        )
+        keeper = self.client.manager.get(aid=hab)
+        body = dict(
+            rev=rserder.ked,
+            ixn=anc.ked,
+            sigs=sigs,
+        )
+        body[keeper.algo] = keeper.params()
+        response = self.client.delete(
+            f"/identifiers/{name}/credentials/{said}",
+            body=body,
+        )
+        return CredentialRevokeResult(
+            rev=rserder,
+            anc=anc,
+            sigs=sigs,
+            response=response,
+        )
+
+    def _build_revoke_artifacts(self, *, name, said, timestamp=None):
         hab = self.client.identifiers().get(name)
         pre = hab["prefix"]
         dt = timestamp or helping.nowIso8601()
@@ -441,20 +612,7 @@ class Credentials:
 
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=anc.raw)
-
-        body = dict(
-            rev=rserder.ked,
-            ixn=anc.ked,
-            sigs=sigs,
-        )
-        body[keeper.algo] = keeper.params()
-
-        operation = self.client.delete(
-            f"/identifiers/{name}/credentials/{said}",
-            body=body,
-        ).json()
-
-        return rserder, anc, sigs, operation
+        return hab, rserder, anc, sigs
 
 
 class Ipex:

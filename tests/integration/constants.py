@@ -5,7 +5,7 @@ Runtime ports, URLs, and OOBIs are generated per stack instance in
 that do not change when the harness runs in parallel.
 """
 
-SCHEMA_SAID = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
+QVI_SCHEMA_SAID = "EBfdlu8R27Fbx-ehrqwImnK-8Cm79sqbAQ4MmvEAYqao"
 ADDITIONAL_SCHEMA_OOBI_SAIDS = {
     "legal-entity": "ENPXp1vQzRF6JwIuS-mp2U8Uf1MoADoP_GqQ62VsDZWY",
     "ecr-auth": "EH6ekLjSr8V32WyFbGe1zXjTzFs9PkTYmupJ9H65O14g",

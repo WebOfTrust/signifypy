@@ -8,7 +8,7 @@ import re
 import secrets
 import socket
 
-from .constants import ADDITIONAL_SCHEMA_OOBI_SAIDS, SCHEMA_SAID, WITNESS_AIDS
+from .constants import ADDITIONAL_SCHEMA_OOBI_SAIDS, QVI_SCHEMA_SAID, WITNESS_AIDS
 
 
 def _slug(text: str) -> str:
@@ -79,7 +79,7 @@ class IntegrationStackTopology:
 
     @property
     def schema_oobi(self) -> str:
-        return f"{self.vlei_schema_url}/oobi/{SCHEMA_SAID}"
+        return f"{self.vlei_schema_url}/oobi/{QVI_SCHEMA_SAID}"
 
     @property
     def witness_oobis(self) -> list[str]:

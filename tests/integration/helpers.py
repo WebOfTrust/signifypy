@@ -27,7 +27,8 @@ from requests import HTTPError
 
 from signify.app.clienting import SignifyClient
 from tests.integration.constants import (
-    SCHEMA_SAID,
+    ADDITIONAL_SCHEMA_OOBI_SAIDS,
+    QVI_SCHEMA_SAID,
     TEST_WITNESS_AIDS,
     WITNESS_AIDS,
 )
@@ -127,9 +128,25 @@ def witness_oobi_by_aid(client: SignifyClient) -> dict[str, str]:
     return dict(zip(WITNESS_AIDS, _require_live_stack(client)["witness_oobis"]))
 
 
-def schema_oobi(client: SignifyClient) -> str:
-    """Return the current stack's primary schema OOBI."""
-    return _require_live_stack(client)["schema_oobi"]
+def schema_oobis_by_said(client: SignifyClient) -> dict[str, str]:
+    """Return all stack-local schema OOBIs keyed by schema SAID."""
+    live_stack = _require_live_stack(client)
+    schema_oobis = {QVI_SCHEMA_SAID: live_stack["schema_oobi"]}
+    schema_oobis.update(
+        {
+            ADDITIONAL_SCHEMA_OOBI_SAIDS[alias]: oobi
+            for alias, oobi in live_stack["additional_schema_oobis"].items()
+        }
+    )
+    return schema_oobis
+
+
+def schema_oobi(client: SignifyClient, schema_said: str) -> str:
+    """Return one stack-local schema OOBI by schema SAID."""
+    try:
+        return schema_oobis_by_said(client)[schema_said]
+    except KeyError as err:
+        raise ValueError(f"unknown schema_said={schema_said}") from err
 
 
 def additional_schema_oobis(client: SignifyClient) -> dict[str, str]:
@@ -137,9 +154,18 @@ def additional_schema_oobis(client: SignifyClient) -> dict[str, str]:
     return dict(_require_live_stack(client)["additional_schema_oobis"])
 
 
-def resolve_schema_oobi(client: SignifyClient, *, alias: str = "schema") -> dict:
-    """Resolve the current stack's primary schema OOBI."""
-    return resolve_oobi(client, schema_oobi(client), alias=alias)
+def resolve_schema_oobi(
+    client: SignifyClient,
+    schema_said: str,
+    *,
+    alias: str | None = None,
+) -> dict:
+    """Resolve one stack-local schema OOBI identified explicitly by schema SAID."""
+    return resolve_oobi(
+        client,
+        schema_oobi(client, schema_said),
+        alias=alias or f"schema-{schema_said[:8]}",
+    )
 
 
 def _format_poll_value(value) -> str:
@@ -388,7 +414,7 @@ def wait_for_issued_credential(
         lambda: next(
             (
                 credential
-                for credential in client.credentials().list(filtr={"-i": issuer_prefix})
+                for credential in client.credentials().list(filter={"-i": issuer_prefix})
                 if credential["sad"]["d"] == said
             ),
             None,
@@ -1605,25 +1631,23 @@ def issue_credential(
     registry_name: str,
     recipient: str,
     data: dict,
-    schema: str = SCHEMA_SAID,
+    schema: str = QVI_SCHEMA_SAID,
 ):
     """Issue a credential through SignifyPy and wait for the issuance operation.
 
     This helper owns the "issue but do not yet transport" part of the
     credential flow. Transport to the holder still happens later through IPEX.
     """
-    issuer_hab = client.identifiers().get(issuer_name)
-    registry = client.registries().get(issuer_name, registry_name)
-    creder, iserder, anc, sigs, operation = client.credentials().create(
-        issuer_hab,
-        registry=registry,
+    result = client.credentials().issue(
+        issuer_name,
+        registry_name,
         data=data,
         schema=schema,
         recipient=recipient,
         timestamp=helping.nowIso8601(),
     )
-    wait_for_operation(client, operation)
-    return creder, iserder, anc, sigs
+    wait_for_operation(client, result.op())
+    return result.acdc, result.iss, result.anc, result.sigs
 
 
 def revoke_credential(
@@ -1634,13 +1658,13 @@ def revoke_credential(
     timestamp: str | None = None,
 ):
     """Revoke one single-sig credential and wait for the local revoke operation."""
-    rserder, anc, sigs, operation = client.credentials().revoke(
+    result = client.credentials().revoke(
         issuer_name,
         credential_said,
         timestamp=timestamp,
     )
-    wait_for_operation(client, operation)
-    return rserder, anc, sigs
+    wait_for_operation(client, result.op())
+    return result.rev, result.anc, result.sigs
 
 
 def send_credential_grant(
@@ -1762,7 +1786,7 @@ def issue_multisig_credential(
     registry_name: str,
     recipient: str,
     data: dict,
-    schema: str = SCHEMA_SAID,
+    schema: str = QVI_SCHEMA_SAID,
     timestamp: str | None = None,
     is_initiator: bool = False,
     request: list[dict] | None = None,
@@ -1782,7 +1806,6 @@ def issue_multisig_credential(
 
     local_member = client.identifiers().get(local_member_name)
     group_hab = client.identifiers().get(group_name)
-    registry = client.registries().get(group_name, registry_name)
     if request is not None:
         # As with `/multisig/vcp`, the follower path is only correct if it
         # approves the stored proposal instead of reconstructing one locally.
@@ -1800,14 +1823,19 @@ def issue_multisig_credential(
             sigs=sigs,
         ).json()
     else:
-        creder, iserder, anc, sigs, operation = client.credentials().create(
-            group_hab,
-            registry=registry,
+        result = client.credentials().issue(
+            group_name,
+            registry_name,
             data=data,
             schema=schema,
             recipient=recipient,
             timestamp=timestamp or helping.nowIso8601(),
         )
+        creder = result.acdc
+        iserder = result.iss
+        anc = result.anc
+        sigs = result.sigs
+        operation = result.op()
     client.exchanges().send(
         local_member_name,
         "multisig",
@@ -1858,11 +1886,15 @@ def revoke_multisig_credential(
     group_hab = client.identifiers().get(group_name)
     # Revocation still begins with the local wrapper call; the regression
     # assertion is that all members converge on one revoke event and TEL state.
-    rserder, anc, sigs, operation = client.credentials().revoke(
+    result = client.credentials().revoke(
         group_name,
         credential_said,
         timestamp=timestamp,
     )
+    rserder = result.rev
+    anc = result.anc
+    sigs = result.sigs
+    operation = result.op()
     client.exchanges().send(
         local_member_name,
         "multisig",

@@ -92,7 +92,7 @@ Feature Inventory
    * - Credential requests
      - ``client.credentials()``, ``client.ipex()``
      - ``signify.app.credentialing``
-     - Maintained for query/export/issue plus grant/admit presentation workflows.
+     - Maintained for credential query/read/delete plus canonical issue/revoke workflows, with IPEX still limited to grant/admit presentation paths.
    * - Delegation requests
      - ``client.delegations()``, ``client.identifiers().create(..., delpre=...)``
      - ``signify.app.delegating``, ``signify.app.aiding``
@@ -322,16 +322,31 @@ Routes:
 
 - ``POST /credentials/query``
 - ``GET /credentials/{said}``
+- ``DELETE /credentials/{said}``
 - ``POST /identifiers/{name}/credentials``
+- ``DELETE /identifiers/{name}/credentials/{said}``
 - ``POST /identifiers/{name}/ipex/grant``
 - ``POST /identifiers/{name}/ipex/admit``
 
 Responsibilities:
 
 - Query locally held credentials.
-- Export a credential in CESR JSON form.
-- Construct and submit credential issuance events.
+- Read a credential through one maintained JSON/CESR contract:
+  ``get(said, includeCESR=False)``, with ``export(said)`` kept as the CESR
+  compatibility alias.
+- Delete one locally stored credential copy through ``delete(said)``.
+- Construct and submit credential issuance events through canonical
+  ``issue(name, registryName, ...)`` while keeping the older
+  ``create(hab, registry, ...)`` form as explicit compatibility surface.
+- Construct and submit credential revocation events through
+  ``revoke(name, said, *, timestamp=None)`` and expose the result through the
+  dedicated write-result wrapper.
 - Construct and submit IPEX grant and admit exchanges for presentation flows.
+
+Maintainer note:
+
+- Do not treat the credential write normalization as license to fold in
+  broader IPEX conversation-surface expansion here.
 
 Primary tests:
 

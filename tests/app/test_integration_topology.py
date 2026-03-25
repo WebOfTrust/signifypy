@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from tests.integration.constants import SCHEMA_SAID, WITNESS_AIDS
+from tests.integration.constants import QVI_SCHEMA_SAID, WITNESS_AIDS
 from tests.integration.topology import (
     additional_schema_oobis,
     make_stack_topology,
@@ -23,7 +23,7 @@ def test_make_stack_topology_builds_urls_and_oobis(tmp_path):
     assert topology.keria_agent_url == "http://127.0.0.1:5902"
     assert topology.keria_boot_url == "http://127.0.0.1:5903"
     assert topology.vlei_schema_url == "http://127.0.0.1:7723"
-    assert topology.schema_oobi == f"http://127.0.0.1:7723/oobi/{SCHEMA_SAID}"
+    assert topology.schema_oobi == f"http://127.0.0.1:7723/oobi/{QVI_SCHEMA_SAID}"
     assert topology.witness_oobis == [
         f"http://127.0.0.1:5601/oobi/{WITNESS_AIDS[0]}/controller?name=Wan&tag=witness",
         f"http://127.0.0.1:5602/oobi/{WITNESS_AIDS[1]}/controller?name=Wil&tag=witness",

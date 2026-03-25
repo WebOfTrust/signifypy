@@ -6,7 +6,7 @@ import pytest
 from keri.core import coring
 from keri.help import helping
 
-from .constants import SCHEMA_SAID, TEST_WITNESS_AIDS
+from .constants import QVI_SCHEMA_SAID, TEST_WITNESS_AIDS
 from .helpers import (
     alias,
     create_identifier,
@@ -38,6 +38,150 @@ def _normalized_registry_state(registry: dict) -> dict:
     return state
 
 
+def _assert_credential_record(
+    credential: dict,
+    *,
+    said: str,
+    issuer_prefix: str,
+    subject_prefix: str,
+    expected_et: str,
+    expected_sn: str,
+) -> None:
+    """Assert the stable credential fields that should match across members."""
+    assert credential["sad"]["d"] == said
+    assert credential["sad"]["i"] == issuer_prefix
+    assert credential["sad"]["a"]["i"] == subject_prefix
+    assert credential["sad"]["s"] == QVI_SCHEMA_SAID
+    assert credential["status"]["et"] == expected_et
+    assert credential["status"]["s"] == expected_sn
+
+
+def _assert_issuer_query_surface(
+    client,
+    *,
+    issuer_prefix: str,
+    subject_prefix: str,
+    registry_said: str,
+    said: str,
+    expected_et: str,
+    expected_sn: str,
+) -> None:
+    """Assert the maintained issuer-side query/read surface for one credential."""
+    all_credentials = client.credentials().list()
+    issuer_filtered = client.credentials().list(filter={"-i": issuer_prefix})
+    schema_filtered = client.credentials().list(filter={"-s": QVI_SCHEMA_SAID})
+    subject_filtered = client.credentials().list(filter={"-a-i": subject_prefix})
+    combined_filtered = client.credentials().list(
+        filter={"-i": issuer_prefix, "-s": QVI_SCHEMA_SAID, "-a-i": subject_prefix}
+    )
+    fetched = client.credentials().get(said)
+    fetched_cesr = client.credentials().get(said, includeCESR=True)
+    exported = client.credentials().export(said)
+    state = client.credentials().state(registry_said, said)
+
+    assert len(all_credentials) == 1
+    assert len(issuer_filtered) == 1
+    assert len(schema_filtered) == 1
+    assert len(subject_filtered) == 1
+    assert len(combined_filtered) == 1
+    _assert_credential_record(
+        all_credentials[0],
+        said=said,
+        issuer_prefix=issuer_prefix,
+        subject_prefix=subject_prefix,
+        expected_et=expected_et,
+        expected_sn=expected_sn,
+    )
+    _assert_credential_record(
+        issuer_filtered[0],
+        said=said,
+        issuer_prefix=issuer_prefix,
+        subject_prefix=subject_prefix,
+        expected_et=expected_et,
+        expected_sn=expected_sn,
+    )
+    _assert_credential_record(
+        schema_filtered[0],
+        said=said,
+        issuer_prefix=issuer_prefix,
+        subject_prefix=subject_prefix,
+        expected_et=expected_et,
+        expected_sn=expected_sn,
+    )
+    _assert_credential_record(
+        subject_filtered[0],
+        said=said,
+        issuer_prefix=issuer_prefix,
+        subject_prefix=subject_prefix,
+        expected_et=expected_et,
+        expected_sn=expected_sn,
+    )
+    _assert_credential_record(
+        combined_filtered[0],
+        said=said,
+        issuer_prefix=issuer_prefix,
+        subject_prefix=subject_prefix,
+        expected_et=expected_et,
+        expected_sn=expected_sn,
+    )
+    _assert_credential_record(
+        fetched,
+        said=said,
+        issuer_prefix=issuer_prefix,
+        subject_prefix=subject_prefix,
+        expected_et=expected_et,
+        expected_sn=expected_sn,
+    )
+    assert fetched_cesr
+    assert exported == fetched_cesr
+    assert state["et"] == expected_et
+    assert state["s"] == expected_sn
+
+
+def _assert_holder_read_surface(
+    client,
+    *,
+    issuer_prefix: str,
+    holder_prefix: str,
+    said: str,
+) -> None:
+    """Assert the maintained holder-side read surface for one received credential."""
+    all_credentials = client.credentials().list()
+    holder_filtered = client.credentials().list(filter={"-a-i": holder_prefix})
+    fetched = client.credentials().get(said)
+    fetched_cesr = client.credentials().get(said, includeCESR=True)
+    exported = client.credentials().export(said)
+
+    assert len(all_credentials) == 1
+    assert len(holder_filtered) == 1
+    _assert_credential_record(
+        all_credentials[0],
+        said=said,
+        issuer_prefix=issuer_prefix,
+        subject_prefix=holder_prefix,
+        expected_et="iss",
+        expected_sn="0",
+    )
+    _assert_credential_record(
+        holder_filtered[0],
+        said=said,
+        issuer_prefix=issuer_prefix,
+        subject_prefix=holder_prefix,
+        expected_et="iss",
+        expected_sn="0",
+    )
+    _assert_credential_record(
+        fetched,
+        said=said,
+        issuer_prefix=issuer_prefix,
+        subject_prefix=holder_prefix,
+        expected_et="iss",
+        expected_sn="0",
+    )
+    assert fetched_cesr
+    assert exported == fetched_cesr
+
+
 def test_single_sig_issuer_to_multisig_holder_credential_issue(client_factory):
     """Prove a single issuer can issue to one multisig holder group prefix.
 
@@ -65,9 +209,9 @@ def test_single_sig_issuer_to_multisig_holder_credential_issue(client_factory):
     exchange_agent_oobis(holder_client_a, holder_member_a_name, holder_client_b, holder_member_b_name)
     exchange_agent_oobis(issuer_client, issuer_name, holder_client_a, holder_member_a_name)
     exchange_agent_oobis(issuer_client, issuer_name, holder_client_b, holder_member_b_name)
-    resolve_schema_oobi(issuer_client)
-    resolve_schema_oobi(holder_client_a)
-    resolve_schema_oobi(holder_client_b)
+    resolve_schema_oobi(issuer_client, QVI_SCHEMA_SAID)
+    resolve_schema_oobi(holder_client_a, QVI_SCHEMA_SAID)
+    resolve_schema_oobi(holder_client_b, QVI_SCHEMA_SAID)
 
     holder_group_a, holder_group_b = create_multisig_group(
         holder_client_a,
@@ -94,13 +238,13 @@ def test_single_sig_issuer_to_multisig_holder_credential_issue(client_factory):
         recipient=holder_group_a["prefix"],
         data={"LEI": "5493001KJTIIGC8Y1R17"},
     )
-    issued = issuer_client.credentials().list(filtr={"-i": issuer["prefix"]})
+    issued = issuer_client.credentials().list(filter={"-i": issuer["prefix"]})
 
     assert registry["name"] == registry_name
     assert holder_group_a["prefix"] == holder_group_b["prefix"]
     assert creder.sad["d"] == iserder.ked["i"]
     assert creder.sad["a"]["i"] == holder_group_a["prefix"]
-    assert creder.sad["s"] == SCHEMA_SAID
+    assert creder.sad["s"] == QVI_SCHEMA_SAID
     assert any(credential["sad"]["d"] == creder.said for credential in issued)
 
 
@@ -143,10 +287,10 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
 
     exchange_agent_oobis(issuer_client_a, issuer_member_a_name, issuer_client_b, issuer_member_b_name)
     exchange_agent_oobis(holder_client_a, holder_member_a_name, holder_client_b, holder_member_b_name)
-    resolve_schema_oobi(issuer_client_a)
-    resolve_schema_oobi(issuer_client_b)
-    resolve_schema_oobi(holder_client_a)
-    resolve_schema_oobi(holder_client_b)
+    resolve_schema_oobi(issuer_client_a, QVI_SCHEMA_SAID)
+    resolve_schema_oobi(issuer_client_b, QVI_SCHEMA_SAID)
+    resolve_schema_oobi(holder_client_a, QVI_SCHEMA_SAID)
+    resolve_schema_oobi(holder_client_b, QVI_SCHEMA_SAID)
 
     issuer_group_a, issuer_group_b = create_multisig_group(
         issuer_client_a,
@@ -273,6 +417,24 @@ def test_multisig_issuer_to_multisig_holder_credential_issue(client_factory):
     assert creder_a.sad["a"]["i"] == holder_group_a["prefix"]
     assert issued_a["sad"]["d"] == creder_a.said
     assert issued_b["sad"]["d"] == creder_a.said
+    _assert_issuer_query_surface(
+        issuer_client_a,
+        issuer_prefix=issuer_group_a["prefix"],
+        subject_prefix=holder_group_a["prefix"],
+        registry_said=registry_a["regk"],
+        said=creder_a.said,
+        expected_et="iss",
+        expected_sn="0",
+    )
+    _assert_issuer_query_surface(
+        issuer_client_b,
+        issuer_prefix=issuer_group_b["prefix"],
+        subject_prefix=holder_group_b["prefix"],
+        registry_said=registry_b["regk"],
+        said=creder_a.said,
+        expected_et="iss",
+        expected_sn="0",
+    )
 
 
 def test_multisig_issuer_credential_revocation(client_factory):
@@ -306,9 +468,9 @@ def test_multisig_issuer_credential_revocation(client_factory):
 
     exchange_agent_oobis(issuer_client_a, issuer_member_a_name, issuer_client_b, issuer_member_b_name)
     exchange_agent_oobis(issuer_client_a, issuer_member_a_name, holder_client, holder_name)
-    resolve_schema_oobi(issuer_client_a)
-    resolve_schema_oobi(issuer_client_b)
-    resolve_schema_oobi(holder_client)
+    resolve_schema_oobi(issuer_client_a, QVI_SCHEMA_SAID)
+    resolve_schema_oobi(issuer_client_b, QVI_SCHEMA_SAID)
+    resolve_schema_oobi(holder_client, QVI_SCHEMA_SAID)
 
     issuer_group_a, issuer_group_b = create_multisig_group(
         issuer_client_a,
@@ -432,5 +594,51 @@ def test_multisig_issuer_credential_revocation(client_factory):
     assert issued_a["sad"]["d"] == creder_a.said
     assert issued_b["sad"]["d"] == creder_a.said
     assert registry_a["regk"] == registry_b["regk"]
+    fetched_a = issuer_client_a.credentials().get(creder_a.said)
+    fetched_b = issuer_client_b.credentials().get(creder_a.said)
+    issuer_filtered_a = issuer_client_a.credentials().list(filter={"-i": issuer_group_a["prefix"]})
+    issuer_filtered_b = issuer_client_b.credentials().list(filter={"-i": issuer_group_b["prefix"]})
+    fetched_cesr_a = issuer_client_a.credentials().get(creder_a.said, includeCESR=True)
+    fetched_cesr_b = issuer_client_b.credentials().get(creder_a.said, includeCESR=True)
+    exported_a = issuer_client_a.credentials().export(creder_a.said)
+    exported_b = issuer_client_b.credentials().export(creder_a.said)
     assert revoke_state_a["et"] == "rev"
     assert revoke_state_b["et"] == "rev"
+    _assert_credential_record(
+        fetched_a,
+        said=creder_a.said,
+        issuer_prefix=issuer_group_a["prefix"],
+        subject_prefix=holder["prefix"],
+        expected_et="rev",
+        expected_sn="1",
+    )
+    _assert_credential_record(
+        fetched_b,
+        said=creder_a.said,
+        issuer_prefix=issuer_group_b["prefix"],
+        subject_prefix=holder["prefix"],
+        expected_et="rev",
+        expected_sn="1",
+    )
+    assert len(issuer_filtered_a) == 1
+    assert len(issuer_filtered_b) == 1
+    _assert_credential_record(
+        issuer_filtered_a[0],
+        said=creder_a.said,
+        issuer_prefix=issuer_group_a["prefix"],
+        subject_prefix=holder["prefix"],
+        expected_et="rev",
+        expected_sn="1",
+    )
+    _assert_credential_record(
+        issuer_filtered_b[0],
+        said=creder_a.said,
+        issuer_prefix=issuer_group_b["prefix"],
+        subject_prefix=holder["prefix"],
+        expected_et="rev",
+        expected_sn="1",
+    )
+    assert fetched_cesr_a
+    assert fetched_cesr_b
+    assert exported_a == fetched_cesr_a
+    assert exported_b == fetched_cesr_b
