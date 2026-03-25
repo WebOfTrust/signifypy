@@ -34,6 +34,17 @@ signify.app.coring
 signify.app.credentialing
 -------------------------
 
+``signify.app.credentialing`` intentionally keeps three adjacent public
+surfaces together:
+
+- ``Registries`` owns registry lifecycle and serialization helpers.
+- ``Credentials`` owns stored credential reads plus issue/revoke operations.
+- ``Ipex`` owns conversation and presentation exchange methods layered on top
+  of peer ``exn`` transport.
+
+Read the class and method docstrings in this section as the detailed reference
+contract for that split.
+
 .. automodule:: signify.app.credentialing
     :members:
 

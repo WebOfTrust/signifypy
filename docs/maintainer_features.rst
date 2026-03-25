@@ -92,7 +92,7 @@ Feature Inventory
    * - Credential requests
      - ``client.credentials()``, ``client.ipex()``
      - ``signify.app.credentialing``
-     - Maintained for query/export/issue plus grant/admit presentation workflows.
+     - Maintained for credential query/read/delete plus canonical issue/revoke workflows, with IPEX still limited to grant/admit presentation paths.
    * - Delegation requests
      - ``client.delegations()``, ``client.identifiers().create(..., delpre=...)``
      - ``signify.app.delegating``, ``signify.app.aiding``
@@ -322,16 +322,105 @@ Routes:
 
 - ``POST /credentials/query``
 - ``GET /credentials/{said}``
+- ``DELETE /credentials/{said}``
 - ``POST /identifiers/{name}/credentials``
+- ``DELETE /identifiers/{name}/credentials/{said}``
+- ``POST /identifiers/{name}/ipex/apply``
+- ``POST /identifiers/{name}/ipex/offer``
+- ``POST /identifiers/{name}/ipex/agree``
 - ``POST /identifiers/{name}/ipex/grant``
 - ``POST /identifiers/{name}/ipex/admit``
 
 Responsibilities:
 
 - Query locally held credentials.
-- Export a credential in CESR JSON form.
-- Construct and submit credential issuance events.
-- Construct and submit IPEX grant and admit exchanges for presentation flows.
+- Read a credential through one maintained JSON/CESR contract:
+  ``get(said, includeCESR=False)``, with ``export(said)`` kept as the CESR
+  compatibility alias.
+- Delete one locally stored credential copy through ``delete(said)``.
+- Construct and submit credential issuance events through canonical
+  ``issue(name, registryName, ...)`` while keeping the older
+  ``create(hab, registry, ...)`` form as explicit compatibility surface.
+- Construct and submit credential revocation events through
+  ``revoke(name, said, *, timestamp=None)`` and expose the result through the
+  dedicated write-result wrapper.
+- Construct and submit IPEX apply, offer, agree, grant, and admit exchanges
+  for credential conversation and presentation flows.
+
+Maintainer note:
+
+- Keep the early IPEX conversation verbs and the later presentation verbs in
+  one coherent resource surface; do not re-split them across unrelated modules.
+
+Maintained API contract:
+
+``Credentials``
+  Canonical read methods:
+
+  - ``list(filter=None, sort=None, skip=0, limit=25)``
+  - ``get(said, includeCESR=False)``
+  - ``delete(said)``
+  - ``state(registry_said, credential_said)``
+
+  Canonical write methods:
+
+  - ``issue(name, registryName, data, schema, *, recipient=None, edges=None, rules=None, private=False, timestamp=None)``
+  - ``revoke(name, said, *, timestamp=None)``
+
+  Compatibility methods:
+
+  - ``export(said)`` as a CESR read alias for ``get(..., includeCESR=True)``
+  - ``create(hab, registry, ...)`` as the legacy issuance wrapper
+  - ``create_from_events(...)`` as the low-level replay surface
+
+  Result wrappers:
+
+  - ``CredentialIssueResult`` exposes ``acdc``, ``iss``, ``anc``, ``sigs``, ``response``, and ``op()``
+  - ``CredentialRevokeResult`` exposes ``rev``, ``anc``, ``sigs``, ``response``, and ``op()``
+
+``Ipex``
+  Early conversation verbs:
+
+  - ``apply(...)``
+  - ``offer(...)``
+  - ``agree(...)``
+
+  Presentation verbs:
+
+  - ``grant(...)``
+  - ``admit(...)``
+
+  Submit methods:
+
+  - ``submitApply(...)``
+  - ``submitOffer(...)``
+  - ``submitAgree(...)``
+  - ``submitGrant(...)``
+  - ``submitAdmit(...)``
+
+  Builder methods return ``(exn, sigs, atc)``:
+
+  - ``exn`` is the locally built peer exchange message
+  - ``sigs`` are signatures over ``exn``
+  - ``atc`` is attachment material for embedded payloads and is usually empty
+    for ``apply``, ``agree``, and ``admit``, but often populated for
+    ``offer`` and especially ``grant``
+
+Workflow notes:
+
+- Canonical single-sig credential flow:
+  issue with ``Credentials.issue(...)``, present with ``Ipex.grant(...)``,
+  acknowledge with ``Ipex.admit(...)``, then read the received credential back
+  through ``Credentials.get(...)`` or ``Credentials.list(...)``.
+- Canonical full IPEX conversation flow:
+  ``apply -> offer -> agree -> grant -> admit``.
+- Multisig IPEX note:
+  notifications are discovery signals only; the authoritative objects are the
+  stored exchange or credential records fetched after notification SAID
+  discovery.
+- Multisig grant/admit note:
+  shared timestamps and grant-wave completion before admit starts are part of
+  the real workflow contract, not test-only ceremony.
 
 Primary tests:
 
@@ -404,6 +493,9 @@ Routes:
 
 - ``POST /identifiers/{name}/exchanges``
 - ``GET /exchanges/{said}``
+- ``POST /identifiers/{name}/ipex/apply``
+- ``POST /identifiers/{name}/ipex/offer``
+- ``POST /identifiers/{name}/ipex/agree``
 - ``POST /identifiers/{name}/ipex/grant``
 - ``POST /identifiers/{name}/ipex/admit``
 
@@ -413,8 +505,17 @@ Responsibilities:
 - Send prepared exchange messages to one or more recipients.
 - Retrieve exchange messages for inspection during multisig and credential
   workflows.
-- Build the IPEX grant/admit messages layered on top of the peer exchange
+- Build the full IPEX conversation layered on top of the peer exchange
+  transport: apply, offer, agree, grant, and admit.
+
+Maintainer note:
+
+- ``Exchanges`` owns generic peer-message transport.
+- ``Ipex`` owns the credential-specific conversation built on top of that
   transport.
+- When debugging multisig or IPEX flows, inspect the stored exchange payload
+  by SAID after a notification arrives instead of treating the notification row
+  itself as the durable source of truth.
 
 Primary tests:
 

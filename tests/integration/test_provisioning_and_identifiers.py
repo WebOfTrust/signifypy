@@ -5,9 +5,7 @@ Phase 1 live smoke tests for SignifyPy integration coverage.
 from __future__ import annotations
 
 import pytest
-from keri.help import helping
-
-from .constants import SCHEMA_SAID, TEST_WITNESS_AIDS
+from .constants import QVI_SCHEMA_SAID, TEST_WITNESS_AIDS
 from .helpers import (
     additional_schema_oobis,
     alias,
@@ -101,15 +99,15 @@ def test_schema_oobi_resolution_smoke(client_factory):
     # newly created identifier.
     client = client_factory()
 
-    result = resolve_schema_oobi(client)
-    schema = client.schemas().get(SCHEMA_SAID)
+    result = resolve_schema_oobi(client, QVI_SCHEMA_SAID)
+    schema = client.schemas().get(QVI_SCHEMA_SAID)
     schemas = client.schemas().list()
     schema_saids = {entry["$id"] for entry in schemas}
 
     assert result["done"] is True
-    assert result["metadata"]["oobi"] == schema_oobi(client)
-    assert schema["$id"] == SCHEMA_SAID
-    assert SCHEMA_SAID in schema_saids
+    assert result["metadata"]["oobi"] == schema_oobi(client, QVI_SCHEMA_SAID)
+    assert schema["$id"] == QVI_SCHEMA_SAID
+    assert QVI_SCHEMA_SAID in schema_saids
 
     for alias_name, oobi in additional_schema_oobis(client).items():
         extra = resolve_oobi(client, oobi, alias=alias_name)
@@ -266,7 +264,7 @@ def test_credential_issue_smoke(client_factory):
     registry_name = alias("registry")
 
     issuer_hab = create_identifier(client, issuer_name, wits=[])
-    resolve_schema_oobi(client)
+    resolve_schema_oobi(client, QVI_SCHEMA_SAID)
 
     registry_result = client.registries().create(issuer_name, registry_name)
     wait_for_operation(client, registry_result.op())
@@ -278,15 +276,15 @@ def test_credential_issue_smoke(client_factory):
     assert registry["name"] == registry_name
 
     data = {"LEI": "5493001KJTIIGC8Y1R17"}
-    creder, _, _, _, op = client.credentials().create(
-        issuer_hab,
-        registry=registry,
+    issue_result = client.credentials().issue(
+        issuer_name,
+        registry_name,
         data=data,
-        schema=SCHEMA_SAID,
+        schema=QVI_SCHEMA_SAID,
         recipient=issuer_hab["prefix"],
-        timestamp=helping.nowIso8601(),
     )
-    wait_for_operation(client, op)
+    wait_for_operation(client, issue_result.op())
+    creder = issue_result.acdc
 
     credentials = client.credentials().list()
     credential = next(entry for entry in credentials if entry["sad"]["d"] == creder.said)
@@ -295,5 +293,5 @@ def test_credential_issue_smoke(client_factory):
     assert credential["sad"]["d"] == creder.said
     assert credential["sad"]["i"] == issuer_hab["prefix"]
     assert credential["sad"]["a"]["i"] == issuer_hab["prefix"]
-    assert credential["sad"]["s"] == SCHEMA_SAID
+    assert credential["sad"]["s"] == QVI_SCHEMA_SAID
     assert exported

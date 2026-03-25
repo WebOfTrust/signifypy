@@ -438,19 +438,32 @@ def _client_factory(live_stack):
 
 @pytest.fixture(scope="session")
 def shared_live_stack(tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest):
-    """Launch one live stack per worker session."""
+    """Launch one live stack per worker session.
+
+    This is the default cost/performance tradeoff for integration work: each
+    xdist worker gets one deployment to reuse across many tests, while each
+    test still creates fresh agents and controllers on top of that deployment.
+    """
     yield from _stack_fixture(tmp_path_factory, request, mode="shared")
 
 
 @pytest.fixture
 def isolated_live_stack(tmp_path_factory: pytest.TempPathFactory, request: pytest.FixtureRequest):
-    """Launch one fully isolated live stack per test."""
+    """Launch one fully isolated live stack per test.
+
+    Reach for this only when the test is about runtime isolation itself, or
+    when shared-stack reuse would make the behavior under test ambiguous.
+    """
     yield from _stack_fixture(tmp_path_factory, request, mode="isolated")
 
 
 @pytest.fixture(scope="session")
 def live_stack(shared_live_stack):
-    """Compatibility alias for the shared-per-worker live stack."""
+    """Compatibility alias for the shared-per-worker live stack.
+
+    Older tests still refer to `live_stack`; newer ones should usually depend
+    on `client_factory` instead so the actor boundary stays explicit.
+    """
     return shared_live_stack
 
 
