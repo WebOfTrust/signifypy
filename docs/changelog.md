@@ -5,6 +5,14 @@ from Towncrier fragments during release preparation.
 
 <!-- towncrier release notes start -->
 
+## 0.4.1
+
+### Fixed
+
+- Added boot agent validation on connect. ([#137](https://github.com/WebOfTrust/signifypy/pull/137))
+- Fixed Randy (random) key manager implementation ([#138](https://github.com/WebOfTrust/signifypy/pull/138))
+
+
 ## 0.4.0
 
 - Added maintained client accessors for config reads, external request signing,
