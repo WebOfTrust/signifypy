@@ -13,9 +13,11 @@ import requests
 import sseclient
 from keri import kering
 from keri.core.coring import Tiers
+from keri.end import ending
 from keri.help import helping
 from requests import HTTPError
 from requests.auth import AuthBase
+from requests.structures import CaseInsensitiveDict
 
 from signify.core import keeping, authing, api
 from signify.signifying import SignifyState
@@ -23,6 +25,8 @@ from signify.signifying import SignifyState
 
 class SignifyClient:
     """Edge-signing client bound to one controller AID and delegated agent."""
+
+    ExternalRequestFields = ["@method", "@path", "Signify-Resource", "Signify-Timestamp"]
 
     def __init__(self, passcode, url=None, boot_url=None, tier=Tiers.low, extern_modules=None):
         """
@@ -172,6 +176,10 @@ class SignifyClient:
 
         return state
 
+    def state(self):
+        """Compatibility wrapper returning the current controller/agent state bundle."""
+        return self.states()
+
     def _save_old_salt(self, salt):
         """Persist the previous controller salt during passcode rotation flows."""
         caid = self.ctrl.pre
@@ -179,16 +187,22 @@ class SignifyClient:
         res = self.put(f"/salt/{caid}", json=body)
         return res.status_code == 204
 
+    def saveOldPasscode(self, passcode):
+        """Persist a prior controller passcode during passcode rotation."""
+        return self._save_old_salt(passcode)
+
     def _delete_old_salt(self):
         """Delete the previously persisted controller salt after rotation."""
         caid = self.ctrl.pre
         res = self.delete(f"/salt/{caid}")
         return res.status_code == 204
 
-    def get(self, path, params=None, headers=None, body=None):
-        """Issue an authenticated ``GET`` request relative to the client base URL."""
-        url = urljoin(self.base, path)
+    def deletePasscode(self):
+        """Delete any previously persisted controller passcode backup."""
+        return self._delete_old_salt()
 
+    def _request_kwargs(self, *, params=None, headers=None, json=None):
+        """Build ``requests`` kwargs for an authenticated relative request."""
         kwargs = dict()
         if params is not None:
             kwargs["params"] = params
@@ -196,28 +210,114 @@ class SignifyClient:
         if headers is not None:
             kwargs["headers"] = headers
 
-        if body is not None:
-            kwargs["json"] = body
+        if json is not None:
+            kwargs["json"] = json
 
-        res = self.session.get(url, **kwargs)
+        return kwargs
+
+    def _request(self, method, path, *, params=None, headers=None, json=None):
+        """Issue an authenticated HTTP request relative to the client base URL."""
+        url = urljoin(self.base, path)
+        kwargs = self._request_kwargs(params=params, headers=headers, json=json)
+
+        requester = getattr(self.session, method.lower(), None)
+        if requester is None:
+            res = self.session.request(method=method, url=url, **kwargs)
+        else:
+            res = requester(url, **kwargs)
+
         if not res.ok:
             self.raiseForStatus(res)
 
         return res
 
+    @staticmethod
+    def _signature_path(url):
+        """Return the path component used when signing an external request URL."""
+        path = urlsplit(url).path
+        return path if path else "/"
+
+    @staticmethod
+    def _signature_headers_for_signer(headers, method, path, signer):
+        """Attach Signify signature headers using one explicit signer."""
+        signed_headers = CaseInsensitiveDict(headers)
+        header, qsig = ending.siginput(
+            "signify",
+            method,
+            path,
+            signed_headers,
+            fields=SignifyClient.ExternalRequestFields,
+            signers=[signer],
+            alg="ed25519",
+            keyid=signer.verfer.qb64,
+        )
+        for key, val in header.items():
+            signed_headers[key] = val
+
+        signage = ending.Signage(
+            markers=dict(signify=qsig),
+            indexed=False,
+            signer=None,
+            ordinal=None,
+            digest=None,
+            kind=None,
+        )
+        for key, val in ending.signature([signage]).items():
+            signed_headers[key] = val
+
+        return signed_headers
+
+    def get(self, path, params=None, headers=None, body=None):
+        """Issue an authenticated ``GET`` request relative to the client base URL."""
+        return self._request("GET", path, params=params, headers=headers, json=body)
+
+    def fetch(self, path, method, data, headers=None):
+        """Compatibility wrapper for a unified signed request entrypoint."""
+        method = method.upper()
+        payload = None if method == "GET" else data
+        return self._request(method, path, headers=headers, json=payload)
+
+    def createSignedRequest(self, name, url, req=None):
+        """Build a ``PreparedRequest`` signed by the named managed identifier."""
+        if self.manager is None:
+            raise kering.ConfigurationError("client must be connected before signing external requests")
+
+        req = {} if req is None else dict(req)
+        method = req.get("method", "GET").upper()
+        headers = CaseInsensitiveDict(req.get("headers") or {})
+
+        hab = self.identifiers().get(name)
+        keeper = self.manager.get(aid=hab)
+        signer = keeper.signers()[0]
+
+        headers["Signify-Resource"] = hab["prefix"]
+        headers["Signify-Timestamp"] = helping.nowIso8601()
+        headers = self._signature_headers_for_signer(
+            headers=headers,
+            method=method,
+            path=self._signature_path(url),
+            signer=signer,
+        )
+
+        body = req.get("data", req.get("body"))
+        json_body = req.get("json")
+        if body is not None and json_body is not None:
+            raise ValueError("req cannot contain both 'body'/'data' and 'json'")
+
+        request = requests.Request(
+            method=method,
+            url=url,
+            headers=dict(headers),
+            params=req.get("params"),
+            data=body,
+            json=json_body,
+        )
+        return request.prepare()
+
     def stream(self, path, params=None, headers=None, body=None):
         """Open a server-sent-event stream against an authenticated endpoint."""
         url = urljoin(self.base, path)
-
-        kwargs = dict()
-        if params is not None:
-            kwargs["params"] = params
-
-        if headers is not None:
-            kwargs["headers"] = headers
-
-        if body is not None:
-            kwargs["json"] = body
+        kwargs = self._request_kwargs(params=params, headers=headers, json=body)
 
         client = sseclient.SSEClient(url, session=self.session, **kwargs)
         for event in client:
@@ -225,57 +325,15 @@ class SignifyClient:
 
     def delete(self, path, params=None, headers=None, body=None):
         """Issue an authenticated ``DELETE`` request relative to the client base URL."""
-        url = urljoin(self.base, path)
-
-        kwargs = dict()
-        if params is not None:
-            kwargs["params"] = params
-
-        if headers is not None:
-            kwargs["headers"] = headers
-
-        if body is not None:
-            kwargs["json"] = body
-
-        res = self.session.delete(url, **kwargs)
-        if not res.ok:
-            self.raiseForStatus(res)
-
-        return res
+        return self._request("DELETE", path, params=params, headers=headers, json=body)
 
     def post(self, path, json, params=None, headers=None):
         """Issue an authenticated ``POST`` request relative to the client base URL."""
-        url = urljoin(self.base, path)
-
-        kwargs = dict(json=json)
-        if params is not None:
-            kwargs["params"] = params
-
-        if headers is not None:
-            kwargs["headers"] = headers
-
-        res = self.session.post(url, **kwargs)
-        if not res.ok:
-            self.raiseForStatus(res)
-
-        return res
+        return self._request("POST", path, params=params, headers=headers, json=json)
 
     def put(self, path, json, params=None, headers=None):
         """Issue an authenticated ``PUT`` request relative to the client base URL."""
-        url = urljoin(self.base, path)
-
-        kwargs = dict(json=json)
-        if params is not None:
-            kwargs["params"] = params
-
-        if headers is not None:
-            kwargs["headers"] = headers
-
-        res = self.session.put(url, **kwargs)
-        if not res.ok:
-            self.raiseForStatus(res)
-
-        return res
+        return self._request("PUT", path, params=params, headers=headers, json=json)
 
     def identifiers(self):
         """Return the identifier lifecycle resource wrapper."""
@@ -341,6 +399,11 @@ class SignifyClient:
         """Return the schema read resource wrapper."""
         from signify.app.schemas import Schemas
         return Schemas(client=self)
+
+    def config(self):
+        """Return the agent-configuration read resource wrapper."""
+        from signify.app.coring import Config
+        return Config(client=self)
 
     def exchanges(self):
         """Return the exchange transport resource wrapper."""

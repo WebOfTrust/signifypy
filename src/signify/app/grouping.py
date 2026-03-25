@@ -32,6 +32,10 @@ class Groups:
         res = self.client.get(f"/multisig/request/{said}")
         return res.json()
 
+    def getRequest(self, said):
+        """Compatibility alias for :meth:`get_request`."""
+        return self.get_request(said)
+
     def send_request(self, name, exn, sigs, atc):
         """ Send multisig exn peer-to-peer message to other members of the multisig group
 
@@ -48,11 +52,15 @@ class Groups:
         body = dict(
             exn=exn,
             sigs=sigs,
-            atc=atc.decode("utf-8")
+            atc=atc.decode("utf-8") if isinstance(atc, bytes) else atc
         )
 
         res = self.client.post(f"/identifiers/{name}/multisig/request", json=body)
         return res.json()
+
+    def sendRequest(self, name, exn, sigs, atc):
+        """Compatibility alias for :meth:`send_request`."""
+        return self.send_request(name, exn, sigs, atc)
 
     def join(self, name, rot, sigs, gid, smids, rmids):
         """Submit a multisig join approval using a received proposal event.

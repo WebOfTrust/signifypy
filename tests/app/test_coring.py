@@ -240,6 +240,22 @@ def test_operations_wait_options_compatibility_path(monkeypatch):
 
     assert excinfo.value is abort_error
 
+
+def test_config_get(make_mock_response):
+    from signify.app.clienting import SignifyClient
+    client = mock(spec=SignifyClient, strict=True)
+
+    from signify.app import coring
+    config = coring.Config(client=client)  # type: ignore
+
+    mock_response = make_mock_response()
+    expect(client, times=1).get('/config').thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn({'iurls': ['http://example.com/oobi']})
+
+    out = config.get()
+
+    assert out == {'iurls': ['http://example.com/oobi']}
+
 def test_oobis_get(make_mock_response):
     from signify.app.clienting import SignifyClient
     client = mock(spec=SignifyClient, strict=True)

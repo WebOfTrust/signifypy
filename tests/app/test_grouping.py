@@ -28,6 +28,20 @@ def test_grouping_get_request(make_mock_client_with_manager, make_mock_response)
     assert len(res) == 1
     assert res[0]['d'] == "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
 
+
+def test_grouping_getRequest_alias(make_mock_client_with_manager):
+    mock_client, _ = make_mock_client_with_manager()
+
+    from signify.app.grouping import Groups
+    groups = Groups(client=mock_client)  # type: ignore
+
+    expect(groups, times=1).get_request("EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4").thenReturn(
+        [{'d': "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"}]
+    )
+
+    res = groups.getRequest("EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4")
+    assert res[0]['d'] == "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+
 def test_grouping_send_request(make_mock_client_with_manager, make_mock_response):
     mock_client, _ = make_mock_client_with_manager()
 
@@ -54,6 +68,21 @@ def test_grouping_send_request(make_mock_client_with_manager, make_mock_response
     )
 
     res = groups.send_request(name="test", exn=mock_exn, sigs=mock_sigs, atc=mock_atc)
+    assert res['t'] == 'exn'
+    assert res['d'] == "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
+
+
+def test_grouping_sendRequest_alias(make_mock_client_with_manager):
+    mock_client, _ = make_mock_client_with_manager()
+
+    from signify.app.grouping import Groups
+    groups = Groups(client=mock_client)  # type: ignore
+
+    expect(groups, times=1).send_request("test", {}, ['sig'], '-attachment').thenReturn(
+        {'t': 'exn', 'd': "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"}
+    )
+
+    res = groups.sendRequest("test", {}, ['sig'], '-attachment')
     assert res['t'] == 'exn'
     assert res['d'] == "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
 
@@ -91,6 +120,5 @@ def test_grouping_join(make_mock_client_with_manager, make_mock_response):
                       smids=mock_smids, rmids=mock_rmids)
     assert res['t'] == 'op'
     assert res['d'] == "EKYLUMmNPZeEs77Zvclf0bSN5IN-mLfLpx2ySb-HDlk4"
-
 
 

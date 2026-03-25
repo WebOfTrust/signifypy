@@ -126,6 +126,10 @@ class BaseKeeper:
                 cigars.append(signer.sign(ser))  # assigns .verfer to cigar
             return [cigar.qb64 for cigar in cigars]
 
+    def signers(self):
+        """Return the active current signers for this keeper."""
+        raise NotImplementedError("keeper does not expose current signers")
+
 
 class SaltyKeeper(BaseKeeper):
     """
@@ -282,6 +286,11 @@ class SaltyKeeper(BaseKeeper):
 
         return self.__sign__(ser, signers=signers, indexed=indexed, indices=indices, ondices=ondices)
 
+    def signers(self):
+        """Return signer objects for the keeper's current signing keys."""
+        return self.creator.create(codes=self.icodes, pidx=self.pidx, kidx=self.kidx,
+                                   transferable=self.transferable)
+
 
 class RandyKeeper(BaseKeeper):
     def __init__(self, salter, code=MtrDex.Ed25519_Seed, count=1, icodes=None, transferable=False,
@@ -344,6 +353,11 @@ class RandyKeeper(BaseKeeper):
                    for prx in self.prxs]
         return self.__sign__(ser, signers=signers, indexed=indexed, indices=indices, ondices=ondices)
 
+    def signers(self):
+        """Return signer objects decrypted from the keeper's current key set."""
+        return [self.decrypter.decrypt(ser=signing.Cipher(qb64=prx).qb64b, transferable=self.transferable)
+                for prx in self.prxs]
+
 
 class GroupKeeper(BaseKeeper):
 
@@ -379,6 +393,10 @@ class GroupKeeper(BaseKeeper):
         mkeeper = self.mgr.get(self.mhab)
 
         return mkeeper.sign(ser, indexed=indexed, indices=[csi], ondices=[pni])
+
+    def signers(self):
+        """Return the current signers for the member habitat backing this group."""
+        return self.mgr.get(self.mhab).signers()
 
     def params(self):
         return dict(

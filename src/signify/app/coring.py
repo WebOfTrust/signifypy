@@ -250,3 +250,16 @@ class KeyEvents:
         """Fetch KERI events for one AID prefix."""
         res = self.client.get(f"/events?pre={pre}")
         return res.json()
+
+
+class Config:
+    """Resource wrapper for reading agent configuration exposed by KERIA."""
+
+    def __init__(self, client: SignifyClient):
+        """Create an agent-configuration resource bound to one Signify client."""
+        self.client = client
+
+    def get(self):
+        """Fetch the public agent configuration subset exposed by KERIA."""
+        res = self.client.get("/config")
+        return res.json()
