@@ -5,6 +5,8 @@ Phase 1 live smoke tests for SignifyPy integration coverage.
 from __future__ import annotations
 
 import pytest
+from keri.app.keeping import Algos
+from keri.core import coring, serdering
 from .constants import QVI_SCHEMA_SAID, TEST_WITNESS_AIDS
 from .helpers import (
     additional_schema_oobis,
@@ -98,6 +100,59 @@ def test_single_sig_identifier_lifecycle_smoke(client_factory):
     assert hab["state"]["s"] == "0"
     assert hab["state"]["b"] == []
     assert fetched["prefix"] == hab["prefix"]
+
+
+def test_randy_identifier_lifecycle_smoke(client_factory):
+    """Prove Randy identifiers behave like the maintained SignifyTS lifecycle contract."""
+    client = client_factory()
+    name = alias("randy")
+
+    _, _, operation = client.identifiers().create(name, algo=Algos.randy, wits=[])
+    result = wait_for_operation(client, operation)
+    icp = serdering.SerderKERI(sad=result["response"])
+
+    assert len(icp.verfers) == 1
+    assert len(icp.ked["n"]) == 1
+    assert icp.ked["kt"] == "1"
+    assert icp.ked["nt"] == "1"
+
+    identifiers = client.identifiers().list()
+    aid = client.identifiers().get(name)
+    names = {entry["name"] for entry in identifiers["aids"]}
+
+    assert name in names
+    assert aid["name"] == name
+    assert aid["prefix"] == icp.pre
+    assert aid["state"]["s"] == "0"
+    assert len(aid["randy"]["prxs"]) == 1
+    assert len(aid["randy"]["nxts"]) == 1
+
+    _, _, interact_operation = client.identifiers().interact(name, data=[icp.pre])
+    interact_result = wait_for_operation(client, interact_operation)
+    ixn = serdering.SerderKERI(sad=interact_result["response"])
+
+    assert ixn.ked["s"] == "1"
+    assert ixn.ked["a"] == [icp.pre]
+
+    events = client.keyEvents().get(aid["prefix"])
+    assert len(events) == 2
+
+    _, _, rotate_operation = client.identifiers().rotate(name)
+    rotate_result = wait_for_operation(client, rotate_operation)
+    rot = serdering.SerderKERI(sad=rotate_result["response"])
+
+    assert rot.ked["s"] == "2"
+    assert len(rot.verfers) == 1
+    assert len(rot.ked["n"]) == 1
+    assert rot.verfers[0].qb64 != icp.verfers[0].qb64
+    assert rot.ked["n"][0] != icp.ked["n"][0]
+    assert coring.Diger(ser=rot.verfers[0].qb64b, code=coring.MtrDex.Blake3_256).qb64 == icp.ked["n"][0]
+
+    rotated = client.identifiers().get(name)
+    assert rotated["state"]["s"] == "2"
+
+    events = client.keyEvents().get(aid["prefix"])
+    assert len(events) == 3
 
 
 def test_identifier_rename_update_compatibility(client_factory):

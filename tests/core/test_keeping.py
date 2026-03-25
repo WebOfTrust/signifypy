@@ -677,6 +677,8 @@ def test_randy_keeper_rotate():
 
     assert verfers == ['signer verfer qb64']
     assert digers == ['diger qb64']
+    assert rk.prxs == ['nxt qb64']
+    assert rk.nxts == ['cipher qb64']
 
     verifyNoUnwantedInteractions()
     unstub()
@@ -709,7 +711,7 @@ def test_randy_keeper_sign():
     from keri.core.signing import Signer
     mock_verfer = mock({'qb64': 'signer verfer qb64'}, spec=Verfer, strict=True)
     mock_signer = mock({'verfer': mock_verfer}, spec=Signer, strict=True)
-    expect(mock_decrypter, times=1).decrypt(ser=b'cipher qb64b', transferable=False).thenReturn(mock_signer)
+    expect(mock_decrypter, times=1).decrypt(cipher=mock_prx_cipher, transferable=False).thenReturn(mock_signer)
 
     # test
     from signify.core.keeping import RandyKeeper

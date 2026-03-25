@@ -237,7 +237,7 @@ class Controller:
                 for nxt in nxts:
                     nnxts.append(self.recrypt(nxt, decrypter, encrypter))
 
-                keys[pre] = dict(prxs=nprxs, nxts=nxts)
+                keys[pre] = dict(prxs=nprxs, nxts=nnxts)
 
         data["keys"] = keys
         return data

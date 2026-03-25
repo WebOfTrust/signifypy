@@ -103,6 +103,54 @@ def test_aiding_create():
     unstub()
 
 
+def test_aiding_create_randy():
+    from signify.core import keeping
+    mock_keeper = mock(
+        {'params': lambda: {'prxs': ['enc current'], 'nxts': ['enc next'], 'transferable': True}},
+        spec=keeping.RandyKeeper,
+        strict=True,
+    )
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+
+    from mockito import kwargs
+    expect(mock_manager, times=1).new('randy', 0, **kwargs).thenReturn(mock_keeper)
+
+    keys = ['a signer verfer qb64']
+    ndigs = ['next signer digest']
+
+    expect(mock_keeper, times=1).incept(transferable=True).thenReturn((keys, ndigs))
+
+    from keri.core import serdering
+    mock_serder = mock({'raw': b'raw bytes', 'ked': {'a': 'key event dictionary'}}, spec=serdering.SerderKERI,
+                       strict=True)
+
+    from keri.core import eventing
+    expect(eventing, times=1).incept(keys=keys, isith='1', nsith='1', ndigs=ndigs, code='E', wits=[], toad='0',
+                                     cnfg=[], data=[]).thenReturn(mock_serder)
+    expect(mock_keeper, times=1).sign(mock_serder.raw).thenReturn(['a signature'])
+
+    from signify.app.clienting import SignifyClient
+    mock_client = mock({'pidx': 0}, spec=SignifyClient, strict=True)
+    mock_client.manager = mock_manager  # type: ignore
+
+    from signify.app.aiding import Identifiers
+    ids = Identifiers(client=mock_client)  # type: ignore
+
+    from requests import Response
+    resp = mock({'json': lambda: {'post': 'success'}}, spec=Response, strict=True)
+    expect(mock_client, times=1).post('/identifiers', json={'name': 'new_aid', 'icp': {'a': 'key event dictionary'},
+                                                            'sigs': ['a signature'], 'proxy': None,
+                                                            'randy': {'prxs': ['enc current'], 'nxts': ['enc next'],
+                                                                      'transferable': True}}).thenReturn(resp)
+
+    ids.create(name='new_aid', algo='randy')
+
+    assert mock_client.pidx == 1
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
 def test_aiding_create_cnfg():
     from signify.core import keeping
     mock_keeper = mock({'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
@@ -462,6 +510,59 @@ def test_aiding_rotate():
 
     _, _, out = ids.rotate(name='aid1', states=[{'i': 'state 1'}, {'i': 'state 2'}],
                            rstates=[{'i': 'rstate 1'}, {'i': 'rstate 2'}])
+    assert out['success'] == 'yay'
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_aiding_rotate_randy():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    mock_client.manager = mock_manager  # type: ignore
+
+    from signify.app.aiding import Identifiers
+    ids = Identifiers(client=mock_client)  # type: ignore
+
+    mock_hab = {'prefix': 'hab prefix', 'name': 'aid1',
+                'state': {'s': '0', 'd': 'hab digest', 'b': ['wit1', 'wit2', 'wit3'], 'k': ['key1']}}
+    expect(ids, times=1).get('aid1').thenReturn(mock_hab)
+
+    mock_keeper = mock(
+        {'algo': 'randy', 'params': lambda: {'prxs': ['enc current'], 'nxts': ['enc next'], 'transferable': True}},
+        spec=keeping.RandyKeeper,
+        strict=True,
+    )
+    expect(mock_manager, times=1).get(mock_hab).thenReturn(mock_keeper)
+
+    keys = ['key1']
+    ndigs = ['ndig1']
+    expect(mock_keeper, times=1).rotate(ncodes=['A'], transferable=True, states=None, rstates=None).thenReturn(
+        (keys, ndigs)
+    )
+
+    from keri.core import serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI,
+                       strict=True)
+
+    from keri.core import eventing
+    expect(eventing, times=1).rotate(pre='hab prefix', keys=['key1'], dig='hab digest', sn=1, isith='1', nsith='1',
+                                     ndigs=['ndig1'], toad=None, wits=['wit1', 'wit2', 'wit3'],
+                                     cuts=[], adds=[], data=[]).thenReturn(mock_serder)
+
+    expect(mock_keeper, times=1).sign(ser=mock_serder.raw).thenReturn(['a signature'])
+
+    from requests import Response
+    mock_response = mock(spec=Response, strict=True)
+    expected_data = {'rot': {'a': 'key event dictionary'}, 'sigs': ['a signature'],
+                     'randy': {'prxs': ['enc current'], 'nxts': ['enc next'], 'transferable': True}}
+    expect(mock_client, times=1).post('/identifiers/aid1/events', json=expected_data).thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn({'success': 'yay'})
+
+    _, _, out = ids.rotate(name='aid1')
     assert out['success'] == 'yay'
 
     verifyNoUnwantedInteractions()

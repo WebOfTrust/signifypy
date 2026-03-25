@@ -249,47 +249,44 @@ def test_controller_rotate_salty():
     assert 'sxlt' in out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK'] # type: ignore
     assert out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']['sxlt'] != "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT" # type: ignore
 
-# def test_controller_rotate_randy():
-#     from keri.core.coring import Tiers
-#     from signify.core.authing import Controller
-#     ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
+def test_controller_rotate_randy():
+    from signify.core.authing import Controller
+    from signify.core.keeping import RandyKeeper
+    ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
 
-#     from keri.core.signing import Salter
-#     mock_salter = mock({'qb64': 'salter qb64'}, spec=Salter, strict=True)
-#     ctrl.salter = mock_salter
+    keeper = RandyKeeper(ctrl.salter, transferable=True)
+    pubs, digers = keeper.incept(transferable=True)
 
-#     from signify.core.keeping import SaltyCreator
-#     mock_creator = mock({'create': lambda ridx, tier : None}, spec=SaltyCreator, strict=True)
-#     from signify.core import keeping
-#     when(keeping).SaltyCreator(salt='salter qb64', stem='signify:controller', tier=Tiers.low).thenReturn(mock_creator)
+    aid = {
+        "name": "aid1",
+        "prefix": "ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK",
+        "randy": keeper.params(),
+        "state": {
+            "k": pubs,
+        },
+    }
 
-#     from keri.core.signing import Signer
-#     mock_signer = mock(spec=Signer, strict=True)
-#     ctrl.signer = mock_signer
-#     mock_nsigner = mock(spec=Signer, strict=True)
-#     ctrl.nsigner = mock_nsigner
-#     ctrl.keys = ['a key']
-#     from keri.core.coring import Diger
-#     mock_diger = mock(spec=Diger, strict=True)
-#     ctrl.ndigs = [mock_diger]
+    old_prxs = list(aid["randy"]["prxs"])
+    old_nxts = list(aid["randy"]["nxts"])
 
-#     from keri.core.serdering import Serder
-#     mock_serder = mock(spec=Serder, strict=True)
-#     ctrl.serder = mock_serder
+    out = ctrl.rotate(nbran="0123456789abcdefghijk", aids=[aid])
 
-#     # end controller mock setup
-#     assert ctrl.bran == '0AAabcdefghijklmnop01234'
+    rotated = out["keys"]["ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"]
+    assert rotated["prxs"] != old_prxs
+    assert rotated["nxts"] != old_nxts
 
-#     # mocks for rotate
-#     when(mock_salter).signer(transferable=False).thenReturn(mock_nsigner)
-#     mock_nsalter = mock(spec=Salter, strict=True)
-#     from keri.core import coring
-#     when(coring).Salter(qb64='0AA0123456789abcdefghijk').thenReturn(mock_nsalter)
+    from keri.core import coring, signing
+    signer = ctrl.salter.signer(transferable=False)
+    decrypter = signing.Decrypter(seed=signer.qb64)
 
-    # from signify.core.keeping import SaltyCreator
-    # mock_ncreator = mock(spec=SaltyCreator, strict=True)
+    signers = [
+        decrypter.decrypt(cipher=signing.Cipher(qb64=prx), transferable=True)
+        for prx in rotated["prxs"]
+    ]
+    assert [signer.verfer.qb64 for signer in signers] == pubs
 
-    # from signify.core import keeping
-    # expect(keeping, times=1).SaltyCreator(salt='salter qb64', stem='signify:controller', tier=Tiers.low).thenReturn(mock_ncreator)
-
-    # ctrl.rotate(nbran="0123456789abcdefghijk", aids=["aid_one"],) 
+    nsigners = [
+        decrypter.decrypt(cipher=signing.Cipher(qb64=nxt), transferable=True)
+        for nxt in rotated["nxts"]
+    ]
+    assert [coring.Diger(ser=nsigner.verfer.qb64b).qb64 for nsigner in nsigners] == digers

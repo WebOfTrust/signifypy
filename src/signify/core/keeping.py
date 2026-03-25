@@ -349,13 +349,13 @@ class RandyKeeper(BaseKeeper):
         return verfers, digers
 
     def sign(self, ser, indexed=True, indices=None, ondices=None, **_):
-        signers = [self.decrypter.decrypt(ser=signing.Cipher(qb64=prx).qb64b, transferable=self.transferable)
+        signers = [self.decrypter.decrypt(cipher=signing.Cipher(qb64=prx), transferable=self.transferable)
                    for prx in self.prxs]
         return self.__sign__(ser, signers=signers, indexed=indexed, indices=indices, ondices=ondices)
 
     def signers(self):
         """Return signer objects decrypted from the keeper's current key set."""
-        return [self.decrypter.decrypt(ser=signing.Cipher(qb64=prx).qb64b, transferable=self.transferable)
+        return [self.decrypter.decrypt(cipher=signing.Cipher(qb64=prx), transferable=self.transferable)
                 for prx in self.prxs]
 
 
