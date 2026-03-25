@@ -72,6 +72,7 @@ dev = [
     "myst-parser>=0.16.1",
     "sphinx>=4.3.2",
     "sphinx-rtd-theme>=1.2.2",
+    "towncrier>=24.8.0",
 ]
 
 [project.scripts]
@@ -94,3 +95,42 @@ include = [
 
 [tool.uv]
 default-groups = ["dev"]
+
+[tool.towncrier]
+package = "signify"
+package_dir = "src"
+directory = "newsfragments"
+filename = "docs/changelog.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## {version}"
+issue_format = "[#{issue}](https://github.com/WebOfTrust/signifypy/pull/{issue})"
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Miscellaneous"
+showcontent = true

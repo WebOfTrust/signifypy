@@ -1,0 +1,256 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to publish, for example 0.5.0"
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12.6"
+
+jobs:
+  resolve_release:
+    name: Resolve Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      package_version: ${{ steps.release.outputs.package_version }}
+      release_sha: ${{ steps.release.outputs.release_sha }}
+    steps:
+      - name: Check out release ref
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Resolve tag and package version
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            release_tag="${{ inputs.release_tag }}"
+          else
+            release_tag="${{ github.ref_name }}"
+          fi
+
+          if [[ ! "$release_tag" =~ ^([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Release tags must use canonical X.Y.Z format." >&2
+            exit 1
+          fi
+          
+          # Python script to parse version from pyproject.toml
+          package_version="$release_tag"
+          declared_version="$(python - <<'PY'
+import tomllib
+from pathlib import Path
+with Path("pyproject.toml").open("rb") as handle:
+    print(tomllib.load(handle)["project"]["version"])
+PY
+)"
+
+          runtime_version="$(python - <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path("src").resolve()))
+import signify
+print(signify.__version__)
+PY
+)"
+
+          if [ "$declared_version" != "$package_version" ]; then
+            echo "pyproject.toml version '$declared_version' does not match tag '$release_tag'." >&2
+            exit 1
+          fi
+
+          if [ "$runtime_version" != "$package_version" ]; then
+            echo "Runtime version '$runtime_version' does not match tag '$release_tag'." >&2
+            exit 1
+          fi
+
+          {
+            echo "release_tag=$release_tag"
+            echo "package_version=$package_version"
+            echo "release_sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+  assert_ci_green:
+    name: Require Green Tests
+    needs: resolve_release
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Wait for Tests workflow success on release commit
+        uses: actions/github-script@v7
+        env:
+          TARGET_SHA: ${{ needs.resolve_release.outputs.release_sha }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const workflowId = "test.yaml";
+            const targetSha = process.env.TARGET_SHA;
+            const maxAttempts = 60;
+            const delayMs = 30000;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              const response = await github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: workflowId,
+                head_sha: targetSha,
+                per_page: 100,
+              });
+
+              const runs = response.data.workflow_runs || [];
+              const successfulRun = runs.find((run) => run.conclusion === "success");
+              if (successfulRun) {
+                core.info(`Found successful Tests workflow run ${successfulRun.id} for ${targetSha}.`);
+                return;
+              }
+
+              const pendingRun = runs.find((run) => run.status !== "completed");
+              if (!pendingRun && runs.length > 0) {
+                const conclusions = runs.map((run) => `${run.id}:${run.conclusion}`).join(", ");
+                core.setFailed(`No successful Tests workflow run found for ${targetSha}. Seen runs: ${conclusions}`);
+                return;
+              }
+
+              if (attempt === maxAttempts) {
+                core.setFailed(`Timed out waiting for a successful Tests workflow run for ${targetSha}.`);
+                return;
+              }
+
+              core.info(`Attempt ${attempt}/${maxAttempts}: waiting for Tests workflow success on ${targetSha}.`);
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
+            }
+
+  build_dist:
+    name: Build Release Artifacts
+    needs:
+      - resolve_release
+      - assert_ci_green
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ needs.resolve_release.outputs.release_tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.6.14"
+
+      - name: Build and validate distributions
+        run: |
+          make dist-check
+
+      - name: Smoke install wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv smoke-venv
+          ./smoke-venv/bin/python -m pip install --upgrade pip
+          ./smoke-venv/bin/python -m pip install --no-deps dist/*.whl
+          ./smoke-venv/bin/python -c "import signify; print(signify.__version__)"
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist-${{ needs.resolve_release.outputs.release_tag }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish_pypi:
+    name: Publish To PyPI
+    needs:
+      - resolve_release
+      - build_dist
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist-${{ needs.resolve_release.outputs.release_tag }}
+          path: dist
+
+      - name: Check PyPI token availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${PYPI_API_TOKEN:-}" ]; then
+            echo "Missing repository secret PYPI_API_TOKEN." >&2
+            echo "Add a project-scoped PyPI token to repository secrets before publishing releases." >&2
+            exit 1
+          fi
+
+      - name: Publish package distributions
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+  publish_github_release:
+    name: Publish GitHub Release
+    needs:
+      - resolve_release
+      - publish_pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ needs.resolve_release.outputs.release_tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Extract changelog section
+        run: |
+          python scripts/extract_changelog_section.py \
+            --version "${{ needs.resolve_release.outputs.package_version }}" \
+            --input docs/changelog.md \
+            --output release-notes.md
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.resolve_release.outputs.release_tag }}
+          name: ${{ needs.resolve_release.outputs.release_tag }}
+          body_path: release-notes.md

@@ -12,6 +12,8 @@ Welcome to Signifypy's documentation!
 
    README
    maintainer_features
+   releasing
+   changelog
 
 API Reference
 =============
