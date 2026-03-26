@@ -57,21 +57,21 @@ jobs:
           # Python script to parse version from pyproject.toml
           package_version="$release_tag"
           declared_version="$(python - <<'PY'
-import tomllib
-from pathlib import Path
-with Path("pyproject.toml").open("rb") as handle:
-    print(tomllib.load(handle)["project"]["version"])
-PY
-)"
+          import tomllib
+          from pathlib import Path
+          with Path("pyproject.toml").open("rb") as handle:
+              print(tomllib.load(handle)["project"]["version"])
+          PY
+          )"
 
           runtime_version="$(python - <<'PY'
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path("src").resolve()))
-import signify
-print(signify.__version__)
-PY
-)"
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path("src").resolve()))
+          import signify
+          print(signify.__version__)
+          PY
+          )"
 
           if [ "$declared_version" != "$package_version" ]; then
             echo "pyproject.toml version '$declared_version' does not match tag '$release_tag'." >&2
