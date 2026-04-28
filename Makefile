@@ -8,7 +8,7 @@ INTEGRATION_WORKERS ?= 2
 INTEGRATION_DIST ?= loadscope
 INTEGRATION_TARGETS ?= tests/integration
 
-.PHONY: help sync test test-fast test-ci test-integration test-integration-ci test-integration-parallel test-integration-parallel-ci build dist-check release-patch release-minor release-major release-bump docs clean guard-clean-worktree
+.PHONY: help sync test test-fast test-ci typecheck build verify-dist-types dist-check release-patch release-minor release-major release-bump docs clean guard-clean-worktree
 
 help: ## Show available maintainer tasks
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -23,6 +23,9 @@ test-fast: test ## Alias for the fast test suite
 
 test-ci: ## Run the fast suite with CI-friendly per-test output
 	@./venv/bin/python -m pytest -vv $(PYTEST_ARGS) tests/app tests/core tests/peer
+
+typecheck: ## Run narrow static typing checks for the public KERIA contract surface
+	@MYPYPATH=src ./venv/bin/python -m mypy --config-file pyproject.toml --follow-imports=silent --ignore-missing-imports -p signify.keria_types -m tests.typecheck.keria_types_contracts
 
 test-integration: ## Run the live integration suite
 	@SIGNIFYPY_INTEGRATION_POLL_INTERVAL=$(INTEGRATION_POLL_INTERVAL) \
@@ -50,6 +53,11 @@ test-integration-parallel-ci: ## Run integration tests in parallel with CI-frien
 
 build: ## Build source and wheel distributions
 	@$(UV_CACHE) $(UV) build
+
+verify-dist-types: ## Ensure built artifacts include the py.typed marker
+	@rm -rf dist
+	@$(UV_CACHE) $(UV) build
+	@./venv/bin/python -c 'from pathlib import Path; import tarfile, zipfile; root = Path("dist"); wheels = sorted(root.glob("signifypy-*.whl")); sdists = sorted(root.glob("signifypy-*.tar.gz")); expected = "signify/py.typed"; assert wheels and sdists, "missing built wheel or sdist artifacts in dist/"; [(_ for _ in ()).throw(SystemExit(f"{path.name} is missing {expected}")) for path in wheels if not any(name.endswith(expected) for name in zipfile.ZipFile(path).namelist())]; [(_ for _ in ()).throw(SystemExit(f"{path.name} is missing {expected}")) for path in sdists if not any(name.endswith(expected) for name in tarfile.open(path, "r:gz").getnames())]; print("verified py.typed is present in built wheel and sdist artifacts")'
 
 dist-check: clean build ## Build release artifacts and validate them with twine
 	@$(UV_CACHE) $(UV_ENV) $(UV) run --with twine twine check dist/*

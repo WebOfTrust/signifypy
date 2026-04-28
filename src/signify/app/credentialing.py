@@ -28,6 +28,7 @@ from keri.vc import proving
 from keri.vdr import eventing
 
 from signify.app.clienting import SignifyClient
+from signify.keria_types import CredentialOperation, Operation, RegistryOperation
 
 CredentialTypeage = namedtuple("CredentialTypeage", 'issued received')
 
@@ -54,7 +55,7 @@ class RegistryResult:
         self.sigs = sigs
         self.response = response
 
-    def op(self):
+    def op(self) -> RegistryOperation:
         """Return the decoded operation payload from the stored response."""
         return self.response.json()
 
@@ -81,7 +82,7 @@ class CredentialIssueResult:
         self.sigs = sigs
         self.response = response
 
-    def op(self):
+    def op(self) -> CredentialOperation:
         """Return the decoded operation payload from the stored response."""
         return self.response.json()
 
@@ -114,7 +115,7 @@ class CredentialRevokeResult:
         self.sigs = sigs
         self.response = response
 
-    def op(self):
+    def op(self) -> Operation:
         """Return the decoded operation payload from the stored response."""
         return self.response.json()
 
