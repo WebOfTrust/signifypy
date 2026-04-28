@@ -5,9 +5,13 @@ This module groups smaller request families used across many workflows:
 long-running operations, OOBI retrieval and resolution, key-state reads, and
 key-event reads.
 """
+from __future__ import annotations
+
 import time
+from typing import Callable, TypedDict
 
 from signify.app.clienting import SignifyClient
+from signify.keria_types import AgentConfig, OOBIOperation, Operation, QueryOperation
 
 
 class Operations:
@@ -17,12 +21,12 @@ class Operations:
         """Create an operations resource bound to one Signify client."""
         self.client = client
 
-    def get(self, name):
+    def get(self, name: str) -> Operation:
         """Fetch one long-running operation by operation name."""
         res = self.client.get(f"/operations/{name}")
         return res.json()
 
-    def list(self, type=None):
+    def list(self, type: str | None = None) -> list[Operation]:
         """List long-running operations, optionally filtered by operation type."""
         params = {}
         if type is not None:
@@ -37,16 +41,16 @@ class Operations:
 
     def wait(
         self,
-        op,
+        op: Operation,
         *,
-        timeout=None,
-        interval=0.01,
-        max_interval=10.0,
-        backoff=2.0,
-        check_abort=None,
-        options=None,
-        _deadline=None,
-    ):
+        timeout: float | None = None,
+        interval: float = 0.01,
+        max_interval: float = 10.0,
+        backoff: float = 2.0,
+        check_abort: Callable[[Operation], None] | None = None,
+        options: WaitOptions | None = None,
+        _deadline: float | None = None,
+    ) -> Operation:
         """Poll an operation until it completes.
 
         Python callers should prefer the explicit keyword arguments:
@@ -98,7 +102,7 @@ class Operations:
             time.sleep(delay)
 
     @staticmethod
-    def _depends(op):
+    def _depends(op: Operation) -> Operation | None:
         """Return the dependent operation payload when present."""
         metadata = op.get("metadata")
         if isinstance(metadata, dict):
@@ -130,7 +134,10 @@ class Operations:
             signal.throwIfAborted()
 
     @staticmethod
-    def _check_abort(check_abort, op):
+    def _check_abort(
+        check_abort: Callable[[Operation], None] | None,
+        op: Operation,
+    ) -> None:
         """Run an optional caller-provided cancellation hook."""
         if check_abort is not None:
             check_abort(op)
@@ -143,7 +150,12 @@ class Operations:
                 f"timed out waiting for operation {op['name']}; last_value={op!r}"
             )
 
-    def _wait_with_options(self, op, *, options):
+    def _wait_with_options(
+        self,
+        op: Operation,
+        *,
+        options: WaitOptions | None,
+    ) -> Operation:
         """Compatibility wrapper for the TS-style wait options dictionary."""
         options = {} if options is None else options
         signal = options.get("signal")
@@ -191,7 +203,7 @@ class Oobis:
         res = self.client.get(f"/identifiers/{name}/oobis?role={role}")
         return res.json()
 
-    def resolve(self, oobi, alias=None):
+    def resolve(self, oobi, alias=None) -> OOBIOperation:
         """Submit an OOBI for resolution, optionally storing it under an alias."""
 
         body = dict(
@@ -223,7 +235,7 @@ class KeyStates:
         res = self.client.get(f"/states?{args}")
         return res.json()
 
-    def query(self, pre, sn=None, anchor=None):
+    def query(self, pre, sn=None, anchor=None) -> QueryOperation:
         """Submit a key-state query with optional sequence or anchor hints."""
         body = dict(
             pre=pre
@@ -258,6 +270,20 @@ class Config:
     def __init__(self, client: SignifyClient):
         """Create an agent-configuration resource bound to one Signify client."""
         self.client = client
+
+    def get(self) -> AgentConfig:
+        """Fetch the agent configuration exposed by the connected KERIA."""
+        res = self.client.get("/config")
+        return res.json()
+
+
+class WaitOptions(TypedDict, total=False):
+    """TS-compatible polling options accepted by ``Operations.wait``."""
+
+    signal: object
+    minSleep: int
+    maxSleep: int
+    increaseFactor: int
 
     def get(self):
         """Fetch the public agent configuration subset exposed by KERIA."""

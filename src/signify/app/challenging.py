@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 """Challenge generation, response, and verification helpers for SignifyPy."""
 from signify.app.clienting import SignifyClient
+from signify.keria_types import ChallengeOperation
 
 
 class Challenges:
@@ -51,7 +52,7 @@ class Challenges:
 
         return res
 
-    def verify(self, source, words):
+    def verify(self, source, words) -> ChallengeOperation:
         """Ask the agent to verify that ``source`` signed the given words.
 
         Parameters:

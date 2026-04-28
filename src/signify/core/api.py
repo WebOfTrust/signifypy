@@ -1,6 +1,22 @@
 from dataclasses import dataclass
 from typing import List
 
+from signify.keria_types import (
+    ChallengeOperation,
+    CredentialOperation,
+    EndRoleOperation,
+    ExchangeOperation,
+    GroupOperation,
+    LocSchemeOperation,
+    OOBIOperation,
+    Operation,
+    OperationStatus,
+    QueryOperation,
+    RegistryOperation,
+    SubmitOperation,
+    WitnessOperation,
+)
+
 
 @dataclass
 class AgentBoot:
@@ -12,14 +28,25 @@ class AgentBoot:
     tier: str  # security tier for stretch index salty algo
 
 @dataclass
-class Operation:
-    name: str  # unique name for this operation
-    metadata: dict  # metadata about the operation
-    done: bool  # True if operation is complete
-    error: bool | None  # True if operation failed, False if succeeded, None if not completed
-    response: dict | None  # response data from operation, if any
-
-@dataclass
 class ReplyMessage:
     rpy: dict  # reply message content
     sigs: List[str] # list of qb64 encoded signatures
+
+
+__all__ = [
+    "AgentBoot",
+    "ChallengeOperation",
+    "CredentialOperation",
+    "EndRoleOperation",
+    "ExchangeOperation",
+    "GroupOperation",
+    "LocSchemeOperation",
+    "OOBIOperation",
+    "Operation",
+    "OperationStatus",
+    "QueryOperation",
+    "RegistryOperation",
+    "ReplyMessage",
+    "SubmitOperation",
+    "WitnessOperation",
+]

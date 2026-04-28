@@ -65,6 +65,7 @@ docs = [
 dev = [
     "responses>=0.25.6",
     "coverage>=7.6.10",
+    "mypy>=1.11.0",
     "pytest>=8.3.4",
     "pytest-xdist>=3.6.1",
     "pytest-cov>=6.1.1",
@@ -95,6 +96,10 @@ include = [
 
 [tool.uv]
 default-groups = ["dev"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
 
 [tool.towncrier]
 package = "signify"

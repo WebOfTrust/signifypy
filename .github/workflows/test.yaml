@@ -79,6 +79,14 @@ jobs:
         run: |
           make test-ci PYTEST_ARGS="--cov=./ --cov-report=xml"
           ./venv/bin/python -m codecov
+      - name: Stage 8 - Run narrow typing checks
+        working-directory: signifypy
+        run: |
+          make typecheck
+      - name: Stage 9 - Verify typed package artifacts
+        working-directory: signifypy
+        run: |
+          make verify-dist-types
 
   integration:
     # Only attempt the live multi-repo stack after the fast suite passes. This
@@ -201,7 +209,12 @@ jobs:
           vLEI/venv/bin/python -m pip install -c ./signifypy/.github/constraints/integration.txt hio==0.6.14
           vLEI/venv/bin/python -m pip install -c ./signifypy/.github/constraints/integration.txt -e ./keripy -e ./vLEI
 
-      - name: Stage 9 - Run integration tests
+      - name: Stage 9 - Check copied operation-family drift against sibling KERIA
+        working-directory: signifypy
+        run: |
+          ./venv/bin/python -m pytest -q tests/core/test_keria_types_drift.py
+
+      - name: Stage 10 - Run integration tests
         working-directory: signifypy
         run: |
           # Run the full live suite with explicit parallelism so the CI
@@ -213,7 +226,7 @@ jobs:
             INTEGRATION_WORKERS=4 \
             PYTEST_ARGS="--basetemp=pytest-live"
 
-      - name: Stage 10 - Upload integration logs
+      - name: Stage 11 - Upload integration logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
