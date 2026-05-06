@@ -56,7 +56,7 @@ The current stack pins those source dependencies to explicit compatibility
 SHAs:
 
 - `keripy`: `4ee02c0213770d25a0114fe7ebd7ab4ab5500cde` (tag `1.2.12`)
-- `keria`: `9e2461550f373ad7bdbe7eebeaceac689cb15397`
+- `keria`: `5b703bd8a60fab68a6476819626b22784317bf14` from `kentbull/keria`
 - `vLEI`: `f514b9431c5f965b5f7f64a8693e19df2f181564` (tag `1.0.2`)
 
 The CI runtime also constrains `hio` to `0.6.14` across the live stack.

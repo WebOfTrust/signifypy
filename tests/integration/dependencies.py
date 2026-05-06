@@ -26,8 +26,8 @@ KERIPY = IntegrationDependency(
 
 KERIA = IntegrationDependency(
     name="KERIA",
-    repo="https://github.com/WebOfTrust/keria.git",
-    ref="9e2461550f373ad7bdbe7eebeaceac689cb15397",
+    repo="https://github.com/kentbull/keria.git",
+    ref="5b703bd8a60fab68a6476819626b22784317bf14",
     path_name="keria",
     env_root="SIGNIFYPY_INTEGRATION_KERIA_ROOT",
     env_ref="SIGNIFYPY_INTEGRATION_KERIA_REF",

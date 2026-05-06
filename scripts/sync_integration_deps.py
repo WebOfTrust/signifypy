@@ -25,8 +25,10 @@ def sync_repo(root: Path, repo: str, ref: str) -> None:
     if not root.exists():
         root.parent.mkdir(parents=True, exist_ok=True)
         run("git", "clone", repo, str(root))
+    else:
+        run("git", "-C", str(root), "remote", "set-url", "origin", repo)
 
-    run("git", "-C", str(root), "fetch", "--tags", "origin")
+    run("git", "-C", str(root), "fetch", "--tags", "--force", "origin")
     run("git", "-C", str(root), "fetch", "origin")
     run("git", "-C", str(root), "checkout", "--detach", ref)
 
