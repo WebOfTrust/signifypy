@@ -579,6 +579,7 @@ def test_aiding_add_end_role():
 
     from signify.app.aiding import Identifiers
     ids = Identifiers(client=mock_client)  # type: ignore
+    mock_client.agent = mock({"pre": "agent-pre"}, strict=False)  # type: ignore
 
     mock_hab = {'prefix': 'hab prefix', 'name': 'aid1'}
     expect(ids, times=1).get('aid1').thenReturn(mock_hab)
@@ -586,7 +587,7 @@ def test_aiding_add_end_role():
     from keri.core import serdering
     mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI,
                        strict=True)
-    expect(ids, times=1).makeEndRole('hab prefix', 'agent', None, None).thenReturn(mock_serder)
+    expect(ids, times=1).makeEndRole('hab prefix', 'agent', 'agent-pre', None).thenReturn(mock_serder)
 
     from signify.core import keeping
     mock_keeper = mock({'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
@@ -603,6 +604,58 @@ def test_aiding_add_end_role():
     assert serder == mock_serder
     assert sig == ['a signature']
     assert out['success'] == 'yay'
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_aiding_add_end_role_preserves_explicit_eid():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    mock_client.manager = mock_manager  # type: ignore
+    mock_client.agent = mock({"pre": "agent-pre"}, strict=False)  # type: ignore
+
+    from signify.app.aiding import Identifiers
+    ids = Identifiers(client=mock_client)  # type: ignore
+
+    mock_hab = {'prefix': 'hab prefix', 'name': 'aid1'}
+    expect(ids, times=1).get('aid1').thenReturn(mock_hab)
+
+    from keri.core import serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI,
+                       strict=True)
+    expect(ids, times=1).makeEndRole('hab prefix', 'agent', 'explicit-eid', None).thenReturn(mock_serder)
+
+    mock_keeper = mock({'params': lambda: {'keeper': 'params'}}, spec=keeping.SaltyKeeper, strict=True)
+    expect(mock_manager, times=1).get(aid=mock_hab).thenReturn(mock_keeper)
+    expect(mock_keeper, times=1).sign(ser=mock_serder.raw).thenReturn(['a signature'])
+
+    from requests import Response
+    mock_response = mock(spec=Response, strict=True)
+    expected_data = {'rpy': {'a': 'key event dictionary'}, 'sigs': ['a signature']}
+    expect(mock_client, times=1).post('/identifiers/aid1/endroles', json=expected_data).thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn({'success': 'yay'})
+
+    _serder, _sig, out = ids.addEndRole('aid1', eid='explicit-eid')
+    assert out['success'] == 'yay'
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
+def test_aiding_add_end_role_requires_eid_for_non_agent_role():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.app.aiding import Identifiers
+    ids = Identifiers(client=mock_client)  # type: ignore
+
+    from keri import kering
+    with pytest.raises(kering.ConfigurationError):
+        ids.addEndRole('aid1', role='mailbox')
 
     verifyNoUnwantedInteractions()
     unstub()

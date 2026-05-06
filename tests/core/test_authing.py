@@ -45,6 +45,25 @@ def test_verify():
                     strict=True)
 
     authn.verify(rep=mock_rep)
+
+    seen = {}
+
+    def capture_path(_headers, _method, path):
+        seen["path"] = path
+        return True
+
+    authn.verifysig = capture_path
+    mock_request = mock({'method': 'GET',
+                         'url': 'http://example.com/identifiers/name/registries/did:webs_designated_aliases:Eaid',
+                         'headers': {},
+                         'body': "a body for len"},
+                        spec=requests.Request, strict=True)
+    mock_rep = mock({'request': mock_request, 'headers': {"SIGNIFY-RESOURCE": 'EEz01234'}}, spec=requests.Response,
+                    strict=True)
+
+    authn.verify(rep=mock_rep)
+    assert seen["path"] == "/identifiers/name/registries/did%3Awebs_designated_aliases%3AEaid"
+
     verifyNoUnwantedInteractions()
     unstub()
 

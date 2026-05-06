@@ -657,7 +657,7 @@ def resolve_oobi(client: SignifyClient, oobi: str, alias: str | None = None) -> 
 
 def get_end_roles(client: SignifyClient, name: str, role: str = "agent") -> list[dict]:
     """Fetch end-role authorizations for an identifier."""
-    return client.get(f"/identifiers/{name}/endroles/{role}").json()
+    return client.endroles().list(name=name, role=role)
 
 
 def wait_for_end_role(

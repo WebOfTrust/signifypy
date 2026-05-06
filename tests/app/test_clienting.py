@@ -979,3 +979,34 @@ def test_signify_auth():
 
     unstub()
     verifyNoUnwantedInteractions()
+
+
+def test_signify_auth_quotes_signed_path():
+    from signify.core import authing
+    mock_controller = mock({'pre': 'a prefix'}, spec=authing.Controller, strict=True)
+    mock_authenticator = mock({'ctrl': mock_controller}, spec=authing.Authenticater, strict=True)
+
+    from signify.app.clienting import SignifyAuth
+    signify_auth = SignifyAuth(mock_authenticator)
+
+    import requests
+    mock_request = mock({
+        'method': 'GET',
+        'url': 'http://example.com/identifiers/name/registries/did:webs_designated_aliases:Eaid',
+        'headers': {},
+        'body': None,
+    }, spec=requests.Request, strict=True)
+
+    from keri.help import helping
+    expect(helping).nowIso8601().thenReturn('now ISO8601!')
+    expect(mock_authenticator, times=1).sign(
+        {'Signify-Resource': 'a prefix', 'Signify-Timestamp': 'now ISO8601!'},
+        'GET',
+        '/identifiers/name/registries/did%3Awebs_designated_aliases%3AEaid',
+    ).thenReturn({'headers': 'modified'})
+
+    out = signify_auth.__call__(mock_request)
+    assert out.headers == {'headers': 'modified'}
+
+    unstub()
+    verifyNoUnwantedInteractions()

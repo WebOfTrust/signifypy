@@ -162,7 +162,9 @@ class Registries:
         Returns:
             dict: Decoded registry record returned by KERIA.
         """
-        res = self.client.get(f"/identifiers/{name}/registries/{registryName}")
+        res = self.client.get(
+            f"/identifiers/{name}/registries/{registryName}"
+        )
         return res.json()
 
     def list(self, name):
@@ -396,7 +398,10 @@ class Registries:
         """
         name = target if isinstance(target, str) else target["name"]
         body = dict(name=newName)
-        resp = self.client.put(path=f"/identifiers/{name}/registries/{registryName}", json=body)
+        resp = self.client.put(
+            path=f"/identifiers/{name}/registries/{registryName}",
+            json=body,
+        )
         return resp.json()
 
 
