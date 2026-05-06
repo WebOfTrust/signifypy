@@ -122,6 +122,27 @@ class Controller:
         self.serder = eventing.interact(pre=self.serder.pre, dig=self.serder.said, sn=self.serder.sn + 1, data=[anchor])
         return self.serder, [self.signer.sign(self.serder.raw, index=0).qb64]
 
+    def _decryptSaltQb64(self, decrypter, cipher):
+        """
+        Support decrypting both Salter and Streamer codes
+        Salter are fixed size, 1AAH class salts and variable size are Streamer 4C class codes.
+
+        Returns:
+            salt as qualified base 64 whether a Salter or Streamer primitive
+        """
+        plain = decrypter.decrypt(cipher=cipher, bare=True)
+        qb64 = plain.decode("utf-8") if hasattr(plain, "decode") else plain
+
+        try:
+            salter = signing.Salter(qb64=qb64)
+        except Exception as ex:
+            raise kering.ValidationError("decrypted sxlt is not a Salt_128") from ex
+
+        if salter.qb64 != qb64:
+            raise kering.ValidationError("decrypted sxlt must contain exactly one Salt_128")
+
+        return qb64
+
     def rotate(self, nbran, aids):
         """
         Rotate passcode involves re-encrypting all saved AID salts for salty keyed AIDs and
@@ -186,7 +207,8 @@ class Controller:
         decrypter = signing.Decrypter(seed=nsigner.qb64)  # decrypter with old salt
 
         # First encrypt and save old Salt in case we need a recovery
-        sxlt = encrypter.encrypt(prim=coring.Matter(qb64b=self.bran)).qb64
+        sxlt = encrypter.encrypt(prim=coring.Matter(qb64b=self.bran),
+                                 code=coring.MtrDex.X25519_Cipher_Salt).qb64
 
         data = dict(
             rot=rot.ked,
@@ -201,7 +223,7 @@ class Controller:
             if "salty" in aid:
                 salty = aid["salty"]
                 cipher = signing.Cipher(qb64=salty["sxlt"])
-                dnxt = decrypter.decrypt(cipher=cipher).qb64
+                dnxt = self._decryptSaltQb64(decrypter, cipher)
 
                 # Now we have the AID salt, use it to verify against the current public keys
                 acreator = keeping.SaltyCreator(dnxt, stem=salty["stem"], tier=salty["tier"])
@@ -211,7 +233,8 @@ class Controller:
                 if pubs != [signer.verfer.qb64 for signer in signers]:
                     raise kering.ValidationError(f"unable to rotate, validation of salt to public keys {pubs} failed")
 
-                asxlt = encrypter.encrypt(prim=coring.Matter(qb64=dnxt)).qb64
+                asxlt = encrypter.encrypt(prim=coring.Matter(qb64=dnxt),
+                                          code=coring.MtrDex.X25519_Cipher_Salt).qb64
                 keys[pre] = dict(
                     sxlt=asxlt
                 )
