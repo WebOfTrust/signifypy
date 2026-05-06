@@ -7,6 +7,7 @@ Testing authentication
 """
 
 import pytest
+from keri.core import coring as core_coring
 from mockito import mock, verifyNoUnwantedInteractions, unstub, expect, when
 
 
@@ -234,7 +235,9 @@ def test_salty_keeper():
 
     from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(
+        ser='creator salt',
+        code=core_coring.MtrDex.X25519_Cipher_Salt).thenReturn(mock_cipher)
 
     # test
     from signify.core.keeping import SaltyKeeper
@@ -277,7 +280,9 @@ def test_salty_keeper_bran():
 
     from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(
+        ser='creator salt',
+        code=core_coring.MtrDex.X25519_Cipher_Salt).thenReturn(mock_cipher)
 
     # test
     from signify.core.keeping import SaltyKeeper
@@ -287,6 +292,36 @@ def test_salty_keeper_bran():
 
     verifyNoUnwantedInteractions()
     unstub()
+
+
+def test_salty_keeper_bran_sxlt_uses_x25519_cipher_salt():
+    from keri.core import signing
+    from signify.core.keeping import SaltyKeeper
+
+    salter = signing.Salter(raw=b'0123456789abcdef')
+    sk = SaltyKeeper(salter, pidx=0, bran='0123456789abcdefghijk')
+
+    cipher = signing.Cipher(qb64=sk.params()["sxlt"])
+    assert cipher.code == core_coring.MtrDex.X25519_Cipher_Salt
+
+
+def test_salty_keeper_accepts_stream_cipher_salt():
+    from keri.core import signing
+    from signify.core.keeping import SaltyKeeper
+
+    salter = signing.Salter(raw=b'0123456789abcdef')
+    signer = salter.signer(transferable=False)
+    encrypter = signing.Encrypter(verkey=signer.verfer.qb64)
+    aid_salter = signing.Salter(raw=b'fedcba9876543210')
+    sxlt = encrypter.encrypt(ser=aid_salter.qb64).qb64  # an unspecified code defaults to 4C variable size cipher
+
+    assert signing.Cipher(qb64=sxlt).code == core_coring.MtrDex.X25519_Cipher_L0
+
+    sk = SaltyKeeper(salter, pidx=0, sxlt=sxlt)
+
+    assert sk.params()["sxlt"] == sxlt
+    assert sk.creator.salt == aid_salter.qb64
+
 
 def test_salty_keeper_sxlt():
     # salty keep init mocks
@@ -361,7 +396,9 @@ def test_salty_keeper_incept():
 
     from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(
+        ser='creator salt',
+        code=core_coring.MtrDex.X25519_Cipher_Salt).thenReturn(mock_cipher)
 
     # incept mocks
     mock_incept_verfer = mock({'qb64': 'incept verfer qb64'}, spec=Verfer, strict=True)
@@ -417,7 +454,9 @@ def test_salty_keeper_rotate():
 
     from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(
+        ser='creator salt',
+        code=core_coring.MtrDex.X25519_Cipher_Salt).thenReturn(mock_cipher)
 
     # rotate mocks
     mock_rotate_verfer = mock({'qb64': 'rotate verfer qb64'}, spec=Verfer, strict=True)
@@ -475,7 +514,9 @@ def test_salty_keeper_sign():
 
     from keri.core.signing import Cipher
     mock_cipher = mock({'qb64': 'cipher qb64'}, spec=Cipher, strict=True)
-    expect(mock_encrypter, times=1).encrypt(ser='creator salt').thenReturn(mock_cipher)
+    expect(mock_encrypter, times=1).encrypt(
+        ser='creator salt',
+        code=core_coring.MtrDex.X25519_Cipher_Salt).thenReturn(mock_cipher)
 
     # sign mock
     expect(mock_creator, times=1).create(codes=['A'], pidx=0, kidx=0, transferable=False).thenReturn([mock_signer])

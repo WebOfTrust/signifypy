@@ -8,7 +8,7 @@ Testing authing with unit tests
 
 import pytest
 from keri import kering
-from keri.core import serdering
+from keri.core import coring, serdering, signing
 from keri.core.coring import Tiers
 from keri.kering import Kinds, versify
 from mockito import mock, unstub, expect, verifyNoUnwantedInteractions
@@ -248,6 +248,49 @@ def test_controller_rotate_salty():
     assert 'ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK' in out['keys']
     assert 'sxlt' in out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK'] # type: ignore
     assert out['keys']['ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK']['sxlt'] != "1AAH2R_SPhr_5vIBGGtyVamaGVDQAcYlgmwDOkJwM-q6Qw8K5NT7jLzJ0k6_7sa3oyKK33ym8JX1Il4MoUiy8ixYwsVWYhaU3sMT" # type: ignore
+    assert signing.Cipher(qb64=out["sxlt"]).code == coring.MtrDex.X25519_Cipher_Salt
+    assert signing.Cipher(qb64=out["keys"]["ELUvZ8aJEHAQE-0nsevyYTP98rBbGJUrTj5an-pCmwrK"]["sxlt"]).code == coring.MtrDex.X25519_Cipher_Salt
+
+
+def test_ctlr_rotate_migrates_on_write_4C_to_1AAH_salty_sxlt_cipher():
+    from keri.app import keeping
+    from signify.core.authing import Controller
+
+    ctrl = Controller(bran="abcdefghijklmnop01234", tier=Tiers.low)
+    signer = ctrl.salter.signer(transferable=False)
+    encrypter = signing.Encrypter(verkey=signer.verfer.qb64)
+    aid_salter = signing.Salter(raw=b'fedcba9876543210')
+    creator = keeping.SaltyCreator(salt=aid_salter.qb64, stem="signify:aid", tier=Tiers.low)
+    signers = creator.create(codes=["A"], pidx=0, kidx=0, transferable=False)
+
+    # Cipher starts as 4C due to KERIpy Encrypter.encrypt default.
+    sxlt = encrypter.encrypt(ser=aid_salter.qb64).qb64
+    prefix = "legacy-pre"
+
+    assert signing.Cipher(qb64=sxlt).code == coring.MtrDex.X25519_Cipher_L0
+
+    aid = {
+        "name": "aid1",
+        "prefix": prefix,
+        "salty": {
+            "pidx": 0,
+            "stem": "signify:aid",
+            "sxlt": sxlt,
+            "tier": Tiers.low,
+            "icodes": ["A"],
+            "kidx": 0,
+            "transferable": False,
+        },
+        "state": {
+            "k": [signer.verfer.qb64 for signer in signers],
+        },
+    }
+    # Rotate will read the 4C encoded CESR primitive and migrate it on-write to the 1AAH code
+    # that is compatible with SignifyTS.
+    out = ctrl.rotate(nbran="0123456789abcdefghijk", aids=[aid])
+
+    assert signing.Cipher(qb64=out["sxlt"]).code == coring.MtrDex.X25519_Cipher_Salt
+    assert signing.Cipher(qb64=out["keys"][prefix]["sxlt"]).code == coring.MtrDex.X25519_Cipher_Salt
 
 def test_controller_rotate_randy():
     from signify.core.authing import Controller
