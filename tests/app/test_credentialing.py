@@ -93,8 +93,6 @@ def test_registries_list_get_rename_and_serialize(make_mock_client_with_manager,
     mock_hab = {'prefix': 'ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose',
                 'name': 'aid1', 'state': {'s': '1', 'd': "ABCDEFG"}}
     regName = "reg1"
-    did_webs_reg_name = "did:webs_designated_aliases:Eaid"
-    quoted_did_webs_reg_name = "did%3Awebs_designated_aliases%3AEaid"
 
     registries = credentialing.Registries(client=mock_client)
 
@@ -111,15 +109,6 @@ def test_registries_list_get_rename_and_serialize(make_mock_client_with_manager,
     (expect(mock_client, times=1).put(path="/identifiers/aid1/registries/reg1", json={'name': 'again'})
      .thenReturn(mock_response))
     registries.rename("aid1", regName, "again")
-
-    (expect(mock_client, times=1).get(f"/identifiers/aid1/registries/{quoted_did_webs_reg_name}")
-     .thenReturn(mock_response))
-    registries.get(name="aid1", registryName=did_webs_reg_name)
-
-    (expect(mock_client, times=1)
-     .put(path=f"/identifiers/aid1/registries/{quoted_did_webs_reg_name}", json={'name': 'quoted'})
-     .thenReturn(mock_response))
-    registries.rename("aid1", did_webs_reg_name, "quoted")
 
     pre = "ELI7pg979AdhmvrjDeam2eAO2SR5niCgnjAJXJHtJose"
     dig = "EOgQvKz8ziRn7FdR_ebwK9BkaVOnGeXQOJ87N6hMLrK0"

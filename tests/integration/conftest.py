@@ -36,6 +36,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.integration.dependencies import KERIA, KERIPY, VLEI
 from tests.integration.helpers import poll_until
 from tests.integration.topology import make_stack_topology, stack_runtime_name
 
@@ -44,12 +45,30 @@ from tests.integration.topology import make_stack_topology, stack_runtime_name
 SIGNIFYPY_ROOT = Path(__file__).resolve().parents[2]
 INTEGRATION_ROOT = Path(__file__).resolve().parent
 SOURCE_ROOT = SIGNIFYPY_ROOT.parent
-KERIPY_ROOT = SOURCE_ROOT / "keripy"
-KERIA_ROOT = SOURCE_ROOT / "keria"
-VLEI_ROOT = SOURCE_ROOT / "vLEI"
-SIGNIFYPY_PYTHON = SIGNIFYPY_ROOT / "venv" / "bin" / "python"
-KERIA_PYTHON = KERIA_ROOT / "venv" / "bin" / "python"
-VLEI_PYTHON = VLEI_ROOT / "venv" / "bin" / "python"
+LOCAL_DEPS_ROOT = Path(os.getenv("SIGNIFYPY_INTEGRATION_DEPS_ROOT", SIGNIFYPY_ROOT / ".integration-deps")).expanduser()
+
+
+def _dependency_root(dependency):
+    if root := os.getenv(dependency.env_root):
+        return Path(root).expanduser()
+
+    local_root = LOCAL_DEPS_ROOT / dependency.path_name
+    if local_root.exists():
+        return local_root
+
+    sibling_root = SOURCE_ROOT / dependency.path_name
+    if sibling_root.exists():
+        return sibling_root
+
+    return local_root
+
+
+KERIPY_ROOT = _dependency_root(KERIPY)
+KERIA_ROOT = _dependency_root(KERIA)
+VLEI_ROOT = _dependency_root(VLEI)
+SIGNIFYPY_PYTHON = Path(os.getenv("SIGNIFYPY_INTEGRATION_SIGNIFYPY_PYTHON", SIGNIFYPY_ROOT / "venv" / "bin" / "python")).expanduser()
+KERIA_PYTHON = Path(os.getenv("SIGNIFYPY_INTEGRATION_KERIA_PYTHON", KERIA_ROOT / "venv" / "bin" / "python")).expanduser()
+VLEI_PYTHON = Path(os.getenv("SIGNIFYPY_INTEGRATION_VLEI_PYTHON", VLEI_ROOT / "venv" / "bin" / "python")).expanduser()
 
 KERIPY_WITNESS_CONFIG_DIR = KERIPY_ROOT / "scripts" / "keri" / "cf" / "main"
 WITNESS_CONFIG_NAMES = ("wan", "wil", "wes")
@@ -60,13 +79,87 @@ VLEI_SERVER_SCRIPT = SERVICE_SCRIPTS_ROOT / "vlei_server.py"
 PORT_POLL_INTERVAL = float(os.getenv("SIGNIFYPY_INTEGRATION_PORT_POLL_INTERVAL", "0.1"))
 
 
-# Runtime and config helpers
+# Runtime, dependency, and config helpers
 
 def _require_python(path: Path, name: str) -> str:
-    """Return the runtime path or skip when that repo-local interpreter is unavailable."""
+    """Return the runtime path or fail when that repo-local interpreter is unavailable."""
     if not path.exists():
-        pytest.skip(f"{name} runtime is unavailable at {path}")
+        raise RuntimeError(
+            f"{name} runtime is unavailable at {path}. "
+            "Run `make sync-integration-deps` for local integration dependencies, "
+            "or set the SIGNIFYPY_INTEGRATION_*_ROOT/PYTHON environment variables."
+        )
     return str(path)
+
+
+def _expected_ref(dependency) -> str:
+    return os.getenv(dependency.env_ref, dependency.ref)
+
+
+def _require_full_sha(dependency, ref: str) -> None:
+    if len(ref) != 40 or any(char not in "0123456789abcdefABCDEF" for char in ref):
+        raise RuntimeError(
+            f"{dependency.name} integration ref must be a full 40-character Git SHA, got {ref!r}. "
+            f"Set {dependency.env_ref} to a commit SHA if overriding the default."
+        )
+
+
+def _git_output(root: Path, *args: str) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as err:
+        raise RuntimeError("git is required to validate live integration source dependencies") from err
+    except subprocess.CalledProcessError as err:
+        raise RuntimeError(
+            f"failed to inspect git repo at {root}: {err.stderr.strip() or err.stdout.strip()}"
+        ) from err
+
+    return completed.stdout.strip()
+
+
+def _require_source_dependency(dependency, root: Path) -> None:
+    expected = _expected_ref(dependency)
+    _require_full_sha(dependency, expected)
+
+    if not root.exists():
+        raise RuntimeError(
+            f"{dependency.name} integration source dependency is missing at {root}. "
+            "Run `make sync-integration-deps` locally, or check out the pinned repo "
+            f"{dependency.repo} at {expected} and set {dependency.env_root}."
+        )
+
+    actual = _git_output(root, "rev-parse", "HEAD")
+    if actual != expected:
+        raise RuntimeError(
+            f"{dependency.name} integration source dependency at {root} is checked out at {actual}, "
+            f"but the live harness requires {expected}."
+        )
+
+
+def _require_path(path: Path, description: str) -> None:
+    if not path.exists():
+        raise RuntimeError(f"{description} is unavailable at {path}")
+
+
+def _require_integration_dependencies() -> None:
+    """Fail fast when the requested live integration stack dependencies are absent."""
+    _require_source_dependency(KERIPY, KERIPY_ROOT)
+    _require_source_dependency(KERIA, KERIA_ROOT)
+    _require_source_dependency(VLEI, VLEI_ROOT)
+    _require_python(SIGNIFYPY_PYTHON, "SignifyPy")
+    _require_python(KERIA_PYTHON, "KERIA")
+    _require_python(VLEI_PYTHON, "vLEI")
+    _require_path(KERIPY_WITNESS_CONFIG_DIR / "wan.json", "KERIpy witness config")
+    _require_path(KERIPY_WITNESS_CONFIG_DIR / "wil.json", "KERIpy witness config")
+    _require_path(KERIPY_WITNESS_CONFIG_DIR / "wes.json", "KERIpy witness config")
+    _require_path(VLEI_ROOT / "schema" / "acdc", "vLEI schema directory")
+    _require_path(VLEI_ROOT / "samples" / "acdc", "vLEI sample credential directory")
+    _require_path(VLEI_ROOT / "samples" / "oobis", "vLEI sample OOBI directory")
 
 
 def _write_canonical_witness_configs(config_root: Path, live_stack: dict) -> None:
@@ -83,7 +176,7 @@ def _write_canonical_witness_configs(config_root: Path, live_stack: dict) -> Non
     for index, name in enumerate(WITNESS_CONFIG_NAMES):
         source = KERIPY_WITNESS_CONFIG_DIR / f"{name}.json"
         if not source.exists():
-            pytest.skip(f"canonical witness config is unavailable at {source}")
+            raise RuntimeError(f"canonical witness config is unavailable at {source}")
         config = json.loads(source.read_text(encoding="utf-8"))
         config[name]["curls"] = [
             curl if not curl.startswith("http://") else f"http://{live_stack['host']}:{live_stack['witness_ports'][index]}/"
@@ -404,6 +497,8 @@ def _stack_fixture(tmp_path_factory: pytest.TempPathFactory, request: pytest.Fix
     topology launch is simpler and safer than trying to recover from a partial
     startup where one subprocess bound and another failed.
     """
+    _require_integration_dependencies()
+
     last_err = None
     for attempt in range(3):
         live_stack = _build_live_stack(tmp_path_factory, request, mode=mode, attempt=attempt)

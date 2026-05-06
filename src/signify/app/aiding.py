@@ -8,7 +8,7 @@ local signing helpers.
 """
 from dataclasses import asdict
 from math import ceil
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 from keri import kering
 from keri.app.keeping import Algos
@@ -39,7 +39,7 @@ class Identifiers:
 
     def get(self, name):
         """Return the stored habitat state for one identifier by name."""
-        habState = self.client.get(f"/identifiers/{quote(name, safe='')}")
+        habState = self.client.get(f"/identifiers/{name}")
         return habState.json()
 
     def rename(self, name, newName):
@@ -255,7 +255,7 @@ class Identifiers:
             rpy=rpy.ked,
             sigs=sigs)
 
-        res = self.client.post(f"/identifiers/{quote(name, safe='')}/endroles", json=asdict(rpy_msg))
+        res = self.client.post(f"/identifiers/{name}/endroles", json=asdict(rpy_msg))
         return rpy, sigs, res.json()
 
     def _resolveEndRoleEid(self, *, role, eid):

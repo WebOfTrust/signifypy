@@ -27,38 +27,54 @@ make test-integration
 make test-integration-parallel
 ```
 
+Local live-stack dependencies are explicit. Before running this layer on a
+fresh checkout, sync the pinned source repos and their service virtualenvs:
+
+```bash
+make sync-integration-deps
+```
+
+This creates `.integration-deps/keripy`, `.integration-deps/keria`, and
+`.integration-deps/vLEI`, checks each repo out at the pinned SHA below, and
+builds the KERIA and vLEI repo-local virtualenvs used by the harness. The
+directory is ignored by Git.
+
 In CI, the same rule applies: the live layer should run from a dedicated
 workflow job, not from the default fast-test invocation.
 
-## Local Sources Required
+## Source Dependencies Required
 
-The live integration fixture launches local services from sibling source repos,
-so this workspace layout is part of the contract:
+The live integration fixture launches local services from pinned source repos.
+For local runs, `make sync-integration-deps` installs them under
+`.integration-deps/`. CI may provide the same repos as siblings instead:
 
 - `../keripy`
 - `../keria`
 - `../vLEI`
 
-The current CI stack pins those sibling repos to explicit compatibility refs:
+The current stack pins those source dependencies to explicit compatibility
+SHAs:
 
-- `keripy`: `1.2.12`
+- `keripy`: `4ee02c0213770d25a0114fe7ebd7ab4ab5500cde` (tag `1.2.12`)
 - `keria`: `9e2461550f373ad7bdbe7eebeaceac689cb15397`
-- `vLEI`: `1.0.2`
+- `vLEI`: `f514b9431c5f965b5f7f64a8693e19df2f181564` (tag `1.0.2`)
 
 The CI runtime also constrains `hio` to `0.6.14` across the live stack.
 `keripy` and `vLEI` both allow newer `hio` releases, but the pinned SignifyPy
 integration stack currently relies on the older doer API shape used by KERIA
 0.4.0-prep and vLEI 1.0.2.
 
-It also expects repo-local virtualenv interpreters to exist at:
+The local default expects repo-local virtualenv interpreters to exist at:
 
-- `../signifypy/venv/bin/python`
-- `../keria/venv/bin/python`
-- `../vLEI/venv/bin/python`
+- `./venv/bin/python`
+- `.integration-deps/keria/venv/bin/python`
+- `.integration-deps/vLEI/venv/bin/python`
 
-That requirement is why the GitHub Actions workflow checks out the four repos
-as siblings and creates one virtualenv per repo instead of trying to run the
-whole stack from a single Python environment.
+CI may still check out the four repos as siblings and create one virtualenv per
+repo. When it does, it points the harness at those sibling roots with
+`SIGNIFYPY_INTEGRATION_*_ROOT` environment variables. Either way, missing repos,
+wrong SHAs, or missing service virtualenvs are integration-test failures when
+`--run-integration` is requested.
 
 The CI job also caches those repo-local virtualenvs by dependency-manifest
 hash. That keeps repeat runs fast without changing the local contract the

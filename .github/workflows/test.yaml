@@ -13,9 +13,9 @@ env:
   # Keep shared stack versions in one place so compatibility upgrades are
   # deliberate and reviewable instead of being buried inside individual steps.
   PYTHON_VERSION: '3.12.6'
-  KERIPY_REF: '1.2.12'
+  KERIPY_REF: '4ee02c0213770d25a0114fe7ebd7ab4ab5500cde'
   KERIA_REF: '9e2461550f373ad7bdbe7eebeaceac689cb15397'
-  VLEI_REF: '1.0.2'
+  VLEI_REF: 'f514b9431c5f965b5f7f64a8693e19df2f181564'
 
 jobs:
   unit:
@@ -159,7 +159,7 @@ jobs:
             signifypy/venv
             keria/venv
             vLEI/venv
-          key: ${{ runner.os }}-py${{ env.PYTHON_VERSION }}-live-venvs-${{ hashFiles('signifypy/pyproject.toml', 'signifypy/.github/constraints/integration.txt', 'keripy/requirements.txt', 'keripy/setup.py', 'keria/pyproject.toml', 'vLEI/requirements.txt', 'vLEI/setup.py') }}
+          key: ${{ runner.os }}-py${{ env.PYTHON_VERSION }}-live-venvs-${{ env.KERIPY_REF }}-${{ env.KERIA_REF }}-${{ env.VLEI_REF }}-${{ hashFiles('signifypy/pyproject.toml', 'signifypy/.github/constraints/integration.txt', 'keripy/requirements.txt', 'keripy/setup.py', 'keria/pyproject.toml', 'vLEI/requirements.txt', 'vLEI/setup.py') }}
 
       - name: Stage 5 - Build live-stack virtualenvs
         if: steps.cache-live-venvs.outputs.cache-hit != 'true'
@@ -175,9 +175,9 @@ jobs:
           # SignifyPy's test runner installs local KERIpy so the client library
           # and the launched services resolve against the same source version.
           ./venv/bin/python -m pip install --upgrade pip setuptools wheel
+          make sync
           ./venv/bin/python -m pip install -c .github/constraints/integration.txt hio==0.6.14
           ./venv/bin/python -m pip install -c .github/constraints/integration.txt -e ../keripy
-          make sync
 
       - name: Stage 7 - Install KERIA runtime
         if: steps.cache-live-venvs.outputs.cache-hit != 'true'
@@ -203,6 +203,13 @@ jobs:
 
       - name: Stage 9 - Run integration tests
         working-directory: signifypy
+        env:
+          SIGNIFYPY_INTEGRATION_KERIPY_ROOT: ../keripy
+          SIGNIFYPY_INTEGRATION_KERIPY_REF: ${{ env.KERIPY_REF }}
+          SIGNIFYPY_INTEGRATION_KERIA_ROOT: ../keria
+          SIGNIFYPY_INTEGRATION_KERIA_REF: ${{ env.KERIA_REF }}
+          SIGNIFYPY_INTEGRATION_VLEI_ROOT: ../vLEI
+          SIGNIFYPY_INTEGRATION_VLEI_REF: ${{ env.VLEI_REF }}
         run: |
           # Run the full live suite with explicit parallelism so the CI
           # contract is visible in the workflow rather than hidden behind a

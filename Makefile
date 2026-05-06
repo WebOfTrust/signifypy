@@ -1,6 +1,7 @@
 UV ?= uv
 UV_ENV = UV_PROJECT_ENVIRONMENT=venv
 UV_CACHE = UV_CACHE_DIR=$(CURDIR)/.uv-cache
+INTEGRATION_DEPS_ROOT ?= .integration-deps
 INTEGRATION_POLL_INTERVAL ?= 0.1
 INTEGRATION_HEAVY_POLL_INTERVAL ?= 0.25
 INTEGRATION_PORT_POLL_INTERVAL ?= 0.1
@@ -8,13 +9,18 @@ INTEGRATION_WORKERS ?= 2
 INTEGRATION_DIST ?= loadscope
 INTEGRATION_TARGETS ?= tests/integration
 
-.PHONY: help sync test test-fast test-ci test-integration test-integration-ci test-integration-parallel test-integration-parallel-ci build dist-check release-patch release-minor release-major release-bump docs clean guard-clean-worktree
+.PHONY: help sync sync-integration-deps sync-integration test test-fast test-ci test-integration test-integration-ci test-integration-parallel test-integration-parallel-ci build dist-check release-patch release-minor release-major release-bump docs clean guard-clean-worktree
 
 help: ## Show available maintainer tasks
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 sync: ## Sync the local maintainer environment into ./venv
 	@$(UV_CACHE) $(UV_ENV) $(UV) sync --group dev
+
+sync-integration-deps: sync ## Sync pinned local source deps for live integration tests
+	@./venv/bin/python scripts/sync_integration_deps.py --deps-root "$(INTEGRATION_DEPS_ROOT)"
+
+sync-integration: sync-integration-deps ## Alias for syncing the live integration runtime
 
 test: ## Run the fast unit/contract suite
 	@./venv/bin/python -m pytest -q $(PYTEST_ARGS) tests/app tests/core tests/peer

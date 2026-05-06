@@ -20,7 +20,6 @@ Rule of thumb:
 - use :class:`Registries` when the operation is about the VDR registry itself.
 """
 from collections import namedtuple
-from urllib.parse import quote
 
 from keri.core import coring, counting, serdering
 from keri.core.eventing import TraitDex, interact
@@ -163,7 +162,9 @@ class Registries:
         Returns:
             dict: Decoded registry record returned by KERIA.
         """
-        res = self.client.get(f"/identifiers/{name}/registries/{quote(registryName, safe='')}")
+        res = self.client.get(
+            f"/identifiers/{name}/registries/{registryName}"
+        )
         return res.json()
 
     def list(self, name):
@@ -397,7 +398,10 @@ class Registries:
         """
         name = target if isinstance(target, str) else target["name"]
         body = dict(name=newName)
-        resp = self.client.put(path=f"/identifiers/{name}/registries/{quote(registryName, safe='')}", json=body)
+        resp = self.client.put(
+            path=f"/identifiers/{name}/registries/{registryName}",
+            json=body,
+        )
         return resp.json()
 
 
