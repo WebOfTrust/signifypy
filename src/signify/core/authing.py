@@ -4,7 +4,7 @@ SIGNIFY
 signify.core.authing module
 
 """
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from keri import kering
 from keri.app import keeping
@@ -299,7 +299,7 @@ class Authenticater:
             raise kering.AuthNError("No valid signature from agent on response.")
 
         resource = rep.headers["SIGNIFY-RESOURCE"]
-        if resource != self.agent.pre or not self.verifysig(rep.headers, rep.request.method, url.path):
+        if resource != self.agent.pre or not self.verifysig(rep.headers, rep.request.method, quote(url.path)):
             raise kering.AuthNError("No valid signature from agent on response.")
 
     def verifysig(self, headers, method, path):

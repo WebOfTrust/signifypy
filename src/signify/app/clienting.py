@@ -7,7 +7,7 @@ HTTP requests, and exposes the resource wrappers that implement the maintained
 request families documented in the feature guide.
 """
 from dataclasses import asdict
-from urllib.parse import urlparse, urljoin, urlsplit
+from urllib.parse import quote, urlparse, urljoin, urlsplit
 
 import requests
 import sseclient
@@ -491,5 +491,5 @@ class SignifyAuth(AuthBase):
 
         p = urlsplit(req.url)
         path = p.path if p.path else "/"
-        req.headers = self.authn.sign(headers, req.method, path)
+        req.headers = self.authn.sign(headers, req.method, quote(path))
         return req

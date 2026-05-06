@@ -8,7 +8,7 @@ local signing helpers.
 """
 from dataclasses import asdict
 from math import ceil
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from keri import kering
 from keri.app.keeping import Algos
@@ -39,7 +39,7 @@ class Identifiers:
 
     def get(self, name):
         """Return the stored habitat state for one identifier by name."""
-        habState = self.client.get(f"/identifiers/{name}")
+        habState = self.client.get(f"/identifiers/{quote(name, safe='')}")
         return habState.json()
 
     def rename(self, name, newName):
@@ -244,18 +244,34 @@ class Identifiers:
         In OOBI-heavy flows this record must exist before any role-specific OOBI
         becomes available.
         """
+        resolved_eid = self._resolveEndRoleEid(role=role, eid=eid)
         hab = self.get(name)
         pre = hab["prefix"]
 
-        rpy = self.makeEndRole(pre, role, eid, stamp)
+        rpy = self.makeEndRole(pre, role, resolved_eid, stamp)
         keeper = self.client.manager.get(aid=hab)
         sigs = keeper.sign(ser=rpy.raw)
         rpy_msg = api.ReplyMessage(
             rpy=rpy.ked,
             sigs=sigs)
 
-        res = self.client.post(f"/identifiers/{name}/endroles", json=asdict(rpy_msg))
+        res = self.client.post(f"/identifiers/{quote(name, safe='')}/endroles", json=asdict(rpy_msg))
         return rpy, sigs, res.json()
+
+    def _resolveEndRoleEid(self, *, role, eid):
+        """Resolve the endpoint provider AID for endpoint-role authorization."""
+        if eid:
+            return eid
+
+        if role == Roles.agent:
+            agent = getattr(self.client, "agent", None)
+            agent_pre = getattr(agent, "pre", None)
+            if agent_pre:
+                return agent_pre
+
+            raise kering.ConfigurationError("agent endpoint role authorization requires a connected agent AID")
+
+        raise kering.ConfigurationError(f"endpoint role {role} authorization requires eid")
 
     def addLocScheme(self, name, url, *, eid=None, scheme=None, stamp=None):
         """Publish a location-scheme reply for an identifier-scoped endpoint.
