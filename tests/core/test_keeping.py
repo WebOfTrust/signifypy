@@ -199,8 +199,53 @@ def test_keeping_manager_get_group():
     from keri.core import coring
     expect(coring, times=1).Prefixer(qb64='aid1 prefix').thenReturn(mock_prefixer)
 
-    expect(keeping, times=1).GroupKeeper(mgr=manager, keys=['key1'], ndigs=['dig1']).thenReturn(mock_keeper)
-    actual = manager.get({'prefix': 'aid1 prefix', 'group': {'keys': ['key1'], 'ndigs': ['dig1']}})
+    expect(
+        keeping,
+        times=1,
+    ).GroupKeeper(
+        mgr=manager,
+        keys=['key1'],
+        ndigs=['dig1'],
+    ).thenReturn(mock_keeper)
+    actual = manager.get({
+        'prefix': 'aid1 prefix',
+        'group': {'keys': ['key1'], 'ndigs': ['dig1']},
+    })
+
+    assert actual is mock_keeper
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_keeping_manager_get_group_uses_group_ndigs_for_prior_next_snapshot():
+    from keri.core.signing import Salter
+    mock_salter = mock(spec=Salter, strict=True)
+
+    from signify.core.keeping import Manager
+    manager = Manager(salter=mock_salter)
+
+    from signify.core import keeping
+    mock_keeper = mock(spec=keeping.GroupKeeper, strict=True)
+
+    from keri.core.coring import Prefixer
+    mock_prefixer = mock(spec=Prefixer, strict=True)
+
+    from keri.core import coring
+    expect(coring, times=1).Prefixer(qb64='aid1 prefix').thenReturn(mock_prefixer)
+
+    expect(
+        keeping,
+        times=1,
+    ).GroupKeeper(
+        mgr=manager,
+        keys=['key1'],
+        ndigs=['persisted dig'],
+    ).thenReturn(mock_keeper)
+    actual = manager.get({
+        'prefix': 'aid1 prefix',
+        'state': {'n': ['state dig']},
+        'group': {'keys': ['key1'], 'ndigs': ['persisted dig']},
+    })
 
     assert actual is mock_keeper
 
@@ -780,6 +825,7 @@ def test_group_keeper():
 
     assert gk.gkeys == ['key 1']
     assert gk.gdigs == ['n dig 1']
+    assert gk.gpndigs == ['n dig 1']
     assert gk.mhab == {'m': 'hab'}
 
     from keri.app.keeping import Algos
@@ -829,14 +875,272 @@ def test_group_keeper_sign():
     mock_manager = Manager(salter=mock_salter)
 
     from signify.core.keeping import GroupKeeper
-    gk = GroupKeeper(mgr=mock_manager, mhab={'state': {'k': ['key 1'], 'n': ['n dig 1']}}, keys=['key 1'], ndigs=['n dig 1'])
+    gk = GroupKeeper(
+        mgr=mock_manager,
+        mhab={'state': {'k': ['key 1'], 'n': ['n dig 1']}},
+        keys=['key 1'],
+        ndigs=['n dig 1'],
+    )
 
     mock_keeper = mock(strict=True)
-    expect(mock_manager, times=1).get({'state': {'k': ['key 1'], 'n': ['n dig 1']}}).thenReturn(mock_keeper)
+    expect(
+        mock_manager,
+        times=1,
+    ).get({'state': {'k': ['key 1'], 'n': ['n dig 1']}}).thenReturn(mock_keeper)
 
-    expect(mock_keeper, times=1).sign(b'ser', indexed=True, indices=[0], ondices=[0]).thenReturn(['signatures'])
+    expect(
+        mock_keeper,
+        times=1,
+    ).sign(b'ser', indexed=True, indices=[0], ondices=[None]).thenReturn(['signatures'])
 
+    # Unknown/non-rotation payloads must be current-only: index comes from the
+    # current key list, and ondex stays None instead of being inferred from n.
     actual = gk.sign(b'ser', indexed=True)
+
+    assert actual == ['signatures']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_group_keeper_sign_inception_is_current_only_when_local_next_digest_is_absent():
+    from keri.core import eventing
+    from keri.core.coring import Diger
+    from keri.core.signing import Salter
+
+    from signify.core.keeping import GroupKeeper
+
+    salter = Salter(raw=b'0123456789abcdef')
+    signers = [
+        salter.signer(path=f"member-{idx}", transferable=True)
+        for idx in range(3)
+    ]
+    keys = [signer.verfer.qb64 for signer in signers]
+    next_digests = [Diger(ser=signer.verfer.qb64b).qb64 for signer in signers]
+
+    states = [
+        {'i': f'member-{idx}', 'k': [key], 'n': [ndig]}
+        for idx, (key, ndig) in enumerate(zip(keys[:2], next_digests[:2]))
+    ]
+    rstates = [
+        {'i': 'member-1', 'k': [keys[1]], 'n': [next_digests[1]]},
+        {'i': 'member-2', 'k': [keys[2]], 'n': [next_digests[2]]},
+    ]
+    # Regression guard: the local member signs from current keys but is absent
+    # from proposed next digests, so icp must not derive an ondex from rstates.
+    icp = eventing.incept(
+        keys=keys[:2],
+        isith='1',
+        nsith='1',
+        ndigs=[state['n'][0] for state in rstates],
+        toad='0',
+        wits=[],
+    )
+
+    mhab = {'state': {'k': [keys[0]], 'n': [next_digests[0]]}}
+    mock_manager = mock(strict=True)
+    mock_keeper = mock(strict=True)
+    gk = GroupKeeper(
+        mgr=mock_manager,
+        mhab=mhab,
+        states=states,
+        rstates=rstates,
+    )
+
+    expect(mock_manager, times=1).get(mhab).thenReturn(mock_keeper)
+    expect(
+        mock_keeper,
+        times=1,
+    ).sign(icp.raw, indexed=True, indices=[0], ondices=[None]).thenReturn(['signatures'])
+
+    actual = gk.sign(icp.raw, indexed=True)
+
+    assert actual == ['signatures']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_group_keeper_sign_interaction_is_current_only_without_next_digest_lookup():
+    from keri.core import eventing
+    from keri.core.coring import Diger
+    from keri.core.signing import Salter
+
+    from signify.core.keeping import GroupKeeper
+
+    salter = Salter(raw=b'0123456789abcdef')
+    signers = [
+        salter.signer(path=f"member-{idx}", transferable=True)
+        for idx in range(3)
+    ]
+    keys = [signer.verfer.qb64 for signer in signers]
+    next_digests = [Diger(ser=signer.verfer.qb64b).qb64 for signer in signers]
+    # Exclude the local member from proposed next digests to prove ixn signing
+    # ignores gdigs/rstates and remains current-only.
+    icp = eventing.incept(
+        keys=keys[:2],
+        isith='1',
+        nsith='1',
+        ndigs=next_digests[1:],
+        toad='0',
+        wits=[],
+    )
+    ixn = eventing.interact(
+        pre=icp.pre,
+        sn=1,
+        data=[],
+        dig=icp.said,
+    )
+
+    mhab = {'state': {'k': [keys[0]], 'n': [next_digests[0]]}}
+    mock_manager = mock(strict=True)
+    mock_keeper = mock(strict=True)
+    gk = GroupKeeper(
+        mgr=mock_manager,
+        mhab=mhab,
+        keys=keys[:2],
+        ndigs=next_digests[1:],
+    )
+
+    expect(mock_manager, times=1).get(mhab).thenReturn(mock_keeper)
+    expect(
+        mock_keeper,
+        times=1,
+    ).sign(ixn.raw, indexed=True, indices=[0], ondices=[None]).thenReturn(['signatures'])
+
+    actual = gk.sign(ixn.raw, indexed=True)
+
+    assert actual == ['signatures']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_group_keeper_sign_rotation_uses_prior_next_digests():
+    from keri.core import eventing
+    from keri.core.signing import Salter
+    from keri.core.coring import Diger
+
+    from signify.core.keeping import GroupKeeper
+
+    salter = Salter(raw=b'0123456789abcdef')
+    signers = [
+        salter.signer(path=f"member-{idx}", transferable=True)
+        for idx in range(4)
+    ]
+    keys = [signer.verfer.qb64 for signer in signers]
+    prior_next_digests = [
+        Diger(ser=signer.verfer.qb64b).qb64
+        for signer in signers[:3]
+    ]
+    proposed_next_digests = [
+        prior_next_digests[0],
+        prior_next_digests[1],
+        Diger(ser=signers[3].verfer.qb64b).qb64,
+    ]
+    states = [
+        {'k': [key], 'n': [ndig]}
+        for key, ndig in zip(keys[:3], prior_next_digests)
+    ]
+    rstates = [
+        {'k': [keys[0]], 'n': [proposed_next_digests[0]]},
+        {'k': [keys[1]], 'n': [proposed_next_digests[1]]},
+        {'k': [keys[3]], 'n': [proposed_next_digests[2]]},
+    ]
+    icp = eventing.incept(
+        keys=keys[:3],
+        isith='3',
+        nsith='3',
+        ndigs=prior_next_digests,
+        toad='0',
+        wits=[],
+    )
+    rot = eventing.rotate(
+        pre=icp.pre,
+        keys=keys[:3],
+        dig=icp.said,
+        sn=1,
+        isith='3',
+        nsith='3',
+        ndigs=proposed_next_digests,
+        toad='0',
+        wits=[],
+    )
+
+    mhab = {'state': {'k': [keys[2]], 'n': [prior_next_digests[2]]}}
+    mock_manager = mock(strict=True)
+    mock_keeper = mock(strict=True)
+    gk = GroupKeeper(
+        mgr=mock_manager,
+        mhab=mhab,
+        keys=keys[:3],
+        ndigs=prior_next_digests,
+    )
+    gk.rotate(states=states, rstates=rstates)
+
+    expect(mock_manager, times=1).get(mhab).thenReturn(mock_keeper)
+    expect(
+        mock_keeper,
+        times=1,
+    ).sign(rot.raw, indexed=True, indices=[2], ondices=[2]).thenReturn(['signatures'])
+
+    actual = gk.sign(rot.raw, indexed=True, rotated=True)
+
+    assert gk.gdigs == proposed_next_digests
+    assert gk.gpndigs == prior_next_digests
+    assert actual == ['signatures']
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+def test_group_keeper_sign_rotated_flag_uses_prior_next_without_parsing_event():
+    from keri.core.signing import Salter
+    from keri.core.coring import Diger
+
+    from signify.core.keeping import GroupKeeper
+
+    salter = Salter(raw=b'0123456789abcdef')
+    signers = [
+        salter.signer(path=f"member-{idx}", transferable=True)
+        for idx in range(4)
+    ]
+    keys = [signer.verfer.qb64 for signer in signers]
+    prior_next_digests = [
+        Diger(ser=signer.verfer.qb64b).qb64
+        for signer in signers[:3]
+    ]
+    proposed_next_digests = [
+        prior_next_digests[0],
+        prior_next_digests[1],
+        Diger(ser=signers[3].verfer.qb64b).qb64,
+    ]
+    states = [
+        {'k': [key], 'n': [ndig]}
+        for key, ndig in zip(keys[:3], prior_next_digests)
+    ]
+    rstates = [
+        {'k': [keys[0]], 'n': [proposed_next_digests[0]]},
+        {'k': [keys[1]], 'n': [proposed_next_digests[1]]},
+        {'k': [keys[3]], 'n': [proposed_next_digests[2]]},
+    ]
+
+    mhab = {'state': {'k': [keys[2]], 'n': [prior_next_digests[2]]}}
+    mock_manager = mock(strict=True)
+    mock_keeper = mock(strict=True)
+    gk = GroupKeeper(
+        mgr=mock_manager,
+        mhab=mhab,
+        keys=keys[:3],
+        ndigs=prior_next_digests,
+    )
+    gk.rotate(states=states, rstates=rstates)
+
+    expect(mock_manager, times=1).get(mhab).thenReturn(mock_keeper)
+    expect(
+        mock_keeper,
+        times=1,
+    ).sign(b'not a keri event', indexed=True, indices=[2], ondices=[2]).thenReturn(['signatures'])
+
+    # Regression guard: rotated=True is the protocol decision. Group signing
+    # must not depend on parsing the serialized event to expose prior-next ondex.
+    actual = gk.sign(b'not a keri event', indexed=True, rotated=True)
 
     assert actual == ['signatures']
 
@@ -851,7 +1155,12 @@ def test_group_keeper_params():
     mock_manager = Manager(salter=mock_salter)
 
     from signify.core.keeping import GroupKeeper
-    gk = GroupKeeper(mgr=mock_manager, mhab={'state': {'k': ['key 1'], 'n': ['n dig 1']}}, keys=['key 1'], ndigs=['n dig 1'])
+    gk = GroupKeeper(
+        mgr=mock_manager,
+        mhab={'state': {'k': ['key 1'], 'n': ['n dig 1']}},
+        keys=['key 1'],
+        ndigs=['n dig 1'],
+    )
 
     actual = gk.params()
 
@@ -901,6 +1210,33 @@ def test_base_keeper_sign_indexed(indexed, indices, ondices):
     actual = BaseKeeper.__sign__(b'ser bytes', [mock_signer_one], indexed=indexed, indices=indices, ondices=ondices)
 
     assert actual[0] == 'an indexed signature'
+
+def test_base_keeper_sign_indexed_current_only_ondex_none():
+    from signify.core.keeping import BaseKeeper
+
+    from keri.core.signing import Signer
+    mock_signer_one = mock(spec=Signer, strict=True)
+
+    from keri.core import Siger
+    mock_cigar = mock({'qb64': 'a current-only indexed signature'}, spec=Siger, strict=True)
+    expect(mock_signer_one, times=1).sign(
+        b'ser bytes',
+        index=0,
+        only=True,
+        ondex=None,
+    ).thenReturn(mock_cigar)
+
+    # BaseKeeper is the low-level path group keepers delegate through; None
+    # means "suppress ondex" and must produce a current-only indexed signature.
+    actual = BaseKeeper.__sign__(
+        b'ser bytes',
+        [mock_signer_one],
+        indexed=True,
+        indices=[0],
+        ondices=[None],
+    )
+
+    assert actual[0] == 'a current-only indexed signature'
 
 @pytest.mark.parametrize('indexed,indices,ondices,expected', [
     (True, [-1], [0], 'Invalid signing index = -1, not whole number.'),

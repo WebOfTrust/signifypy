@@ -220,7 +220,10 @@ class Identifiers:
                                  cuts=cuts,
                                  adds=adds,
                                  data=data)
-        sigs = keeper.sign(ser=serder.raw)
+        sign_kwargs = dict(ser=serder.raw)
+        if keeper.algo == Algos.group:
+            sign_kwargs["rotated"] = True
+        sigs = keeper.sign(**sign_kwargs)
 
         body = dict(
             rot=serder.ked,
