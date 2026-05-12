@@ -206,7 +206,6 @@ def test_keeping_manager_get_group():
         mgr=manager,
         keys=['key1'],
         ndigs=['dig1'],
-        pndigs=['dig1'],
     ).thenReturn(mock_keeper)
     actual = manager.get({
         'prefix': 'aid1 prefix',
@@ -218,7 +217,7 @@ def test_keeping_manager_get_group():
     verifyNoUnwantedInteractions()
     unstub()
 
-def test_keeping_manager_get_group_uses_state_next_digests_for_prior_next():
+def test_keeping_manager_get_group_uses_group_ndigs_for_prior_next_snapshot():
     from keri.core.signing import Salter
     mock_salter = mock(spec=Salter, strict=True)
 
@@ -241,7 +240,6 @@ def test_keeping_manager_get_group_uses_state_next_digests_for_prior_next():
         mgr=manager,
         keys=['key1'],
         ndigs=['persisted dig'],
-        pndigs=['state dig'],
     ).thenReturn(mock_keeper)
     actual = manager.get({
         'prefix': 'aid1 prefix',
@@ -1074,7 +1072,6 @@ def test_group_keeper_sign_rotation_uses_prior_next_digests():
         mhab=mhab,
         keys=keys[:3],
         ndigs=prior_next_digests,
-        pndigs=prior_next_digests,
     )
     gk.rotate(states=states, rstates=rstates)
 
@@ -1132,7 +1129,6 @@ def test_group_keeper_sign_rotated_flag_uses_prior_next_without_parsing_event():
         mhab=mhab,
         keys=keys[:3],
         ndigs=prior_next_digests,
-        pndigs=prior_next_digests,
     )
     gk.rotate(states=states, rstates=rstates)
 

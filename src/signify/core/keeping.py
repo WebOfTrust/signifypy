@@ -64,8 +64,7 @@ class Manager:
 
         elif keeping.Algos.group in aid:
             kwargs = aid[keeping.Algos.group]
-            pndigs = aid.get("state", {}).get("n") or kwargs.get("ndigs")
-            return GroupKeeper(mgr=self, pndigs=pndigs, **kwargs)
+            return GroupKeeper(mgr=self, **kwargs)
         
         elif keeping.Algos.extern in aid:
             extnprms = aid[keeping.Algos.extern]
@@ -380,7 +379,7 @@ class GroupKeeper(BaseKeeper):
     """
 
     def __init__(self, mgr: Manager, mhab=None, states=None, rstates=None,
-                 keys=None, ndigs=None, pndigs=None):
+                 keys=None, ndigs=None):
         self.mgr = mgr
 
         if states is not None:
@@ -391,9 +390,11 @@ class GroupKeeper(BaseKeeper):
 
         self.gkeys = keys
         self.gdigs = ndigs
-        # Group prior next digests authorize the next rotation. On inception
-        # there is no separate prior event, so fall back to the proposed digests.
-        self.gpndigs = pndigs if pndigs is not None else ndigs
+        # Group prior next digests authorize the next rotation. On load,
+        # persisted group ndigs are expected to be the current establishment
+        # event's next digest list. On inception there is no separate prior
+        # event, so gpndigs starts as the same list as gdigs.
+        self.gpndigs = self.gdigs
         self.mhab = mhab
 
     def incept(self, **_):
