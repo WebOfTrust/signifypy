@@ -516,6 +516,65 @@ def test_aiding_rotate():
     unstub()
 
 
+def test_aiding_rotate_group_passes_rotated_to_keeper():
+    from signify.app.clienting import SignifyClient
+    mock_client = mock(spec=SignifyClient, strict=True)
+
+    from signify.core import keeping
+    mock_manager = mock(spec=keeping.Manager, strict=True)
+    mock_client.manager = mock_manager  # type: ignore
+
+    from signify.app.aiding import Identifiers
+    ids = Identifiers(client=mock_client)  # type: ignore
+
+    mock_hab = {'prefix': 'hab prefix', 'name': 'group1',
+                'state': {'s': '0', 'd': 'hab digest', 'b': [], 'k': ['key1'], 'kt': '1'},
+                'group': {'mhab': {'name': 'member1'}, 'keys': ['key1'], 'ndigs': ['ndig1']}}
+    expect(ids, times=1).get('group1').thenReturn(mock_hab)
+
+    mock_keeper = mock(
+        {'algo': 'group', 'params': lambda: {'mhab': {'name': 'member1'}, 'keys': ['key1'], 'ndigs': ['ndig2']}},
+        spec=keeping.GroupKeeper,
+        strict=True,
+    )
+    expect(mock_manager, times=1).get(mock_hab).thenReturn(mock_keeper)
+
+    keys = ['key1']
+    ndigs = ['ndig2']
+    states = [{'i': 'member1', 'k': ['key1'], 'n': ['ndig1']}]
+    rstates = [{'i': 'member1', 'k': ['key1'], 'n': ['ndig2']}]
+    expect(mock_keeper, times=1).rotate(ncodes=['A'], transferable=True, states=states, rstates=rstates).thenReturn(
+        (keys, ndigs)
+    )
+
+    from keri.core import serdering
+    mock_serder = mock({'ked': {'a': 'key event dictionary'}, 'raw': b'serder raw bytes'}, spec=serdering.SerderKERI,
+                       strict=True)
+
+    from keri.core import eventing
+    expect(eventing, times=1).rotate(pre='hab prefix', keys=['key1'], dig='hab digest', sn=1, isith='1', nsith='1',
+                                     ndigs=['ndig2'], toad=None, wits=[],
+                                     cuts=[], adds=[], data=[]).thenReturn(mock_serder)
+
+    expect(mock_keeper, times=1).sign(ser=mock_serder.raw, rotated=True).thenReturn(['a signature'])
+
+    from requests import Response
+    mock_response = mock(spec=Response, strict=True)
+    expected_data = {'rot': {'a': 'key event dictionary'}, 'sigs': ['a signature'],
+                     'group': {'mhab': {'name': 'member1'}, 'keys': ['key1'], 'ndigs': ['ndig2']},
+                     'smids': ['member1'], 'rmids': ['member1']}
+    expect(mock_client, times=1).post('/identifiers/group1/events', json=expected_data).thenReturn(mock_response)
+    expect(mock_response, times=1).json().thenReturn({'success': 'yay'})
+
+    # Group rotation is the one app path that must ask the keeper to expose
+    # prior-next ondex; single-sig and external keepers remain untouched.
+    _, _, out = ids.rotate(name='group1', states=states, rstates=rstates)
+    assert out['success'] == 'yay'
+
+    verifyNoUnwantedInteractions()
+    unstub()
+
+
 def test_aiding_rotate_randy():
     from signify.app.clienting import SignifyClient
     mock_client = mock(spec=SignifyClient, strict=True)
