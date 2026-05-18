@@ -837,6 +837,16 @@ def test_signify_client_schemas(make_signify_client):
     assert out.client == client
 
 
+def test_signify_client_signals(make_signify_client):
+    client = make_signify_client()
+
+    out = client.signals()
+
+    from signify.app.signaling import AgentSignals
+    assert type(out) is AgentSignals
+    assert out.client == client
+
+
 def test_signify_client_config(make_signify_client):
     client = make_signify_client()
 

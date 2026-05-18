@@ -14,7 +14,7 @@ env:
   # deliberate and reviewable instead of being buried inside individual steps.
   PYTHON_VERSION: '3.12.6'
   KERIPY_REF: '4ee02c0213770d25a0114fe7ebd7ab4ab5500cde'
-  KERIA_REF: '9e2461550f373ad7bdbe7eebeaceac689cb15397'
+  KERIA_REF: '5b703bd8a60fab68a6476819626b22784317bf14'
   VLEI_REF: 'f514b9431c5f965b5f7f64a8693e19df2f181564'
 
 jobs:
@@ -109,7 +109,7 @@ jobs:
       - name: Stage 1 - Check out KERIA
         uses: actions/checkout@v4.2.2
         with:
-          repository: WebOfTrust/keria
+          repository: kentbull/keria
           ref: ${{ env.KERIA_REF }}
           path: keria
 

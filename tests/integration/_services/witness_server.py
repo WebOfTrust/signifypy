@@ -46,7 +46,7 @@ def install_harness_patches() -> None:
     indirecting.createHttpServer = create_loopback_http_server
 
     class NoopQueryEnd:
-        def __init__(self, hab):
+        def __init__(self, hab, **_kwa):
             self.hab = hab
 
         def on_get(self, req, rep):
