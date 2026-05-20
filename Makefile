@@ -8,8 +8,13 @@ INTEGRATION_PORT_POLL_INTERVAL ?= 0.1
 INTEGRATION_WORKERS ?= 2
 INTEGRATION_DIST ?= loadscope
 INTEGRATION_TARGETS ?= tests/integration
+CONTAINER_ENGINE ?= docker
+DOCKER_IMAGE_REPOSITORY ?= kentbull/sigpy
+DOCKERFILE ?= images/signifypy.dockerfile
+DOCKER_BUILD_CONTEXT ?= .
+DOCKER_VERSION ?= $(shell awk -F'"' '/^version = / { print $$2; exit }' pyproject.toml)
 
-.PHONY: help sync sync-integration-deps sync-integration test test-fast test-ci test-integration test-integration-ci test-integration-parallel test-integration-parallel-ci build dist-check release-patch release-minor release-major release-bump docs clean guard-clean-worktree
+.PHONY: help sync sync-integration-deps sync-integration test test-fast test-ci test-integration test-integration-ci test-integration-parallel test-integration-parallel-ci build dist-check docker-build docker-push docker-publish release-patch release-minor release-major release-bump docs clean guard-clean-worktree guard-docker-version
 
 help: ## Show available maintainer tasks
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -60,6 +65,19 @@ build: ## Build source and wheel distributions
 dist-check: clean build ## Build release artifacts and validate them with twine
 	@$(UV_CACHE) $(UV_ENV) $(UV) run --with twine twine check dist/*
 
+docker-build: guard-docker-version ## Build Docker Hub version and latest tags for SignifyPy
+	@$(CONTAINER_ENGINE) build \
+		-f "$(DOCKERFILE)" \
+		-t "$(DOCKER_IMAGE_REPOSITORY):$(DOCKER_VERSION)" \
+		-t "$(DOCKER_IMAGE_REPOSITORY):latest" \
+		"$(DOCKER_BUILD_CONTEXT)"
+
+docker-push: guard-docker-version ## Push Docker Hub version and latest tags for SignifyPy
+	@$(CONTAINER_ENGINE) push "$(DOCKER_IMAGE_REPOSITORY):$(DOCKER_VERSION)"
+	@$(CONTAINER_ENGINE) push "$(DOCKER_IMAGE_REPOSITORY):latest"
+
+docker-publish: guard-clean-worktree docker-build docker-push ## Build and push SignifyPy Docker Hub tags
+
 release-patch: ## Prepare and commit a patch release
 	@$(MAKE) release-bump BUMP=patch
 
@@ -88,6 +106,9 @@ guard-clean-worktree:
 		git status --short; \
 		exit 1; \
 	fi
+
+guard-docker-version:
+	@test -n "$(DOCKER_VERSION)" || { echo "Unable to determine Docker image version from pyproject.toml."; exit 1; }
 
 clean: ## Remove build, docs, and test artifacts
 	@rm -rf build dist docs/_build .pytest_cache .ruff_cache .uv-cache src/signifypy.egg-info
