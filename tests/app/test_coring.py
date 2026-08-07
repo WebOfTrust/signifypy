@@ -264,11 +264,19 @@ def test_oobis_get(make_mock_response):
     oobis = coring.Oobis(client=client) # type: ignore
 
     mock_response = make_mock_response()
-    expect(client, times=1).get('/identifiers/a_name/oobis?role=my_role').thenReturn(mock_response)
+    expect(client, times=1).get(
+        '/identifiers/a_name/oobis',
+        params={'role': 'my_role'},
+    ).thenReturn(mock_response)
+    expect(client, times=1).get(
+        '/identifiers/a_name/oobis',
+        params={'role': 'my_role', 'includeEid': 'true'},
+    ).thenReturn(mock_response)
 
-    expect(mock_response, times=1).json().thenReturn({'some': 'json'})
+    expect(mock_response, times=2).json().thenReturn({'some': 'json'})
 
     oobis.get("a_name", "my_role")
+    oobis.get("a_name", "my_role", include_eid=True)
 
 def test_oobis_resolve(make_mock_response):
     from signify.app.clienting import SignifyClient

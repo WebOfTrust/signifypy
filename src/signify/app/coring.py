@@ -186,9 +186,13 @@ class Oobis:
         """Create an OOBI resource bound to one Signify client."""
         self.client = client
 
-    def get(self, name, role="agent"):
+    def get(self, name, role="agent", include_eid=None):
         """Return role-specific OOBIs published for one identifier alias."""
-        res = self.client.get(f"/identifiers/{name}/oobis?role={role}")
+        params = dict(role=role)
+        if include_eid is not None:
+            params["includeEid"] = str(include_eid).lower()
+
+        res = self.client.get(f"/identifiers/{name}/oobis", params=params)
         return res.json()
 
     def resolve(self, oobi, alias=None):

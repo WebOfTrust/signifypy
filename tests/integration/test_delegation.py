@@ -178,8 +178,7 @@ def test_multisig_delegator_to_single_sig_delegate(client_factory):
         delegator_member_b_name,
         delegator_group_name,
     )
-    delegator_group_identifier_oobi = delegator_group_oobi.split("/agent/")[0]
-    resolve_oobi(delegate_client, delegator_group_identifier_oobi, alias=delegator_group_name)
+    resolve_oobi(delegate_client, delegator_group_oobi, alias=delegator_group_name)
 
     delegate_serder, delegate_operation = start_delegated_identifier(
         delegate_client,
@@ -278,9 +277,8 @@ def test_multisig_delegator_to_multisig_delegate(client_factory):
         delegator_member_b_name,
         delegator_group_name,
     )
-    delegator_group_identifier_oobi = delegator_group_oobi.split("/agent/")[0]
-    resolve_oobi(delegate_client_a, delegator_group_identifier_oobi, alias=delegator_group_name)
-    resolve_oobi(delegate_client_b, delegator_group_identifier_oobi, alias=delegator_group_name)
+    resolve_oobi(delegate_client_a, delegator_group_oobi, alias=delegator_group_name)
+    resolve_oobi(delegate_client_b, delegator_group_oobi, alias=delegator_group_name)
 
     delegate_participants = [
         delegate_client_a.identifiers().get(delegate_member_a_name)["prefix"],

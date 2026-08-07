@@ -1303,9 +1303,7 @@ def expose_multisig_agent_oobi(
        EID set.
     4. Each member waits for a non-empty group agent OOBI and both answers are
        compared to confirm convergence on one publication route.
-    5. Return the base multisig OOBI, not the raw `/agent/...` route. This
-       mirrors the SignifyTS multisig flows, which resolve the group OOBI
-       derived from the agent publication path.
+    5. Return KERIA's default group agent OOBI directly.
 
     Important contract detail:
     Once an embedded `rpy` is already locally approved, the peer echo may be
@@ -1342,7 +1340,13 @@ def expose_multisig_agent_oobi(
     agent_oobi_a = wait_for_identifier_oobi(client_a, group_name, role="agent")[0]
     agent_oobi_b = wait_for_identifier_oobi(client_b, group_name, role="agent")[0]
     assert agent_oobi_a == agent_oobi_b
-    return agent_oobi_a.split("/agent/")[0]
+    qualified_oobis = client_a.oobis().get(
+        group_name,
+        role="agent",
+        include_eid=True,
+    )["oobis"]
+    assert all("/agent/" in oobi for oobi in qualified_oobis)
+    return agent_oobi_a
 
 
 def expose_multisig_agent_oobi_n(
@@ -1392,7 +1396,7 @@ def expose_multisig_agent_oobi_n(
         oobis.append(wait_for_identifier_oobi(client, group_name, role="agent")[0])
 
     assert len(set(oobis)) == 1
-    return oobis[0].split("/agent/")[0]
+    return oobis[0]
 
 
 def start_multisig_rotation(
