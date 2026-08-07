@@ -1427,6 +1427,86 @@ def start_multisig_rotation(
     return operation
 
 
+def _start_multisig_rotation_with_state_sets(
+    client: SignifyClient,
+    *,
+    member_name: str,
+    group_name: str,
+    states: list[dict],
+    rstates: list[dict],
+) -> tuple[serdering.SerderKERI, dict]:
+    """Start one group rotation where current and next member sets differ."""
+    member = client.identifiers().get(member_name)
+    group_hab = client.identifiers().get(group_name)
+    if group_hab["state"].get("di"):
+        serder, sigs, operation = _submit_delegated_group_rotation(
+            client,
+            group_name=group_name,
+            states=states,
+            rstates=rstates,
+        )
+    else:
+        serder, sigs, operation = client.identifiers().rotate(
+            group_name,
+            states=states,
+            rstates=rstates,
+        )
+    smids = [state["i"] for state in states]
+    rmids = [state["i"] for state in rstates]
+    recipients = []
+    for pre in smids + rmids:
+        if pre != member["prefix"] and pre not in recipients:
+            recipients.append(pre)
+    client.exchanges().send(
+        member_name,
+        "multisig",
+        sender=member,
+        route="/multisig/rot",
+        payload=dict(gid=group_hab["prefix"], smids=smids, rmids=rmids),
+        embeds=dict(rot=_messagize(serder, sigs)),
+        recipients=recipients,
+    )
+    return serder, operation
+
+
+def _submit_delegated_group_rotation(
+    client: SignifyClient,
+    *,
+    group_name: str,
+    states: list[dict],
+    rstates: list[dict],
+) -> tuple[serdering.SerderKERI, list[str], dict]:
+    """Submit a delegated group rotation event directly as `drt`."""
+    group_hab = client.identifiers().get(group_name)
+    state = group_hab["state"]
+    keeper = client.manager.get(group_hab)
+    keys, ndigs = keeper.rotate(states=states, rstates=rstates)
+    serder = eventing.deltate(
+        pre=group_hab["prefix"],
+        keys=keys,
+        dig=state["d"],
+        sn=int(state["s"], 16) + 1,
+        isith=state["kt"],
+        nsith=state["nt"],
+        ndigs=ndigs,
+        toad=state["bt"],
+        wits=state["b"],
+        cuts=[],
+        adds=[],
+        data=[],
+    )
+    sigs = keeper.sign(ser=serder.raw, rotated=True)
+    body = dict(
+        rot=serder.ked,
+        sigs=sigs,
+        group=keeper.params(),
+        smids=[state["i"] for state in states],
+        rmids=[state["i"] for state in rstates],
+    )
+    operation = client.post(f"/identifiers/{group_name}/events", json=body).json()
+    return serder, sigs, operation
+
+
 def accept_multisig_rotation(
     client: SignifyClient,
     *,
@@ -1453,13 +1533,29 @@ def accept_multisig_rotation(
     states = [participant_states[pre] for pre in smids]
     rstates = [participant_states[pre] for pre in rmids]
     recipients = [pre for pre in smids if pre != member["prefix"]]
-    # Existing group members do not "join" the group again for rotation. They
-    # rotate their local group habitat from the shared participant states.
-    rot, sigs, operation = client.identifiers().rotate(
-        group_name,
-        states=states,
-        rstates=rstates,
-    )
+    proposal = serdering.SerderKERI(sad=exn["e"]["rot"])
+    if proposal.ked["t"] == coring.Ilks.drt:
+        group_hab = client.identifiers().get(group_name)
+        keeper = client.manager.get(group_hab)
+        keeper.rotate(states=states, rstates=rstates)
+        rot = proposal
+        sigs = keeper.sign(ser=rot.raw, rotated=True)
+        body = dict(
+            rot=rot.ked,
+            sigs=sigs,
+            group=keeper.params(),
+            smids=smids,
+            rmids=rmids,
+        )
+        operation = client.post(f"/identifiers/{group_name}/events", json=body).json()
+    else:
+        # Existing group members do not "join" the group again for rotation.
+        # They rotate their local group habitat from the shared participant states.
+        rot, sigs, operation = client.identifiers().rotate(
+            group_name,
+            states=states,
+            rstates=rstates,
+        )
     client.exchanges().send(
         member_name,
         "multisig",
@@ -1651,6 +1747,142 @@ def rotate_multisig_group_n(
     return groups
 
 
+def rotate_in_late_multisig_member(
+    client_a: SignifyClient,
+    member_a_name: str,
+    client_b: SignifyClient,
+    member_b_name: str,
+    late_client: SignifyClient,
+    late_member_name: str,
+    group_name: str,
+    *,
+    group_oobi: str | None = None,
+    approve_delegated_rotation=None,
+) -> tuple[dict, dict, dict]:
+    """Rotate a third member into an existing 2-of-2 group and join it locally.
+
+    This mirrors the upstream SignifyTS join flow: first rotate the existing
+    group so the late member is in the next key set, then rotate again so that
+    key set becomes current and the late member calls `groups().join(...)` from
+    the received `/multisig/rot` proposal.
+    """
+    member_a = client_a.identifiers().get(member_a_name)
+    member_b = client_b.identifiers().get(member_b_name)
+    late_member = late_client.identifiers().get(late_member_name)
+
+    resolve_agent_oobi(late_client, late_member_name, client_a, alias=late_member_name)
+    resolve_agent_oobi(late_client, late_member_name, client_b, alias=late_member_name)
+    resolve_agent_oobi(client_a, member_a_name, late_client, alias=member_a_name)
+    resolve_agent_oobi(client_b, member_b_name, late_client, alias=member_b_name)
+    if group_oobi is not None:
+        resolve_oobi(late_client, group_oobi, alias=group_name)
+    current_group = client_a.identifiers().get(group_name)
+    query_key_state(late_client, current_group["prefix"], sn=current_group["state"]["s"])
+
+    member_a = rotate_identifier(client_a, member_a_name)
+    member_b = rotate_identifier(client_b, member_b_name)
+    late_member = late_client.identifiers().get(late_member_name)
+    state_a = member_a["state"]
+    state_b_for_a = query_key_state(client_a, member_b["prefix"], sn=member_b["state"]["s"])
+    state_late_for_a = query_key_state(client_a, late_member["prefix"], sn=late_member["state"]["s"])
+    query_key_state(late_client, member_a["prefix"], sn=member_a["state"]["s"])
+    query_key_state(late_client, member_b["prefix"], sn=member_b["state"]["s"])
+    rotation_serder_a, operation_a = _start_multisig_rotation_with_state_sets(
+        client_a,
+        member_name=member_a_name,
+        group_name=group_name,
+        states=[state_a, state_b_for_a],
+        rstates=[state_a, state_b_for_a, state_late_for_a],
+    )
+    operation_b = accept_multisig_rotation(
+        client_b,
+        member_name=member_b_name,
+        group_name=group_name,
+        participant_states={
+            member_a["prefix"]: query_key_state(client_b, member_a["prefix"], sn=member_a["state"]["s"]),
+            member_b["prefix"]: member_b["state"],
+            late_member["prefix"]: query_key_state(client_b, late_member["prefix"], sn=late_member["state"]["s"]),
+        },
+    )
+    wait_for_notification(late_client, "/multisig/rot")
+    if rotation_serder_a.ked["t"] == coring.Ilks.drt:
+        if approve_delegated_rotation is None:
+            raise RuntimeError("delegated group rotation requires an approval callback")
+        approve_delegated_rotation(rotation_serder_a)
+    wait_for_operation(client_a, operation_a)
+    wait_for_operation(client_b, operation_b)
+    first_rotation_group = client_a.identifiers().get(group_name)
+    query_key_state(
+        late_client,
+        first_rotation_group["prefix"],
+        sn=first_rotation_group["state"]["s"],
+    )
+
+    member_a = rotate_identifier(client_a, member_a_name)
+    member_b = rotate_identifier(client_b, member_b_name)
+    late_member = rotate_identifier(late_client, late_member_name)
+    prefixes = [member_a["prefix"], member_b["prefix"], late_member["prefix"]]
+    state_map_a = {
+        member_a["prefix"]: member_a["state"],
+        member_b["prefix"]: query_key_state(client_a, member_b["prefix"], sn=member_b["state"]["s"]),
+        late_member["prefix"]: query_key_state(client_a, late_member["prefix"], sn=late_member["state"]["s"]),
+    }
+    state_map_b = {
+        member_a["prefix"]: query_key_state(client_b, member_a["prefix"], sn=member_a["state"]["s"]),
+        member_b["prefix"]: member_b["state"],
+        late_member["prefix"]: query_key_state(client_b, late_member["prefix"], sn=late_member["state"]["s"]),
+    }
+    query_key_state(late_client, member_a["prefix"], sn=member_a["state"]["s"])
+    query_key_state(late_client, member_b["prefix"], sn=member_b["state"]["s"])
+
+    rotation_serder_a, operation_a = _start_multisig_rotation_with_state_sets(
+        client_a,
+        member_name=member_a_name,
+        group_name=group_name,
+        states=[state_map_a[prefix] for prefix in prefixes],
+        rstates=[state_map_a[prefix] for prefix in prefixes],
+    )
+    operation_b = accept_multisig_rotation(
+        client_b,
+        member_name=member_b_name,
+        group_name=group_name,
+        participant_states=state_map_b,
+    )
+    if rotation_serder_a.ked["t"] == coring.Ilks.drt:
+        if approve_delegated_rotation is None:
+            raise RuntimeError("delegated group rotation requires an approval callback")
+        approve_delegated_rotation(rotation_serder_a)
+    _, exchange = wait_for_exchange_message(late_client, "/multisig/rot")
+    exn = exchange["exn"]
+    rot = serdering.SerderKERI(sad=exn["e"]["rot"])
+    smids = exn["a"]["smids"]
+    rmids = exn["a"]["rmids"]
+    late_index = smids.index(late_member["prefix"])
+    sigs = late_client.manager.get(aid=late_member).sign(
+        ser=rot.raw,
+        indices=[late_index],
+        ondices=[late_index],
+    )
+    operation_late = late_client.groups().join(
+        group_name,
+        rot,
+        sigs,
+        exn["a"]["gid"],
+        smids,
+        rmids,
+    )
+    wait_for_operation(client_a, operation_a)
+    wait_for_operation(client_b, operation_b)
+    wait_for_operation(late_client, operation_late)
+
+    group_a = client_a.identifiers().get(group_name)
+    group_b = client_b.identifiers().get(group_name)
+    group_late = late_client.identifiers().get(group_name)
+    assert group_a["prefix"] == group_b["prefix"] == group_late["prefix"]
+    assert group_a["state"]["d"] == group_b["state"]["d"] == group_late["state"]["d"]
+    return group_a, group_b, group_late
+
+
 def approve_single_delegation(
     client: SignifyClient,
     delegator_name: str,
@@ -1687,11 +1919,30 @@ def approve_multisig_delegation(
     4. Both members wait for their local long-running approval operations so the
        caller can compare the converged result.
     """
+    anchor = dict(i=delegate_prefix, s="0", d=delegate_prefix)
+    return approve_multisig_delegation_anchor(
+        client_a,
+        member_a_name,
+        client_b,
+        member_b_name,
+        group_name,
+        anchor,
+    )
+
+
+def approve_multisig_delegation_anchor(
+    client_a: SignifyClient,
+    member_a_name: str,
+    client_b: SignifyClient,
+    member_b_name: str,
+    group_name: str,
+    anchor: dict,
+) -> tuple[serdering.SerderKERI, dict, serdering.SerderKERI, dict]:
+    """Approve one delegate anchor from both members of a 2-of-2 delegator."""
     group = client_a.identifiers().get(group_name)
     member_a = client_a.identifiers().get(member_a_name)
     member_b = client_b.identifiers().get(member_b_name)
     participants = [member_a["prefix"], member_b["prefix"]]
-    anchor = dict(i=delegate_prefix, s="0", d=delegate_prefix)
 
     # Member A authors the anchoring ixn first and forwards it to member B so
     # both participants approve the exact same anchor payload.
